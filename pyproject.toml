@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rinne"
+version = "0.5.0"
+description = "Rinne — a weekly anime schedule from your MyAnimeList list that follows each series"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Zodchi", email = "zodchi.san@proton.me" }]
+keywords = ["anime", "myanimelist", "anilist", "schedule", "watchlist", "linux"]
+classifiers = [
+    "Environment :: X11 Applications :: Qt",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Video",
+]
+dependencies = ["PySide6>=6.6"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.gui-scripts]
+rinne = "rinne.gui:main"
+
+[tool.setuptools.packages.find]
+include = ["rinne*"]
+
+[tool.setuptools.package-data]
+rinne = ["assets/*.png"]
