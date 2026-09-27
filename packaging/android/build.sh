@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 # Builds the Rinne APK with Qt's pyside6-android-deploy (python-for-android + buildozer).
 # Run from the repository root with Python 3.11, Java 17 and the Android wheels in $WHEELS.
+# ARCH=aarch64 (phones, default) or ARCH=x86_64 (emulators, Chromebooks).
 set -euo pipefail
 
 root="$(pwd)"
 version="$(python -c 'import rinne; print(rinne.__version__)')"
 stage="$root/build/android"
 ndk_dir="$HOME/.pyside6_android_deploy/android-ndk/android-ndk-r27c"
-wheel_pyside="$(ls "$WHEELS"/PySide6-*android_aarch64.whl)"
-wheel_shiboken="$(ls "$WHEELS"/shiboken6-*android_aarch64.whl)"
+arch="${ARCH:-aarch64}"
+label="$([ "$arch" = aarch64 ] && echo arm64 || echo "$arch")"
+# The deploy tool picks the Android architecture from the wheel names.
+wheel_pyside="$(ls "$WHEELS"/PySide6-*android_"$arch".whl)"
+wheel_shiboken="$(ls "$WHEELS"/shiboken6-*android_"$arch".whl)"
 
 # A clean source folder: only the app, not tests/tools/artwork sources.
 rm -rf "$stage"
@@ -33,5 +37,5 @@ grep -E "^(version|title|package\.(name|domain)|icon\.filename|android\.(api|min
 python -m buildozer android debug
 apk="$(find "$stage" -maxdepth 2 -name '*.apk' | head -1)"
 mkdir -p "$root/dist"
-cp "$apk" "$root/dist/Rinne-$version-android-arm64.apk"
-echo "Built dist/Rinne-$version-android-arm64.apk"
+cp "$apk" "$root/dist/Rinne-$version-android-$label.apk"
+echo "Built dist/Rinne-$version-android-$label.apk"

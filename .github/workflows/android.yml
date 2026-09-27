@@ -1,4 +1,5 @@
-# Builds the Rinne APK for Android phones (arm64) with Qt for Python's Android deploy tool.
+# Builds Rinne APKs with Qt for Python's Android deploy tool: arm64 (phones) and x86_64
+# (emulators/Chromebooks). The x86_64 APK is launched on an emulator as a smoke test.
 # Runs on version tags (attached to the release) or by hand from the Actions tab.
 
 name: Android build
@@ -18,6 +19,10 @@ jobs:
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [aarch64, x86_64]
     steps:
       - uses: actions/checkout@v4
 
@@ -47,10 +52,11 @@ jobs:
         run: |
           mkdir -p wheels
           base=https://download.qt.io/official_releases/QtForPython
-          curl -fsSL -o wheels/PySide6-${QT_VERSION}-${QT_VERSION}-cp311-cp311-android_aarch64.whl \
-            $base/pyside6/PySide6-${QT_VERSION}-${QT_VERSION}-cp311-cp311-android_aarch64.whl
-          curl -fsSL -o wheels/shiboken6-${QT_VERSION}-${QT_VERSION}-cp311-cp311-android_aarch64.whl \
-            $base/shiboken6/shiboken6-${QT_VERSION}-${QT_VERSION}-cp311-cp311-android_aarch64.whl
+          a=${{ matrix.arch }}
+          curl -fsSL -o wheels/PySide6-${QT_VERSION}-${QT_VERSION}-cp311-cp311-android_$a.whl \
+            $base/pyside6/PySide6-${QT_VERSION}-${QT_VERSION}-cp311-cp311-android_$a.whl
+          curl -fsSL -o wheels/shiboken6-${QT_VERSION}-${QT_VERSION}-cp311-cp311-android_$a.whl \
+            $base/shiboken6/shiboken6-${QT_VERSION}-${QT_VERSION}-cp311-cp311-android_$a.whl
           ls -lh wheels
 
       - name: Cache Android SDK/NDK and build tools
@@ -59,18 +65,19 @@ jobs:
           path: |
             ~/.buildozer
             ~/.pyside6_android_deploy
-          key: android-${{ env.QT_VERSION }}-v1
+          key: android-${{ env.QT_VERSION }}-${{ matrix.arch }}-v1
 
       - name: Build APK
         env:
           WHEELS: ${{ github.workspace }}/wheels
+          ARCH: ${{ matrix.arch }}
         run: packaging/android/build.sh
 
       - name: Upload APK
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Rinne-Android
+          name: Rinne-Android-${{ matrix.arch }}
           path: dist/*.apk
           if-no-files-found: warn
 
@@ -91,7 +98,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: Rinne-Android
+          name: Rinne-Android-x86_64
           path: apk
 
       - name: Enable KVM
