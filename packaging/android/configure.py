@@ -1,6 +1,6 @@
 """Set Rinne's options in the buildozer.spec that Qt's Android deploy tool uses.
 
-    python configure.py buildozer.spec <version>
+    python configure.py buildozer.spec <version> [icon.png]
 """
 
 import re
@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 spec, version = Path(sys.argv[1]), sys.argv[2]
+icon = sys.argv[3] if len(sys.argv) > 3 else ""
 values = {
     "version": version,
     "orientation": "portrait",
@@ -21,6 +22,9 @@ values = {
     "android.allow_backup": "True",
     "log_level": "2",
 }
+if icon:
+    values["icon.filename"] = icon
+    values["presplash.filename"] = icon
 lines = spec.read_text().splitlines()
 section, seen = None, set()
 for i, line in enumerate(lines):

@@ -20,27 +20,17 @@ rm -f "$stage/rinne/assets/icon.ico"
 python packaging/android/make_cacerts.py "$stage/rinne/_cacerts.py"
 
 cd "$stage"
-python -m buildozer init
-python "$root/packaging/android/configure.py" buildozer.spec "$version"
-
-# 1) create pysidedeploy.spec (also downloads the NDK the tool expects)
-# --keep-deployment-files: otherwise the tool deletes buildozer.spec (and our settings) after each run
+# 1) Let Qt's tool prepare everything (NDK, PySide6 recipes, jars, Qt libs, permissions) and
+#    write buildozer.spec. --init stops before building; the tool wipes buildozer.spec at the
+#    start of every run, so the build itself is run with buildozer directly (step 3).
 pyside6-android-deploy --init --name Rinne --wheel-pyside "$wheel_pyside" --wheel-shiboken "$wheel_shiboken" \
   --keep-deployment-files -f
-python - <<PY
-import configparser
-c = configparser.ConfigParser(comment_prefixes="#", allow_no_value=True)
-c.read("pysidedeploy.spec")
-c["app"]["icon"] = "$stage/rinne/assets/icon-512.png"
-c["buildozer"]["arch"] = "aarch64"
-c["buildozer"]["mode"] = "debug"
-with open("pysidedeploy.spec", "w") as f:
-    c.write(f)
-PY
-# 2) build the APK
+# 2) Rinne's own settings on top
+python "$root/packaging/android/configure.py" buildozer.spec "$version" "$stage/rinne/assets/icon-512.png"
 echo "--- buildozer settings used:"
-grep -E "^(version|android\.(api|minapi|accept_sdk_license|archs|permissions)|requirements|p4a\.bootstrap) =" buildozer.spec
-pyside6-android-deploy -c pysidedeploy.spec --ndk-path "$ndk_dir" --keep-deployment-files -f
+grep -E "^(version|title|package\.(name|domain)|icon\.filename|android\.(api|minapi|archs|accept_sdk_license|permissions|ndk_path)|requirements|p4a\.(bootstrap|extra_args)) =" buildozer.spec
+# 3) build
+python -m buildozer android debug
 apk="$(find "$stage" -maxdepth 2 -name '*.apk' | head -1)"
 mkdir -p "$root/dist"
 cp "$apk" "$root/dist/Rinne-$version-android-arm64.apk"
