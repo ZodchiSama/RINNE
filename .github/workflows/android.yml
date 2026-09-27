@@ -1,0 +1,81 @@
+# Builds the Rinne APK for Android phones (arm64) with Qt for Python's Android deploy tool.
+# Runs on version tags (attached to the release) or by hand from the Actions tab.
+
+name: Android build
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  QT_VERSION: "6.10.3"
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # The Android wheels are built for CPython 3.11, so the host must match.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: System packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential git zip unzip \
+            autoconf automake libtool pkg-config cmake zlib1g-dev libncurses-dev libffi-dev \
+            libssl-dev libltdl-dev ccache
+
+      - name: Python tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install "PySide6==${QT_VERSION}" buildozer cython certifi jinja2 pkginfo tqdm "packaging==24.1"
+
+      - name: Android wheels
+        run: |
+          mkdir -p wheels
+          base=https://download.qt.io/official_releases/QtForPython
+          curl -fsSL -o wheels/PySide6-${QT_VERSION}-${QT_VERSION}-cp311-cp311-android_aarch64.whl \
+            $base/pyside6/PySide6-${QT_VERSION}-${QT_VERSION}-cp311-cp311-android_aarch64.whl
+          curl -fsSL -o wheels/shiboken6-${QT_VERSION}-${QT_VERSION}-cp311-cp311-android_aarch64.whl \
+            $base/shiboken6/shiboken6-${QT_VERSION}-${QT_VERSION}-cp311-cp311-android_aarch64.whl
+          ls -lh wheels
+
+      - name: Cache Android SDK/NDK and build tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.buildozer
+            ~/.pyside6_android_deploy
+          key: android-${{ env.QT_VERSION }}-v1
+
+      - name: Build APK
+        env:
+          WHEELS: ${{ github.workspace }}/wheels
+        run: packaging/android/build.sh
+
+      - name: Upload APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rinne-Android
+          path: dist/*.apk
+          if-no-files-found: warn
+
+      - name: Attach to the GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.apk
