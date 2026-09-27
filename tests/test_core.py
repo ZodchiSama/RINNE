@@ -1,4 +1,5 @@
 import gzip
+import sys
 from datetime import date, timedelta
 
 import pytest
@@ -443,6 +444,7 @@ def test_follow_extras_toggle_skips_movies():
     assert sug.anime is s2 and any("The Movie (Movie)" in r for _, r in sug.reasons)
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="uses a Unix socket; Windows uses named pipes")
 def test_discord_rpc_handshake_and_activity(tmp_path, monkeypatch):
     import json as _json, socket, struct, threading
     from rinne import discord_rpc
@@ -491,3 +493,21 @@ def test_onboarded_flag_roundtrip(tmp_path):
     save_state(st, tmp_path / "s.json")
     assert load_state(tmp_path / "s.json").onboarded
     assert not State.from_dict({"library": []}).onboarded  # older files show the welcome once
+
+
+def test_windows_uses_discord_named_pipes(monkeypatch):
+    from rinne import discord_rpc
+    monkeypatch.setattr(discord_rpc.sys, "platform", "win32")
+    where = [w for w, _ in discord_rpc._transports()]
+    assert where[0] == r"\\.\pipe\discord-ipc-0" and len(where) == 10
+
+
+def test_windows_data_folders(monkeypatch, tmp_path):
+    from rinne import storage
+    monkeypatch.delenv("XDG_DATA_HOME", raising=False)
+    monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
+    monkeypatch.setattr(storage.sys, "platform", "win32")
+    monkeypatch.setenv("APPDATA", str(tmp_path / "Roaming"))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "Local"))
+    assert storage.data_dir() == tmp_path / "Roaming" / "rinne"
+    assert storage.cache_dir() == tmp_path / "Local" / "rinne"

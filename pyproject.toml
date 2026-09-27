@@ -24,7 +24,7 @@ Homepage = "https://github.com/ZodchiSama/RINNE"
 Issues = "https://github.com/ZodchiSama/RINNE/issues"
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "pillow", "pyinstaller"]
 
 [project.gui-scripts]
 rinne = "rinne.gui:main"
@@ -33,4 +33,4 @@ rinne = "rinne.gui:main"
 include = ["rinne*"]
 
 [tool.setuptools.package-data]
-rinne = ["assets/*.png"]
+rinne = ["assets/*.png", "assets/*.ico"]

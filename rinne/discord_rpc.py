@@ -10,6 +10,7 @@ import json
 import os
 import socket
 import struct
+import sys
 import time
 import uuid
 from pathlib import Path
@@ -19,7 +20,7 @@ ACTIVITY_WATCHING = 3
 
 
 def socket_paths() -> list[Path]:
-    """Where Discord (native, Flatpak or Snap) puts its IPC socket."""
+    """Where Discord (native, Flatpak or Snap) puts its IPC socket on Linux."""
     bases = []
     for var in ("XDG_RUNTIME_DIR", "TMPDIR", "TMP", "TEMP"):
         if os.environ.get(var):
@@ -35,10 +36,50 @@ def socket_paths() -> list[Path]:
     return paths
 
 
+class _Pipe:
+    """Windows named pipe with the small socket-like API DiscordRPC uses."""
+
+    def __init__(self, path: str):
+        self.f = open(path, "r+b", buffering=0)  # noqa: SIM115 — closed in close()
+
+    def sendall(self, data: bytes) -> None:
+        self.f.write(data)
+
+    def recv(self, n: int) -> bytes:
+        return self.f.read(n)
+
+    def close(self) -> None:
+        self.f.close()
+
+
+def _transports():
+    """Yield (description, opener) for each place Discord might be listening."""
+    if sys.platform == "win32":
+        for i in range(10):
+            path = rf"\\.\pipe\discord-ipc-{i}"
+            yield path, (lambda p=path: _Pipe(p))
+        return
+    for path in socket_paths():
+        if not path.exists():
+            continue
+
+        def open_socket(p=path):
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            s.settimeout(2)
+            try:
+                s.connect(str(p))
+            except OSError:
+                s.close()
+                raise
+            return s
+
+        yield str(path), open_socket
+
+
 class DiscordRPC:
     def __init__(self, client_id: str):
         self.client_id = client_id.strip()
-        self.sock: socket.socket | None = None
+        self.sock = None  # socket.socket on Linux, _Pipe on Windows
         self.last_error = ""
 
     @property
@@ -51,14 +92,9 @@ class DiscordRPC:
         if not self.client_id.isdigit():
             self.last_error = "Set a Discord Application ID first."
             return False
-        for path in socket_paths():
-            if not path.exists():
-                continue
-            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            s.settimeout(2)
+        for _where, opener in _transports():
             try:
-                s.connect(str(path))
-                self.sock = s
+                self.sock = opener()
                 self._send(OP_HANDSHAKE, {"v": 1, "client_id": self.client_id})
                 op, data = self._recv()
                 if op == OP_CLOSE or data.get("evt") == "ERROR":

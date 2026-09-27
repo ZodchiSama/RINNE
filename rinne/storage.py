@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -28,12 +29,22 @@ def _app_dir(base: Path) -> Path:
     return path
 
 
+def _base(xdg_var: str, windows_var: str, linux_default: Path) -> Path:
+    """XDG variables win everywhere (tests rely on this); otherwise the platform's usual place:
+    %APPDATA% / %LOCALAPPDATA% on Windows, ~/.local/share and ~/.cache on Linux."""
+    if os.environ.get(xdg_var):
+        return Path(os.environ[xdg_var])
+    if sys.platform == "win32" and os.environ.get(windows_var):
+        return Path(os.environ[windows_var])
+    return linux_default
+
+
 def data_dir() -> Path:
-    return _app_dir(Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share"))
+    return _app_dir(_base("XDG_DATA_HOME", "APPDATA", Path.home() / ".local" / "share"))
 
 
 def cache_dir() -> Path:
-    return _app_dir(Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache"))
+    return _app_dir(_base("XDG_CACHE_HOME", "LOCALAPPDATA", Path.home() / ".cache"))
 
 
 @dataclass

@@ -113,7 +113,8 @@ def qcolor(hex_color: str, alpha: int = 255) -> QColor:
 def _font_family() -> str:
     families = set(QFontDatabase.families())
     wanted = ("Arial", "Liberation Sans", "Helvetica") if current == "yotsuba" else ()
-    for name in wanted + ("Inter", "Inter Variable", "Noto Sans", "Cantarell", "Roboto"):
+    for name in wanted + ("Inter", "Inter Variable", "Segoe UI Variable Text", "Segoe UI", "Noto Sans",
+                          "Cantarell", "Roboto"):
         if name in families:
             return name
     return QApplication.font().family()
@@ -140,6 +141,11 @@ def apply(app: QApplication, z: float, name: str | None = None, backdrop: bool |
     ]:
         pal.setColor(role, QColor(color))
     app.setPalette(pal)
+    try:  # Qt 6.8+: tells the OS the colour scheme, e.g. a dark title bar on Windows
+        from PySide6.QtCore import Qt
+        app.styleHints().setColorScheme(Qt.ColorScheme.Dark if DARK else Qt.ColorScheme.Light)
+    except AttributeError:
+        pass
     app.setStyleSheet(stylesheet())
 
 

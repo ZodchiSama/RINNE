@@ -6,6 +6,7 @@ Outputs (in rinne/assets/):
   icon.png          512 px app icon, white corners made transparent
   icon-<N>.png      hicolor sizes for the desktop entry (16 … 512)
   logo-round.png    512 px round badge cut from the wordmark, for use inside the app
+  icon.ico          Windows icon (16 … 256), when Pillow is installed
 """
 
 from __future__ import annotations
@@ -61,6 +62,14 @@ def main() -> int:
     icon.scaled(512, 512, Qt.KeepAspectRatio, Qt.SmoothTransformation).save(str(OUT / "icon.png"))
     # Discord recommends 1024×1024 art assets.
     icon.scaled(1024, 1024, Qt.KeepAspectRatio, Qt.SmoothTransformation).save(str(OUT / "icon-1024.png"))
+
+    # Windows .ico with the sizes Explorer and the taskbar use (needs Pillow).
+    try:
+        from PIL import Image
+        Image.open(OUT / "icon-256.png").save(
+            OUT / "icon.ico", sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+    except ImportError:
+        print("Pillow not installed — skipped icon.ico (pip install pillow)")
 
     logo = QImage(str(SRC / "logo-wordmark.png"))
     # The outer arrow ring is centred in the artwork; keep a margin around its arrowheads.

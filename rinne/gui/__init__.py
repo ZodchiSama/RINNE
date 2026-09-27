@@ -5,7 +5,23 @@ from __future__ import annotations
 import sys
 
 
+def _windows_setup() -> None:
+    """Group the taskbar button under Rinne (not python.exe) so it shows Rinne's icon."""
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Zodchi.Rinne")
+    except (AttributeError, OSError):
+        pass
+
+
 def main() -> int:
+    if "--selftest" in sys.argv:
+        from ..selftest import run
+        i = sys.argv.index("--selftest")
+        return run(sys.argv[i + 1] if i + 1 < len(sys.argv) else None)
+    if sys.platform == "win32":
+        _windows_setup()
+
     from PySide6.QtWidgets import QApplication
 
     from .. import APP_NAME, DISPLAY_NAME

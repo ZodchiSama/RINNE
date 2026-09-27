@@ -1,0 +1,96 @@
+# Builds Rinne for Windows: an installer (Rinne-Setup-<version>.exe) and a portable
+# single-file exe (Rinne-Portable-<version>.exe). Both are self-tested on Windows before upload.
+#
+# Runs on version tags (v*) — the files are attached to that GitHub release — and can be
+# started by hand from the Actions tab ("Run workflow"), which uploads them as build artifacts.
+
+name: Windows build
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Tests
+        run: python -m pytest -q
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: echo "version=$(python -c 'import rinne; print(rinne.__version__)')" >> "$GITHUB_OUTPUT"
+
+      - name: Version resource
+        run: python packaging/windows/version_info.py build/version_info.txt
+
+      # --paths . : the package is installed in editable mode, which PyInstaller can't follow.
+      - name: Build app folder (used by the installer)
+        run: >
+          pyinstaller --noconfirm --windowed --name Rinne --paths .
+          --icon rinne/assets/icon.ico --add-data "rinne/assets;rinne/assets"
+          --version-file build/version_info.txt packaging/windows/launcher.py
+
+      - name: Self-test the app folder
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist\Rinne\Rinne.exe -ArgumentList '--selftest', "$PWD\selftest-folder.txt" -Wait -PassThru
+          Get-Content selftest-folder.txt
+          if ($p.ExitCode -ne 0) { throw "self-test failed ($($p.ExitCode))" }
+
+      - name: Build portable exe
+        run: >
+          pyinstaller --noconfirm --windowed --onefile --name Rinne-Portable-${{ steps.version.outputs.version }}
+          --paths . --icon rinne/assets/icon.ico --add-data "rinne/assets;rinne/assets"
+          --version-file build/version_info.txt packaging/windows/launcher.py
+
+      - name: Self-test the portable exe
+        shell: pwsh
+        run: |
+          $exe = "dist\Rinne-Portable-${{ steps.version.outputs.version }}.exe"
+          $p = Start-Process -FilePath $exe -ArgumentList '--selftest', "$PWD\selftest-portable.txt" -Wait -PassThru
+          Get-Content selftest-portable.txt
+          if ($p.ExitCode -ne 0) { throw "self-test failed ($($p.ExitCode))" }
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+          }
+          & $iscc /DAppVersion=${{ steps.version.outputs.version }} packaging\windows\rinne.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rinne-Windows-${{ steps.version.outputs.version }}
+          path: |
+            dist/Rinne-Setup-*.exe
+            dist/Rinne-Portable-*.exe
+            selftest-*.txt
+
+      - name: Attach to the GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Rinne-Setup-*.exe
+            dist/Rinne-Portable-*.exe

@@ -9,6 +9,13 @@ By **Zodchi**.
 
 ## Install
 
+**Windows:** download `Rinne-Setup-<version>.exe` (installer) or `Rinne-Portable-<version>.exe`
+(no install, runs from anywhere) from the [latest release](https://github.com/ZodchiSama/RINNE/releases/latest).
+Windows may warn that the app is from an unknown publisher, because it isn't code-signed yet:
+click **More info → Run anyway**.
+
+**Linux:**
+
 ```sh
 git clone https://github.com/ZodchiSama/RINNE.git
 cd rinne
@@ -139,6 +146,7 @@ Settings is a full page, and changes apply immediately:
 
 ```sh
 .venv/bin/python -m pytest
+# Windows builds are made by GitHub Actions (.github/workflows/windows.yml) on each v* tag.
 .venv/bin/python tools/make_icons.py   # rebuild icons from assets/source/
 ```
 
