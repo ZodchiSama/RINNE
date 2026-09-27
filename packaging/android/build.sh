@@ -24,7 +24,9 @@ python -m buildozer init
 python "$root/packaging/android/configure.py" buildozer.spec "$version"
 
 # 1) create pysidedeploy.spec (also downloads the NDK the tool expects)
-pyside6-android-deploy --init --name Rinne --wheel-pyside "$wheel_pyside" --wheel-shiboken "$wheel_shiboken" -f
+# --keep-deployment-files: otherwise the tool deletes buildozer.spec (and our settings) after each run
+pyside6-android-deploy --init --name Rinne --wheel-pyside "$wheel_pyside" --wheel-shiboken "$wheel_shiboken" \
+  --keep-deployment-files -f
 python - <<PY
 import configparser
 c = configparser.ConfigParser(comment_prefixes="#", allow_no_value=True)
@@ -36,7 +38,9 @@ with open("pysidedeploy.spec", "w") as f:
     c.write(f)
 PY
 # 2) build the APK
-pyside6-android-deploy -c pysidedeploy.spec --ndk-path "$ndk_dir" -f
+echo "--- buildozer settings used:"
+grep -E "^(version|android\.(api|minapi|accept_sdk_license|archs|permissions)|requirements|p4a\.bootstrap) =" buildozer.spec
+pyside6-android-deploy -c pysidedeploy.spec --ndk-path "$ndk_dir" --keep-deployment-files -f
 apk="$(find "$stage" -maxdepth 2 -name '*.apk' | head -1)"
 mkdir -p "$root/dist"
 cp "$apk" "$root/dist/Rinne-$version-android-arm64.apk"
