@@ -23,6 +23,24 @@ def touch_scroll(area) -> None:
     QScroller.grabGesture(target, QScroller.LeftMouseButtonGesture)
 
 
+def button_row(*widgets, spacing: float = 8, stretch_before: bool = False) -> QWidget:
+    """A row of buttons. On phones it wraps onto more lines instead of forcing the page wider."""
+    host = QWidget()
+    if theme.COMPACT:
+        flow = FlowLayout(host, spacing)
+        for w in widgets:
+            flow.addWidget(w)
+    else:
+        row = hbox(host, spacing)
+        if stretch_before:
+            row.addStretch()
+        for w in widgets:
+            row.addWidget(w)
+        if not stretch_before:
+            row.addStretch()
+    return host
+
+
 def page_margin() -> float:
     return 14 if theme.COMPACT else 28
 
@@ -36,7 +54,8 @@ def label(text: str = "", name: str = "", wrap: bool = False, rich: bool = False
     lbl = QLabel(text)
     if name:
         lbl.setObjectName(name)
-    lbl.setWordWrap(wrap)
+    # Phones: any label may wrap, so a long one can never push a page wider than the screen.
+    lbl.setWordWrap(wrap or theme.COMPACT)
     lbl.setTextFormat(Qt.RichText if rich else Qt.PlainText)
     return lbl
 
@@ -61,6 +80,8 @@ def card(name: str = "card", margins: float = 14, spacing: float = 8,
          horizontal: bool = False) -> tuple[QFrame, QBoxLayout]:
     frame = QFrame()
     frame.setObjectName(name)
+    if theme.COMPACT:  # tighter padding on phones: every pixel of width counts
+        margins = min(margins, 12)
     lay = (hbox if horizontal else vbox)(frame, spacing, margins)
     return frame, lay
 

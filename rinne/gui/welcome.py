@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 from .. import DISPLAY_NAME, __version__
 from ..models import EPISODES, TITLE_LANGUAGES
 from . import icons, theme
-from .common import FlowLayout, Switch, card, clear, hbox, label, touch_scroll, vbox
+from .common import FlowLayout, Switch, button_row, card, clear, hbox, label, touch_scroll, vbox
 from ..platform import is_android
 from .settings import asset, theme_card
 
@@ -201,17 +201,13 @@ class WelcomePage(QWidget):
         al.addWidget(label("From a MAL export file", "h2"))
         al.addWidget(label("No account setup needed. On MyAnimeList open Profile → Export, choose "
                            "Anime List, and download the file.", "small", wrap=True))
-        row = hbox(spacing=8)
         f = QPushButton("Choose export file…")
         f.setObjectName("primary")
         f.clicked.connect(self._import_file)
-        row.addWidget(f)
         h = QPushButton("Open MAL export page ↗")
         h.setObjectName("ghost")
         h.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(EXPORT_HELP)))
-        row.addWidget(h)
-        row.addStretch()
-        al.addLayout(row)
+        al.addWidget(button_row(f, h))
         self.body.addWidget(a)
 
         b, bl = card(margins=18, spacing=8)
@@ -269,7 +265,7 @@ class WelcomePage(QWidget):
                                      ("Weekends", range(5, 7), (0, 2, 4, 6, 8))]:
             frame, lay = card(margins=18, spacing=10)
             lay.addWidget(label(title, "h2"))
-            row = hbox(spacing=8)
+            chips = []
             group = QButtonGroup(frame)
             current = s.daily_episodes[days[0]]
             for n in options:
@@ -280,9 +276,8 @@ class WelcomePage(QWidget):
                 b.setCursor(Qt.PointingHandCursor)
                 b.clicked.connect(lambda _=False, n=n, days=days: self._set_days(days, n))
                 group.addButton(b)
-                row.addWidget(b)
-            row.addStretch()
-            lay.addLayout(row)
+                chips.append(b)
+            lay.addWidget(button_row(*chips))
             self.body.addWidget(frame)
         weekly = sum(s.daily_episodes)
         note = label(f"That's about {weekly} episodes a week "

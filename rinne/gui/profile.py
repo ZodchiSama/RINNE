@@ -15,7 +15,8 @@ from .. import anilist, explain, models
 from ..models import CURRENTLY_AIRING, LIST_STATUSES, STATUS_LABELS, Anime
 from . import theme
 from .common import (
-    Clickable, FlowLayout, badge, card, clear, hbox, label, page_margin, progress, set_margins, vbox,
+    Clickable, FlowLayout, badge, button_row, card, clear, hbox, label, page_margin, progress, set_margins,
+    vbox,
 )
 from .images import Cover, cache
 from .pages import scroll_page
@@ -226,9 +227,10 @@ class ProfilePage(QWidget):
         banner = Banner(a.fanart_url or d.get("bannerImage") or a.banner_url, a.image_url,
                         (d.get("coverImage") or {}).get("color") or a.cover_color)
         compact = theme.COMPACT
-        row = hbox(banner, 14 if compact else 24, 16 if compact else 26)
+        # Phones: cover above the details so the title and buttons get the full width.
+        row = (vbox if compact else hbox)(banner, 12 if compact else 24, 16 if compact else 26)
         row.addWidget(Cover(a.image_url, a.name, *((96, 136, 10) if compact else (170, 242, 14))),
-                      alignment=Qt.AlignBottom if not compact else Qt.AlignTop)
+                      alignment=Qt.AlignLeft if compact else Qt.AlignBottom)
         info = vbox(spacing=8)
         info.addStretch()
         title = label(a.name, "h1", wrap=True)
@@ -270,7 +272,10 @@ class ProfilePage(QWidget):
                    f"  ·  Ep {a.episodes_watched} / {a.episodes_total or '?'}", "", rich=True)
         status_row.addWidget(st)
         bar = progress(a)
-        bar.setFixedWidth(theme.px(180))
+        if theme.COMPACT:
+            bar.setMinimumWidth(theme.px(60))
+        else:
+            bar.setFixedWidth(theme.px(180))
         status_row.addWidget(bar)
         status_row.addStretch()
         info.addLayout(status_row)
@@ -338,17 +343,13 @@ class ProfilePage(QWidget):
         title = in_lib.name if in_lib else pick_title(node.get("title"))
         row.addWidget(Cover((node.get("coverImage") or {}).get("large", ""), title, 58, 82, 8))
         col = vbox(spacing=4)
-        badges = hbox(spacing=6)
         rel = entry["relation"]
-        badges.addWidget(badge("This show" if rel == "SELF" else RELATION_LABELS.get(rel, rel.title()), "badge"))
-        if node.get("status") == "RELEASING":
-            badges.addWidget(badge("Airing now", "badgeGreen"))
-        else:
-            badges.addWidget(badge("Announced", "badgeAmber"))
+        tags = [badge("This show" if rel == "SELF" else RELATION_LABELS.get(rel, rel.title()), "badge"),
+                badge("Airing now", "badgeGreen") if node.get("status") == "RELEASING"
+                else badge("Announced", "badgeAmber")]
         if node.get("format"):
-            badges.addWidget(badge(node["format"].replace("_", " "), "chipLabel"))
-        badges.addStretch()
-        col.addLayout(badges)
+            tags.append(badge(node["format"].replace("_", " "), "chipLabel"))
+        col.addWidget(button_row(*tags, spacing=6))
         col.addWidget(label(title, "bigTitle", wrap=True))
         col.addWidget(label(when_text(node), "", wrap=True))
         extra = []

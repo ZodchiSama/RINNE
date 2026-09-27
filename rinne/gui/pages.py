@@ -19,7 +19,8 @@ from ..models import EPISODES, LIST_STATUSES, PLAN_TO_WATCH, STATUS_LABELS, WEEK
 from ..recommender import SERIES, rank
 from . import theme
 from .common import (
-    Clickable, ElidedLabel, FlowLayout, airing_text, page_margin, set_margins, touch_scroll, badge, card, clear, fmt_minutes, hbox, label, progress, progress_text,
+    Clickable, ElidedLabel, FlowLayout, airing_text, button_row, page_margin, set_margins,
+    touch_scroll, badge, card, clear, fmt_minutes, hbox, label, progress, progress_text,
     vbox,
 )
 from .images import Cover, cache
@@ -143,18 +144,20 @@ class DayRow(QFrame):
 
         if theme.COMPACT:
             # Phone: day header on top, then one card per line.
-            col = vbox(self, 10, 12)
+            col = vbox(self, 8, 12)
             head = hbox(spacing=8)
             head.addWidget(label(WEEKDAYS[on.weekday()], "h2"))
             if on == today:
                 head.addWidget(badge("Today"))
             head.addStretch()
-            head.addWidget(minus)
-            value.setMinimumWidth(theme.px(78))
-            head.addWidget(value)
-            head.addWidget(plus)
             col.addLayout(head)
-            col.addWidget(label(f"{on.day} {on:%B}" + (f"  ·  {summary}" if summary else ""), "faint"))
+            sub = hbox(spacing=6)
+            sub.addWidget(label(f"{on.day} {on:%b}" + (f" · {summary}" if summary else ""), "faint"), 1)
+            sub.addWidget(minus)
+            value.setMinimumWidth(theme.px(64))
+            sub.addWidget(value)
+            sub.addWidget(plus)
+            col.addLayout(sub)
             self.cards = QWidget()
             self.flow = vbox(self.cards, 8)
             col.addWidget(self.cards)
@@ -254,9 +257,6 @@ class WeekPage(QWidget):
         titles.addWidget(label(f"{start:%d %b} – {end:%d %b %Y}", "muted"))
         head.addLayout(titles)
         head.addStretch()
-        if theme.COMPACT:  # buttons go on their own row below the title
-            self.body.addLayout(head)
-            head = hbox(spacing=8)
         settings_btn = QPushButton("Customize days")
         settings_btn.setObjectName("ghost")
         settings_btn.clicked.connect(lambda: self.win.open_settings("schedule"))
@@ -265,9 +265,13 @@ class WeekPage(QWidget):
         replan.setToolTip("Start a fresh 7-day plan today, ignoring past days (Ctrl R)")
         replan.clicked.connect(self.win.replan_fresh)
         self.replan_btn = replan
-        head.addWidget(settings_btn)
-        head.addWidget(replan)
-        self.body.addLayout(head)
+        if theme.COMPACT:  # buttons on their own (wrapping) row below the title
+            self.body.addLayout(head)
+            self.body.addWidget(button_row(settings_btn, replan))
+        else:
+            head.addWidget(settings_btn)
+            head.addWidget(replan)
+            self.body.addLayout(head)
 
         items = week.items if week else []
         rotation = scheduler.current_rotation(state.library)
@@ -320,7 +324,8 @@ class WeekPage(QWidget):
         sched_head.addWidget(label("Schedule", "h2"))
         sched_head.addStretch()
         unit = "episodes" if s.plan_by == EPISODES else "minutes"
-        sched_head.addWidget(label(f"Planning by {unit} per day · use − / + on a day to adjust", "faint"))
+        if not theme.COMPACT:  # too long for a phone header; the − / + are self-explanatory there
+            sched_head.addWidget(label(f"Planning by {unit} per day · use − / + on a day to adjust", "faint"))
         self.body.addLayout(sched_head)
         self.first_day = None
         for day in range(scheduler.PLAN_DAYS):
@@ -456,11 +461,12 @@ class UpNextPage(QWidget):
         frame, lay = card(margins=10, spacing=14, horizontal=True)
         frame.setProperty("clickable", True)
         Clickable(frame).clicked.connect(lambda: self.win.open_profile(a))
-        num = label(str(n), "h2")
-        num.setFixedWidth(theme.px(26))
-        num.setAlignment(Qt.AlignCenter)
-        lay.addWidget(num)
-        lay.addWidget(Cover(a.image_url, a.name, 48, 68, 6))
+        if not theme.COMPACT:
+            num = label(str(n), "h2")
+            num.setFixedWidth(theme.px(26))
+            num.setAlignment(Qt.AlignCenter)
+            lay.addWidget(num)
+        lay.addWidget(Cover(a.image_url, a.name, 48, 68, 6), alignment=Qt.AlignTop)
         mid = vbox(spacing=4)
         top = hbox(spacing=8)
         # A plain label can't shrink below its text width, which would push the page wider
@@ -485,12 +491,8 @@ class UpNextPage(QWidget):
         never = QPushButton("Never suggest")
         never.setObjectName("ghost")
         never.clicked.connect(lambda: self.win.toggle_excluded(a))
-        if theme.COMPACT:  # buttons under the text on phones
-            btns = hbox(spacing=8)
-            btns.addStretch()
-            btns.addWidget(never)
-            btns.addWidget(start)
-            mid.addLayout(btns)
+        if theme.COMPACT:  # buttons under the text on phones, wrapping if needed
+            mid.addWidget(button_row(never, start))
         else:
             lay.addWidget(never)
             lay.addWidget(start)
@@ -635,7 +637,7 @@ class LibraryPage(QWidget):
         self.titles = QWidget()
         titles = vbox(self.titles, 2)
         titles.addWidget(label("Library", "h1"))
-        self.count = label("", "muted")
+        self.count = label("", "muted", wrap=True)
         titles.addWidget(self.count)
         self.search = QLineEdit(placeholderText="Search your list…")
         self.sort = QComboBox()
@@ -674,6 +676,7 @@ class LibraryPage(QWidget):
                 b.setChecked(True)
         chips.addStretch()
         chip_area.setWidget(chip_host)
+        chip_area.setProperty("sideways", True)
         chip_area.setFixedHeight(chip_host.sizeHint().height() + theme.px(2))
         root.addWidget(chip_area)
 
@@ -696,7 +699,7 @@ class LibraryPage(QWidget):
         touch_scroll(self.view)
         self.view.viewport().installEventFilter(self)  # re-fit the grid when the view resizes
         root.addWidget(self.view, 1)
-        self.hint = label("", "faint")
+        self.hint = label("", "faint", wrap=True)
         root.addWidget(self.hint)
 
         self.search.textChanged.connect(self.proxy.set_text)

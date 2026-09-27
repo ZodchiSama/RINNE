@@ -65,6 +65,9 @@ class MainWindow(DesktopMixin, QMainWindow):
         self.state = load_state()
         models.title_language = self.state.settings.title_language
         s = self.state.settings
+        # On Android, build the phone layout from the start: the desktop layout's minimum width
+        # is wider than a phone, and Android would size the window to it.
+        theme.COMPACT = is_android()
         theme.apply(QApplication.instance(), s.zoom, s.theme, s.backdrop)
         self._jobs: list[tuple[QThread, Worker]] = []
         self._exclusive: tuple[QThread, Worker] | None = None
@@ -107,6 +110,8 @@ class MainWindow(DesktopMixin, QMainWindow):
         self.shell.addWidget(self.welcome)
         self._build_sidebar()
         self._build_bottom_bar()
+        if theme.COMPACT:
+            self.sidebar.hide()
 
         self.busy = QProgressBar()
         self.busy.setObjectName("busy")
@@ -340,7 +345,20 @@ class MainWindow(DesktopMixin, QMainWindow):
         self.bottom_bar.setVisible(compact)
         self.statusBar().setVisible(not compact and self.shell.currentWidget() is self.main_view)
         self._sync_bottom_bar()
+        if compact:
+            self.setMinimumWidth(0)
+            QTimer.singleShot(0, self._fit_screen)
         QTimer.singleShot(0, self._refresh_all)
+
+    def _fit_screen(self) -> None:
+        """Never be wider than the screen (the window may have been sized for the desktop layout)."""
+        screen = self.screen().availableGeometry() if self.screen() else None
+        if screen is None:
+            return
+        if is_android():
+            self.setGeometry(screen)
+        elif self.width() > screen.width():
+            self.resize(screen.width(), self.height())
 
     def _refresh_all(self) -> None:
         for p in self.pages:

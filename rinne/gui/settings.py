@@ -19,7 +19,8 @@ from ..storage import cache_dir, data_dir, state_path
 from . import files, theme
 from ..platform import is_android
 from .common import (
-    Clickable, FlowLayout, Switch, badge, card, clear, hbox, label, set_margins, touch_scroll, vbox,
+    Clickable, FlowLayout, Switch, badge, button_row, card, clear, hbox, label, set_margins, touch_scroll,
+    vbox,
 )
 from .pages import scroll_page
 
@@ -171,6 +172,7 @@ class SettingsPage(QWidget):
             row.addWidget(b)
         row.addStretch()
         area.setWidget(host)
+        area.setProperty("sideways", True)
         area.setFixedHeight(host.sizeHint().height() + theme.px(2))
         touch_scroll(area)
         return area
@@ -267,10 +269,8 @@ class SettingsPage(QWidget):
                          "close_to_tray", kind="tray", enabled=tray)
 
         self._group("Getting started")
-        again = QWidget()
-        al = hbox(again, 8)
-        al.addWidget(self._button("Show the welcome screen", self.win.show_welcome))
-        al.addWidget(self._button("Take the tour", self.win.start_tour))
+        again = button_row(self._button("Show the welcome screen", self.win.show_welcome),
+                           self._button("Take the tour", self.win.start_tour))
         self._row("Welcome & tour", "Run the first-launch setup or the guided tour again.", again)
 
         self._group("Titles")
@@ -310,7 +310,10 @@ class SettingsPage(QWidget):
         slider.setSingleStep(10)
         slider.setPageStep(10)
         slider.setValue(round(theme.zoom() * 100))
-        slider.setFixedWidth(theme.px(220))
+        if theme.COMPACT:
+            slider.setMinimumWidth(theme.px(120))
+        else:
+            slider.setFixedWidth(theme.px(220))
         value = label(f"{round(theme.zoom() * 100)}%", "small")
         value.setFixedWidth(theme.px(44))
         slider.valueChanged.connect(lambda v: value.setText(f"{v}%"))
@@ -332,7 +335,7 @@ class SettingsPage(QWidget):
         self._header("Schedule", "How much you watch each day and how finished shows are replaced.")
         self._group("Your week")
         mode_w = QWidget()
-        ml = hbox(mode_w, 18)
+        ml = (vbox if theme.COMPACT else hbox)(mode_w, 8 if theme.COMPACT else 18)
         by_eps, by_min = QRadioButton("Episodes per day"), QRadioButton("Minutes per day")
         (by_eps if s.plan_by == EPISODES else by_min).setChecked(True)
         grp = QButtonGroup(mode_w)
@@ -365,13 +368,14 @@ class SettingsPage(QWidget):
             sp.setValue(s.day_amount(i))
             sp.setSuffix("" if theme.COMPACT else (" ep" if eps else " min"))
             sp.setAlignment(Qt.AlignCenter)
+            if theme.COMPACT:
+                sp.setMinimumWidth(theme.px(48))
             sp.valueChanged.connect(lambda v, i=i: (s.set_day_amount(i, v), self._replan_timer.start()))
             grid.addWidget(sp, r + 1, c)
             spins.append(sp)
         self._row("Each day", "Set a day to 0 for a day off.", days_w, stretch_control=True)
 
-        presets = QWidget()
-        pl = hbox(presets, 6)
+        preset_buttons = []
         base = 2 if eps else 60
 
         def apply(values):
@@ -384,8 +388,8 @@ class SettingsPage(QWidget):
             b = QPushButton(text)
             b.setObjectName("chip")
             b.clicked.connect(fn)
-            pl.addWidget(b)
-        self._row("Quick set", "", presets)
+            preset_buttons.append(b)
+        self._row("Quick set", "", button_row(*preset_buttons, spacing=6), stretch_control=True)
 
         cap = QSpinBox(minimum=1, maximum=24, value=s.max_eps_per_show_per_day)
         cap.setSuffix(" ep")
@@ -478,11 +482,9 @@ class SettingsPage(QWidget):
         self._row("API Client ID",
                   "Only needed to import by username (free at myanimelist.net/apiconfig). "
                   "Importing an export file needs nothing.", cid)
-        imp = QWidget()
-        il = hbox(imp, 8)
-        il.addWidget(self._button("Import export file…", self.win.import_file))
-        il.addWidget(self._button("Import by username", self.win.import_username))
-        il.addWidget(self._button("Refresh all details", lambda: self.win.run_enrich(force=True)))
+        imp = button_row(self._button("Import export file…", self.win.import_file),
+                         self._button("Import by username", self.win.import_username),
+                         self._button("Refresh all details", lambda: self.win.run_enrich(force=True)))
         self._row("Import", f"{len(self.win.state.library)} shows in your library.", imp)
 
         self._group("Storage")
@@ -497,10 +499,8 @@ class SettingsPage(QWidget):
                   self._button("Clear", lambda: self._clear(meta, "metadata cache")))
 
         self._group("Backup")
-        bk = QWidget()
-        bl = hbox(bk, 8)
-        bl.addWidget(self._button("Export backup…", self._export))
-        bl.addWidget(self._button("Restore backup…", self._restore))
+        bk = button_row(self._button("Export backup…", self._export),
+                        self._button("Restore backup…", self._restore))
         self._row("Library backup", "Your library, progress, plan and settings in one file.", bk)
         self._row("Reset settings", "Restore every setting to its default. Your library is kept.",
                   self._button("Reset", self._reset))
@@ -543,11 +543,11 @@ class SettingsPage(QWidget):
         from ..changelog import CHANGELOG
         from .feedback import FeedbackDialog, system_info, system_info_text
 
-        frame, lay = card(margins=28, spacing=10)
-        top = hbox(spacing=24)
+        frame, lay = card(margins=18 if theme.COMPACT else 28, spacing=10)
+        top = (vbox if theme.COMPACT else hbox)(spacing=16 if theme.COMPACT else 24)
         logo = QLabel()
         pix = QPixmap(asset("logo-round.png"))
-        size = theme.px(150)
+        size = theme.px(110 if theme.COMPACT else 150)
         dpr = self.devicePixelRatioF() or 1.0
         pix = pix.scaled(round(size * dpr), round(size * dpr), Qt.KeepAspectRatio, Qt.SmoothTransformation)
         pix.setDevicePixelRatio(dpr)
@@ -565,14 +565,13 @@ class SettingsPage(QWidget):
         info.addWidget(label("輪廻 — the cycle of rebirth. A weekly anime planner for Linux that follows "
                              "each series: when a show ends, its next season is reborn in its place.",
                              "muted", wrap=True))
-        actions = hbox(spacing=8)
-        actions.addWidget(self._button("Send feedback", lambda: FeedbackDialog(self.win.state, "bug", self).exec(),
-                                       primary=True))
+        about_buttons = [self._button("Send feedback",
+                                      lambda: FeedbackDialog(self.win.state, "bug", self).exec(), primary=True)]
         if HOMEPAGE_URL:
-            actions.addWidget(self._button("Project page ↗", lambda: QDesktopServices.openUrl(QUrl(HOMEPAGE_URL))))
-        actions.addWidget(self._button("Take the tour", self.win.start_tour))
-        actions.addStretch()
-        info.addLayout(actions)
+            about_buttons.append(self._button("Project page ↗",
+                                              lambda: QDesktopServices.openUrl(QUrl(HOMEPAGE_URL))))
+        about_buttons.append(self._button("Take the tour", self.win.start_tour))
+        info.addWidget(button_row(*about_buttons))
         info.addStretch()
         top.addLayout(info, 1)
         lay.addLayout(top)
@@ -598,14 +597,15 @@ class SettingsPage(QWidget):
         self._group("Version & system")
         sysbox, sl = card(margins=16, spacing=6)
         grid = QGridLayout()
-        grid.setHorizontalSpacing(theme.px(24))
+        grid.setHorizontalSpacing(theme.px(12 if theme.COMPACT else 24))
         grid.setColumnStretch(1, 1)
         for n, (k, v) in enumerate(system_info(self.win.state)):
             grid.addWidget(label(k, "small"), n, 0)
             grid.addWidget(label(v, "", wrap=True), n, 1)
         n = grid.rowCount()
         grid.addWidget(label("Data folder", "small"), n, 0)
-        grid.addWidget(label(str(data_dir()), "", wrap=True), n, 1)
+        # A zero-width space after each "/" and "-" lets a long path wrap on narrow screens.
+        grid.addWidget(label(str(data_dir()).replace("/", "/\u200b").replace("-", "-\u200b"), "", wrap=True), n, 1)
         if LICENSE:
             grid.addWidget(label("License", "small"), n + 1, 0)
             grid.addWidget(label(LICENSE, ""), n + 1, 1)
