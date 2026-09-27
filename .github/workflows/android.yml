@@ -79,3 +79,55 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*.apk
+
+  # Smoke test: install the APK on an emulator, launch it, and keep a screenshot and the log.
+  # (x86_64 system images from Android 11 on can run arm64 apps through binary translation.)
+  emulator-test:
+    needs: android
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Rinne-Android
+          path: apk
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Launch Rinne on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: |
+            adb install -r apk/*.apk
+            adb shell pm list packages | grep -i rinne
+            PKG=$(adb shell pm list packages | grep -i rinne | head -1 | sed 's/package://' | tr -d '\r')
+            echo "package: $PKG"
+            adb logcat -c
+            adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1
+            sleep 75
+            adb exec-out screencap -p > screen-launch.png
+            adb logcat -d > logcat.txt
+            grep -iE "python|rinne|Traceback|Error|qt" logcat.txt | tail -200 > logcat-app.txt || true
+            if adb shell pidof "$PKG"; then echo "RUNNING" > status.txt; else echo "NOT RUNNING" > status.txt; fi
+            cat status.txt
+
+      - name: Upload screenshot and log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rinne-Android-emulator
+          path: |
+            screen-*.png
+            logcat*.txt
+            status.txt
+
+      - name: Fail if the app didn't stay running
+        run: grep -q "^RUNNING" status.txt
