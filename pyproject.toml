@@ -19,6 +19,10 @@ classifiers = [
 ]
 dependencies = ["PySide6>=6.6"]
 
+[project.urls]
+Homepage = "https://github.com/ZodchiSama/RINNE"
+Issues = "https://github.com/ZodchiSama/RINNE/issues"
+
 [project.optional-dependencies]
 dev = ["pytest"]
 

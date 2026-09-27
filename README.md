@@ -10,6 +10,8 @@ By **Zodchi**.
 ## Install
 
 ```sh
+git clone https://github.com/ZodchiSama/RINNE.git
+cd rinne
 ./install.sh          # venv + `rinne` command + app icon + app-menu entry
 ```
 
@@ -142,8 +144,8 @@ Settings is a full page, and changes apply immediately:
 
 ## Feedback
 
-Found a bug or have an idea? Use **Settings → About → Send feedback** in the app, or email
-**zodchi.san@proton.me**.
+Found a bug or have an idea? Use **Settings → About → Send feedback** in the app,
+[open an issue](https://github.com/ZodchiSama/RINNE/issues), or email **zodchi.san@proton.me**.
 
 ## License
 

@@ -12,8 +12,8 @@ DISCORD_APP_ID = "1553831739510628383"
 # Project links shown on the About page and used by the feedback dialog.
 # Leave a value empty to hide its button.
 AUTHOR = "Zodchi"
-HOMEPAGE_URL = ""  # e.g. https://github.com/<you>/rinne
-ISSUES_URL = ""  # e.g. https://github.com/<you>/rinne/issues
+HOMEPAGE_URL = "https://github.com/ZodchiSama/RINNE"
+ISSUES_URL = "https://github.com/ZodchiSama/RINNE/issues"
 CONTACT_EMAIL = "zodchi.san@proton.me"
 COMMUNITY_URL = ""  # e.g. a Discord server invite
 LICENSE = "MIT"
