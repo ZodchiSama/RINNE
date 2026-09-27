@@ -87,6 +87,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           name: Rinne-Android
@@ -105,19 +107,7 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
-          script: |
-            adb install -r apk/*.apk
-            adb shell pm list packages | grep -i rinne
-            PKG=$(adb shell pm list packages | grep -i rinne | head -1 | sed 's/package://' | tr -d '\r')
-            echo "package: $PKG"
-            adb logcat -c
-            adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1
-            sleep 75
-            adb exec-out screencap -p > screen-launch.png
-            adb logcat -d > logcat.txt
-            grep -iE "python|rinne|Traceback|Error|qt" logcat.txt | tail -200 > logcat-app.txt || true
-            if adb shell pidof "$PKG"; then echo "RUNNING" > status.txt; else echo "NOT RUNNING" > status.txt; fi
-            cat status.txt
+          script: bash packaging/android/emulator_smoke.sh
 
       - name: Upload screenshot and log
         if: always()
