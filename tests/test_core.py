@@ -415,7 +415,7 @@ def test_artwork_parsing_and_cache(monkeypatch, tmp_path):
         calls.append(req.full_url)
         return io.BytesIO(_json.dumps(payload).encode())
 
-    monkeypatch.setattr(artwork.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(artwork.net, "urlopen", fake_urlopen)
     a = Anime(1, "x", anilist_id=99)
     artwork.apply(a, artwork.fetch(a.anilist_id, a.mal_id))
     assert a.fanart_url.endswith("fanart1080.jpg") and a.logo_url.endswith("logo.png") and a.artwork_checked

@@ -52,7 +52,7 @@ class FeedbackDialog(QDialog):
         super().__init__(parent)
         self.state = state
         self.setWindowTitle(f"Send feedback — {DISPLAY_NAME}")
-        self.setMinimumWidth(theme.px(560))
+        self.setMinimumWidth(theme.fit_width(560))
         root = vbox(self, 12, 22)
         root.addWidget(label("Send feedback", "h1"))
         root.addWidget(label("Found a bug or have an idea? Write it here — Rinne formats it into a report "

@@ -13,6 +13,25 @@ from ..models import CURRENTLY_AIRING, WEEKDAYS, Anime
 from . import theme
 
 
+def touch_scroll(area) -> None:
+    """Flick-to-scroll with a finger on Android (Qt widgets don't do it by default)."""
+    from ..platform import is_android
+    if not is_android():
+        return
+    from PySide6.QtWidgets import QScroller
+    target = area.viewport() if hasattr(area, "viewport") else area
+    QScroller.grabGesture(target, QScroller.LeftMouseButtonGesture)
+
+
+def page_margin() -> float:
+    return 14 if theme.COMPACT else 28
+
+
+def set_margins(layout, n: float) -> None:
+    m = theme.px(n)
+    layout.setContentsMargins(m, m, m, m)
+
+
 def label(text: str = "", name: str = "", wrap: bool = False, rich: bool = False) -> QLabel:
     lbl = QLabel(text)
     if name:

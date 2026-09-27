@@ -9,13 +9,15 @@ from PySide6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPainterPath
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PySide6.QtWidgets import QLabel, QWidget
 
-from .. import USER_AGENT
+from .. import USER_AGENT, net
+from ..platform import is_android
 from ..storage import cache_dir
 from . import theme
 
 
 class ImageCache(QObject):
     loaded = Signal(str)  # url
+    _fetched = Signal(str, bytes)  # emitted from download threads (Android)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -26,6 +28,13 @@ class ImageCache(QObject):
         self._scaled: dict[tuple, QPixmap] = {}
         self._pending: set[str] = set()
         self._failed: set[str] = set()
+        # Qt's networking needs OpenSSL libraries that the Android build doesn't ship, so on
+        # Android images are fetched with Python (net.urlopen) on a few worker threads.
+        self._pool = None
+        if is_android():
+            from concurrent.futures import ThreadPoolExecutor
+            self._pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="images")
+            self._fetched.connect(self._store)
 
     def _path(self, url: str):
         return self.dir / (hashlib.sha1(url.encode()).hexdigest() + ".img")
@@ -41,7 +50,10 @@ class ImageCache(QObject):
             if not pix.isNull():
                 self._raw[url] = pix
                 return pix
-        if url not in self._pending:
+        if url not in self._pending and self._pool is not None:
+            self._pending.add(url)
+            self._pool.submit(self._download_python, url)
+        elif url not in self._pending:
             self._pending.add(url)
             req = QNetworkRequest(QUrl(url))
             req.setHeader(QNetworkRequest.UserAgentHeader, USER_AGENT)
@@ -50,6 +62,26 @@ class ImageCache(QObject):
             reply = self.nam.get(req)
             reply.finished.connect(lambda r=reply, u=url: self._done(u, r))
         return None
+
+    def _download_python(self, url: str) -> None:
+        import urllib.request
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+            with net.urlopen(req, timeout=30) as resp:
+                data = resp.read()
+        except Exception:  # network errors: mark as failed, like the Qt path
+            data = b""
+        self._fetched.emit(url, data)
+
+    def _store(self, url: str, data: bytes) -> None:
+        self._pending.discard(url)
+        pix = QPixmap()
+        if not data or not pix.loadFromData(data):
+            self._failed.add(url)
+            return
+        self._path(url).write_bytes(data)
+        self._raw[url] = pix
+        self.loaded.emit(url)
 
     def _done(self, url: str, reply: QNetworkReply) -> None:
         self._pending.discard(url)

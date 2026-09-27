@@ -16,8 +16,11 @@ from PySide6.QtWidgets import (
 from .. import DISPLAY_NAME, __version__
 from ..models import EPISODES, MINUTES, TITLE_LANGUAGES, WEEKDAYS, Settings
 from ..storage import cache_dir, data_dir, state_path
-from . import theme
-from .common import Clickable, FlowLayout, Switch, badge, card, clear, hbox, label, vbox
+from . import files, theme
+from ..platform import is_android
+from .common import (
+    Clickable, FlowLayout, Switch, badge, card, clear, hbox, label, set_margins, touch_scroll, vbox,
+)
 from .pages import scroll_page
 
 if TYPE_CHECKING:
@@ -99,7 +102,7 @@ class SettingsPage(QWidget):
         self.section = "general"
         root = hbox(self, 0)
 
-        side = QFrame()
+        side = self.side = QFrame()
         side.setObjectName("page")
         side_lay = vbox(side, 4, 24)
         side_lay.addWidget(label("Settings", "h1"))
@@ -131,13 +134,46 @@ class SettingsPage(QWidget):
         self.refresh()
         self.area.verticalScrollBar().setValue(0)
 
+    def sections(self) -> list[tuple[str, str]]:
+        """Discord needs the desktop Discord app, so its section is hidden on Android."""
+        return [(k, v) for k, v in SECTIONS if not (k == "discord" and is_android())]
+
     def refresh(self) -> None:
         for b in self.nav.buttons():
             b.setChecked(b.property("key") == self.section)
+            b.setVisible(b.property("key") in dict(self.sections()))
         clear(self.body)
+        set_margins(self.body, 14 if theme.COMPACT else 24)
+        self.side.setVisible(not theme.COMPACT)
+        if theme.COMPACT:
+            self.body.addWidget(self._section_tabs())
         s = self.win.state.settings
         getattr(self, f"_build_{self.section}")(s)
         self.body.addStretch()
+
+    def _section_tabs(self) -> QWidget:
+        """Phones: the section list as a sideways-scrolling row of tabs."""
+        from PySide6.QtWidgets import QScrollArea
+        area = QScrollArea()
+        area.setWidgetResizable(True)
+        area.setFrameShape(QFrame.NoFrame)
+        area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        host = QWidget()
+        host.setObjectName("page")
+        row = hbox(host, 6)
+        for key, text in self.sections():
+            b = QPushButton(text)
+            b.setObjectName("chip")
+            b.setCheckable(True)
+            b.setChecked(key == self.section)
+            b.clicked.connect(lambda _=False, k=key: self.show_section(k))
+            row.addWidget(b)
+        row.addStretch()
+        area.setWidget(host)
+        area.setFixedHeight(host.sizeHint().height() + theme.px(2))
+        touch_scroll(area)
+        return area
 
     # ------------------------------------------------------------------ building blocks
 
@@ -155,7 +191,9 @@ class SettingsPage(QWidget):
              stretch_control: bool = False) -> QFrame:
         frame = QFrame()
         frame.setObjectName("settingRow")
-        row = hbox(frame, 16, 14)
+        # Phones: text above the control, except compact on/off switches which stay inline.
+        stacked = theme.COMPACT and control is not None and not isinstance(control, Switch)
+        row = (vbox if stacked else hbox)(frame, 10 if stacked else 16, 14)
         text = vbox(spacing=3)
         text.addWidget(label(title, "settingTitle", wrap=True))
         if description:
@@ -164,7 +202,11 @@ class SettingsPage(QWidget):
             text.addWidget(desc)
         row.addLayout(text, 1)
         if control is not None:
-            if stretch_control:
+            if stacked and stretch_control:
+                row.addWidget(control)
+            elif stacked:
+                row.addWidget(control, alignment=Qt.AlignLeft)
+            elif stretch_control:
                 row.addWidget(control, 1)
             else:
                 row.addWidget(control, alignment=Qt.AlignVCenter | Qt.AlignRight)
@@ -209,18 +251,20 @@ class SettingsPage(QWidget):
         start = self._combo(START_PAGES, s.start_page)
         start.currentIndexChanged.connect(lambda _: self._set("start_page", start.currentData()))
         self._row("Open on", "The page Rinne shows when it starts.", start)
-        tray = self.win.tray_available()
-        self._switch("Start minimized to the tray", "Launch quietly in the system tray." +
-                     ("" if tray else " <i>(No system tray detected.)</i>"), "start_minimized", enabled=tray)
+        tray = self.win.tray_available() and not is_android()
+        if not is_android():
+            self._switch("Start minimized to the tray", "Launch quietly in the system tray." +
+                         ("" if tray else " <i>(No system tray detected.)</i>"), "start_minimized", enabled=tray)
         self._switch("Check airing shows on startup",
                      "Refresh episode counts and next-episode dates for shows you're watching that "
                      "are still airing.", "refresh_on_startup")
 
-        self._group("Window")
-        self._switch("Keep running in the tray when closed",
+        if not is_android():
+            self._group("Window")
+            self._switch("Keep running in the tray when closed",
                      "Closing the window hides Rinne to the tray so notifications keep working. "
-                     "Quit from the tray menu." + ("" if tray else " <i>(No system tray detected.)</i>"),
-                     "close_to_tray", kind="tray", enabled=tray)
+                         "Quit from the tray menu." + ("" if tray else " <i>(No system tray detected.)</i>"),
+                         "close_to_tray", kind="tray", enabled=tray)
 
         self._group("Getting started")
         again = QWidget()
@@ -241,7 +285,8 @@ class SettingsPage(QWidget):
         self._group("Theme")
         flow = FlowLayout(spacing=12)
         for key, pal in theme.PALETTES.items():
-            flow.addWidget(self._theme_card(key, pal, key == theme.current))
+            flow.addWidget(theme_card(key, pal, key == theme.current, lambda k=key: self._pick_theme(k),
+                                      width=150 if theme.COMPACT else 190))
         host = QWidget()
         host.setLayout(flow)
         self.body.addWidget(host)
@@ -313,13 +358,15 @@ class SettingsPage(QWidget):
         eps = s.plan_by == EPISODES
         spins = []
         for i, day in enumerate(WEEKDAYS):
-            grid.addWidget(label(day[:3], "small"), 0, i, alignment=Qt.AlignCenter)
+            # Phones: two rows (Mon–Thu, Fri–Sun) so seven boxes fit the width.
+            r, c = ((i // 4) * 2, i % 4) if theme.COMPACT else (0, i)
+            grid.addWidget(label(day[:3], "small"), r, c, alignment=Qt.AlignCenter)
             sp = QSpinBox(minimum=0, maximum=24 if eps else 24 * 60, singleStep=1 if eps else 15)
             sp.setValue(s.day_amount(i))
-            sp.setSuffix(" ep" if eps else " min")
+            sp.setSuffix("" if theme.COMPACT else (" ep" if eps else " min"))
             sp.setAlignment(Qt.AlignCenter)
             sp.valueChanged.connect(lambda v, i=i: (s.set_day_amount(i, v), self._replan_timer.start()))
-            grid.addWidget(sp, 1, i)
+            grid.addWidget(sp, r + 1, c)
             spins.append(sp)
         self._row("Each day", "Set a day to 0 for a day off.", days_w, stretch_control=True)
 
@@ -362,6 +409,10 @@ class SettingsPage(QWidget):
 
     def _build_notifications(self, s: Settings) -> None:
         self._header("Notifications", "Desktop notifications about your shows.")
+        if is_android():
+            self.body.addWidget(label("Notifications aren't available on Android yet — they're coming "
+                                      "in a future version.", "muted", wrap=True))
+            return
         self._switch("New episode aired",
                      "When a new episode of a show on your Watching list comes out.", "notify_new_episodes")
         self._switch("Daily reminder", "A summary of today's plan at a time you choose.", "daily_reminder")
@@ -469,8 +520,8 @@ class SettingsPage(QWidget):
                                               "Rinne backup (*.json)")
         if path:
             self.win.save()
-            shutil.copyfile(state_path(), path)
-            self.win.statusBar().showMessage(f"Backup saved to {path}", 6000)
+            files.write_bytes(path, state_path().read_bytes())
+            self.win.statusBar().showMessage("Backup saved", 6000)
 
     def _restore(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "Restore backup", str(Path.home()), "Rinne backup (*.json)")
@@ -479,7 +530,7 @@ class SettingsPage(QWidget):
         if QMessageBox.question(self, "Restore backup",
                                 "Replace your current library, plan and settings with this backup?") != QMessageBox.Yes:
             return
-        self.win.restore_backup(Path(path))
+        self.win.restore_backup(path)
 
     def _reset(self) -> None:
         if QMessageBox.question(self, "Reset settings", "Reset all settings to their defaults?") == QMessageBox.Yes:

@@ -16,7 +16,7 @@ class ReplacementDialog(QDialog):
     def __init__(self, finished: Anime, sug: Suggestion | None, added: list[Anime], parent=None):
         super().__init__(parent)
         self.setWindowTitle("Show finished")
-        self.setMinimumWidth(theme.px(460))
+        self.setMinimumWidth(theme.fit_width(460))
         root = vbox(self, 16, 24)
         root.setSizeConstraint(QLayout.SetMinimumSize)
         root.addWidget(label(f"You finished {finished.name}!", "h1", wrap=True))

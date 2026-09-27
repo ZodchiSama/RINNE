@@ -13,7 +13,8 @@ from PySide6.QtWidgets import (
 from .. import DISPLAY_NAME, __version__
 from ..models import EPISODES, TITLE_LANGUAGES
 from . import icons, theme
-from .common import FlowLayout, Switch, card, clear, hbox, label, vbox
+from .common import FlowLayout, Switch, card, clear, hbox, label, touch_scroll, vbox
+from ..platform import is_android
 from .settings import asset, theme_card
 
 if TYPE_CHECKING:
@@ -61,6 +62,7 @@ class WelcomePage(QWidget):
         self.area.setWidgetResizable(True)
         self.area.setFrameShape(QFrame.NoFrame)
         self.area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        touch_scroll(self.area)
         inner = QWidget()
         inner.setObjectName("page")
         self.area.setWidget(inner)
@@ -83,6 +85,9 @@ class WelcomePage(QWidget):
 
     def refresh(self) -> None:
         clear(self.body)
+        m = theme.px(16 if theme.COMPACT else 32)
+        self.body.setContentsMargins(m, m, m, m)
+        self.column.setMinimumWidth(0 if theme.COMPACT else theme.px(560))
         self.body.addStretch()
         if self.step > 0:
             self.body.addLayout(self._dots())
@@ -136,7 +141,7 @@ class WelcomePage(QWidget):
     # ------------------------------------------------------------------ steps
 
     def _step_0(self) -> None:
-        self.body.addWidget(Glow(190), alignment=Qt.AlignHCenter)
+        self.body.addWidget(Glow(140 if theme.COMPACT else 190), alignment=Qt.AlignHCenter)
         name = label(DISPLAY_NAME, "heroName")
         name.setAlignment(Qt.AlignCenter)
         self.body.addWidget(name)
@@ -149,7 +154,7 @@ class WelcomePage(QWidget):
         self.body.addWidget(tag)
         self.body.addSpacing(theme.px(10))
 
-        feats = hbox(spacing=12)
+        feats = (vbox if theme.COMPACT else hbox)(spacing=12)
         for ic, head, text in [
             ("week", "Plans your week", "A 7-day schedule from the shows you're watching on MyAnimeList."),
             ("next", "Follows every series", "Finish a season and the next one takes its slot automatically."),
@@ -220,7 +225,7 @@ class WelcomePage(QWidget):
         cid = QLineEdit(s.mal_client_id)
         cid.setPlaceholderText("API Client ID")
         cid.setEchoMode(QLineEdit.PasswordEchoOnEdit)
-        row2 = hbox(spacing=8)
+        row2 = (vbox if theme.COMPACT else hbox)(spacing=8)
         row2.addWidget(user, 1)
         row2.addWidget(cid, 1)
         go = QPushButton("Import")
@@ -301,7 +306,8 @@ class WelcomePage(QWidget):
         flow = FlowLayout(spacing=10)
         for key, pal in theme.PALETTES.items():
             flow.addWidget(theme_card(key, pal, key == theme.current,
-                                      lambda k=key: (self.win.set_theme(k), self.refresh()), width=156))
+                                      lambda k=key: (self.win.set_theme(k), self.refresh()),
+                                      width=140 if theme.COMPACT else 156))
         host = QWidget()
         host.setLayout(flow)
         tl.addWidget(host)
@@ -327,13 +333,16 @@ class WelcomePage(QWidget):
             seg.addWidget(b)
         row.addWidget(seg_box)
         ol.addLayout(row)
-        for attr, title, desc, kind in [
-            ("backdrop", "Background slideshow", "Full-HD art from today's shows behind the window.", "backdrop"),
-            ("discord_enabled", "Discord Rich Presence",
-             "Show “Watching Rinne” and today's next episode on your Discord profile.", "discord"),
-            ("notify_new_episodes", "New-episode notifications",
-             "A desktop notification when a show you're watching airs a new episode.", "save"),
-        ]:
+        options = [("backdrop", "Background slideshow", "Full-HD art from today's shows behind the window.",
+                    "backdrop")]
+        if not is_android():  # Discord and desktop notifications are desktop-only for now
+            options += [
+                ("discord_enabled", "Discord Rich Presence",
+                 "Show “Watching Rinne” and today's next episode on your Discord profile.", "discord"),
+                ("notify_new_episodes", "New-episode notifications",
+                 "A desktop notification when a show you're watching airs a new episode.", "save"),
+            ]
+        for attr, title, desc, kind in options:
             r = hbox(spacing=10)
             tx = vbox(spacing=2)
             tx.addWidget(label(title, "settingTitle"))

@@ -9,13 +9,14 @@ from PySide6.QtCore import QEvent, QObject, QSize, Qt, QThread, QTimer, QUrl, Si
 from PySide6.QtGui import QDesktopServices, QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QFileDialog, QFrame, QInputDialog, QLabel, QMainWindow, QMenu,
-    QMessageBox, QProgressBar, QPushButton, QStackedWidget, QWidget,
+    QMessageBox, QProgressBar, QPushButton, QSizePolicy, QStackedWidget, QToolButton, QWidget,
 )
 
 from .. import DISPLAY_NAME, __version__, artwork, mal, models, scheduler
+from ..platform import is_android
 from ..models import COMPLETED, WATCHING, Anime
 from ..storage import load_state, save_state
-from . import icons, theme
+from . import files, icons, theme
 from .common import Clickable, ElidedLabel, clear, hbox, label, vbox
 from .images import Cover
 from .backdrop import Backdrop
@@ -75,7 +76,15 @@ class MainWindow(DesktopMixin, QMainWindow):
         self.shell = QStackedWidget()
         vbox(self.backdrop, 0).addWidget(self.shell)
         self.main_view = QWidget()
-        self.root = hbox(self.main_view, 0)
+        main_col = vbox(self.main_view, 0)
+        self.root = hbox(spacing=0)
+        main_col.addLayout(self.root, 1)
+        # Phones / narrow windows: a bottom navigation bar replaces the sidebar.
+        self.bottom_bar = QFrame()
+        self.bottom_bar.setObjectName("bottomBar")
+        self.bottom_bar.hide()
+        main_col.addWidget(self.bottom_bar)
+        self._compact: bool | None = None
         self.shell.addWidget(self.main_view)
         self.sidebar = QFrame()
         self.sidebar.setObjectName("sidebar")
@@ -97,6 +106,7 @@ class MainWindow(DesktopMixin, QMainWindow):
         self.welcome = WelcomePage(self)
         self.shell.addWidget(self.welcome)
         self._build_sidebar()
+        self._build_bottom_bar()
 
         self.busy = QProgressBar()
         self.busy.setObjectName("busy")
@@ -275,6 +285,7 @@ class MainWindow(DesktopMixin, QMainWindow):
     def _go(self, n: int) -> None:
         self.stack.setCurrentIndex(n)
         self.settings_btn.setChecked(False)
+        self._sync_bottom_bar()
         self.pages[n].refresh()
 
     def open_profile(self, anime: Anime) -> None:
@@ -289,6 +300,64 @@ class MainWindow(DesktopMixin, QMainWindow):
         for b in self.nav.buttons():
             b.setChecked(False)
         self.settings_btn.setChecked(self.stack.currentWidget() is self.settings_page)
+        self._sync_bottom_bar()
+
+    # ------------------------------------------------------------------ phone layout
+
+    def _build_bottom_bar(self) -> None:
+        lay = hbox(self.bottom_bar, 0)
+        lay.setContentsMargins(theme.px(6), theme.px(4), theme.px(6), theme.px(6))
+        self.bnav: list[QToolButton] = []
+        for n, (text, icon_name) in enumerate([("Week", "week"), ("Up Next", "next"),
+                                               ("Library", "library"), ("Settings", "settings")]):
+            b = QToolButton()
+            b.setObjectName("bnav")
+            b.setText(text)
+            b.setIcon(icons.icon(icon_name))
+            b.setIconSize(QSize(theme.px(22), theme.px(22)))
+            b.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+            b.setCheckable(True)
+            b.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+            b.clicked.connect(lambda _=False, n=n: self.open_settings() if n == 3 else self._nav_to(n))
+            lay.addWidget(b)
+            self.bnav.append(b)
+
+    def _sync_bottom_bar(self) -> None:
+        if not hasattr(self, "bnav"):
+            return
+        current = self.stack.currentIndex()
+        for n, b in enumerate(self.bnav):
+            b.setChecked(n == current if n < 3 else self.stack.currentWidget() is self.settings_page)
+
+    def _apply_compact(self) -> None:
+        """Switch between the desktop layout and the phone layout."""
+        compact = is_android() or self.width() < theme.px(820)
+        if compact == self._compact:
+            return
+        self._compact = compact
+        theme.COMPACT = compact
+        self.sidebar.setVisible(not compact)
+        self.bottom_bar.setVisible(compact)
+        self.statusBar().setVisible(not compact and self.shell.currentWidget() is self.main_view)
+        self._sync_bottom_bar()
+        QTimer.singleShot(0, self._refresh_all)
+
+    def _refresh_all(self) -> None:
+        for p in self.pages:
+            p.refresh()
+        if self.shell.currentWidget() is self.welcome:
+            self.welcome.refresh()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if hasattr(self, "bottom_bar"):
+            self._apply_compact()
+
+    def nav_target(self, n: int):
+        """The navigation button for page n in whichever layout is showing (for the tour)."""
+        if theme.COMPACT:
+            return self.bnav[n]
+        return self.settings_btn if n == 3 else self.nav.button(n)
 
     def go_back(self) -> None:
         self._nav_to(self._back_to)
@@ -547,7 +616,7 @@ class MainWindow(DesktopMixin, QMainWindow):
         scheduler.replan(self.state)
         self.save()
         self.shell.setCurrentWidget(self.main_view)
-        self.statusBar().show()
+        self.statusBar().setVisible(not theme.COMPACT)
         self._nav_to(0)
         self.refresh()
         if tour:
@@ -559,7 +628,7 @@ class MainWindow(DesktopMixin, QMainWindow):
         week = lambda: self._nav_to(0)  # noqa: E731
         steps = [
             Step("Your Week", "Your plan for the next 7 days, built from the shows on your Watching list.",
-                 lambda: self.nav.button(0), week),
+                 lambda: self.nav_target(0), week),
             Step("Tick as you watch", "Click the circle on an episode when you've watched it — the rest of the "
                  "week replans itself. Use − / + on a day to watch more or less that day. Click any card "
                  "to open the show's profile.", lambda: getattr(self.week_page, "first_day", None), week),
@@ -567,13 +636,16 @@ class MainWindow(DesktopMixin, QMainWindow):
                  lambda: getattr(self.week_page, "replan_btn", None), week),
             Step("Up Next", "What takes over when each show ends. The next season always comes first — "
                  "even if it isn't on your MAL list yet — otherwise the best pick from Plan to Watch.",
-                 lambda: self.nav.button(1)),
+                 lambda: self.nav_target(1)),
             Step("Library", "Your whole list as posters. Click any show for its profile: why it's on your "
-                 "list, cast & voice actors, and new seasons coming up.", lambda: self.nav.button(2)),
-            Step("Import", "Bring in or refresh your MyAnimeList list any time.", lambda: self.import_btn),
-            Step("Up next today", "Today's next episode, always one click away.", lambda: self.up_next_host),
+                 "list, cast & voice actors, and new seasons coming up.", lambda: self.nav_target(2)),
+            Step("Import", "Bring in or refresh your MyAnimeList list any time.",
+                 lambda: getattr(self.lib_page, "import_btn", None) if theme.COMPACT else self.import_btn,
+                 (lambda: self._nav_to(2)) if theme.COMPACT else None),
+            Step("Up next today", "Today's next episode, always one click away.",
+                 lambda: None if theme.COMPACT else self.up_next_host),
             Step("Settings", "Themes, the background slideshow, notifications, Discord and more. "
-                 "That's the tour — enjoy Rinne!", lambda: self.settings_btn),
+                 "That's the tour — enjoy Rinne!", lambda: self.nav_target(3)),
         ]
         self._tour = TourOverlay(self.centralWidget(), steps)
         self._tour.finished.connect(lambda: self._nav_to(0))
@@ -608,10 +680,13 @@ class MainWindow(DesktopMixin, QMainWindow):
         s = self.state.settings
         self.backdrop.configure(s.slide_seconds, s.backdrop_dim)
 
-    def restore_backup(self, path) -> None:
+    def restore_backup(self, path: str) -> None:
+        import json
+
+        from ..storage import State
         try:
-            state = load_state(path)
-        except (OSError, ValueError, KeyError) as e:
+            state = State.from_dict(json.loads(files.read_bytes(str(path)).decode("utf-8")))
+        except (OSError, ValueError, KeyError, TypeError) as e:
             QMessageBox.warning(self, "Restore failed", f"That file isn't a valid backup: {e}")
             return
         self.state = state
@@ -642,7 +717,7 @@ class MainWindow(DesktopMixin, QMainWindow):
         if not path:
             return
         try:
-            entries = mal.parse_mal_export(path)
+            entries = mal.parse_mal_export_bytes(files.read_bytes(path))
         except (mal.ImportError_, OSError) as e:
             QMessageBox.warning(self, "Import failed", str(e))
             return

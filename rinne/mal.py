@@ -21,7 +21,7 @@ import xml.etree.ElementTree as ET
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
-from . import USER_AGENT
+from . import USER_AGENT, net
 from .models import (
     COMPLETED,
     CURRENTLY_AIRING,
@@ -77,8 +77,11 @@ def _int(value: str, default: int = 0) -> int:
 
 
 def parse_mal_export(path: str | Path) -> list[Anime]:
-    path = Path(path)
-    raw = path.read_bytes()
+    return parse_mal_export_bytes(Path(path).read_bytes())
+
+
+def parse_mal_export_bytes(raw: bytes) -> list[Anime]:
+    """Parse a MAL export (.xml or .xml.gz) already read into memory."""
     if raw[:2] == b"\x1f\x8b":
         raw = gzip.decompress(raw)
     try:
@@ -119,7 +122,7 @@ def _get_json(url: str, headers: dict[str, str] | None = None, retries: int = 3)
     delay = 1.0
     for attempt in range(retries):
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with net.urlopen(req, timeout=30) as resp:
                 body = resp.read()
                 if resp.headers.get("Content-Encoding") == "gzip":
                     body = gzip.decompress(body)

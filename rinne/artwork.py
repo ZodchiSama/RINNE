@@ -12,7 +12,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Iterable
 
-from . import USER_AGENT
+from . import USER_AGENT, net
 from .models import Anime
 from .storage import cache_dir
 
@@ -36,7 +36,7 @@ def fetch(anilist_id: int = 0, mal_id: int = 0) -> dict:
         pass
     req = urllib.request.Request(f"{API}?{query}", headers={"User-Agent": USER_AGENT})
     try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
+        with net.urlopen(req, timeout=20) as resp:
             data = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         if e.code != 404:

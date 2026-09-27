@@ -32,7 +32,7 @@ class TourOverlay(QWidget):
         self.setFocusPolicy(Qt.StrongFocus)
         self.bubble = QFrame(self)
         self.bubble.setObjectName("tourBubble")
-        self.bubble.setFixedWidth(theme.px(340))
+        self.bubble.setFixedWidth(min(theme.px(340), max(theme.px(240), host.width() - theme.px(24))))
         lay = vbox(self.bubble, 8, 18)
         self.counter = label("", "tourCounter")
         self.title = label("", "h2", wrap=True)

@@ -14,7 +14,9 @@ from PySide6.QtWidgets import QFrame, QMenu, QPushButton, QWidget
 from .. import anilist, explain, models
 from ..models import CURRENTLY_AIRING, LIST_STATUSES, STATUS_LABELS, Anime
 from . import theme
-from .common import Clickable, FlowLayout, badge, card, clear, hbox, label, progress, vbox
+from .common import (
+    Clickable, FlowLayout, badge, card, clear, hbox, label, page_margin, progress, set_margins, vbox,
+)
 from .images import Cover, cache
 from .pages import scroll_page
 
@@ -185,6 +187,7 @@ class ProfilePage(QWidget):
             return
         scroll = self.area.verticalScrollBar().value()
         clear(self.body)
+        set_margins(self.body, page_margin())
         a = self.anime = self.win.state.library.get(self.anime.mal_id, self.anime)
         d = self.data or {}
 
@@ -222,8 +225,10 @@ class ProfilePage(QWidget):
     def _hero(self, a: Anime, d: dict) -> QWidget:
         banner = Banner(a.fanart_url or d.get("bannerImage") or a.banner_url, a.image_url,
                         (d.get("coverImage") or {}).get("color") or a.cover_color)
-        row = hbox(banner, 24, 26)
-        row.addWidget(Cover(a.image_url, a.name, 170, 242, 14), alignment=Qt.AlignBottom)
+        compact = theme.COMPACT
+        row = hbox(banner, 14 if compact else 24, 16 if compact else 26)
+        row.addWidget(Cover(a.image_url, a.name, *((96, 136, 10) if compact else (170, 242, 14))),
+                      alignment=Qt.AlignBottom if not compact else Qt.AlignTop)
         info = vbox(spacing=8)
         info.addStretch()
         title = label(a.name, "h1", wrap=True)
@@ -270,7 +275,7 @@ class ProfilePage(QWidget):
         status_row.addStretch()
         info.addLayout(status_row)
 
-        actions = hbox(spacing=8)
+        actions = FlowLayout(spacing=8) if compact else hbox(spacing=8)  # buttons wrap on phones
         in_lib = a.mal_id in self.win.state.library
         if in_lib:
             status_btn = QPushButton("Status ▾")
@@ -296,8 +301,13 @@ class ProfilePage(QWidget):
             al.setObjectName("ghost")
             al.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(d["siteUrl"])))
             actions.addWidget(al)
-        actions.addStretch()
-        info.addLayout(actions)
+        if compact:
+            host = QWidget()
+            host.setLayout(actions)
+            info.addWidget(host)
+        else:
+            actions.addStretch()
+            info.addLayout(actions)
         row.addLayout(info, 1)
         return banner
 
@@ -385,7 +395,8 @@ class ProfilePage(QWidget):
         head.addWidget(label("Japanese cast · ★ = fans on AniList", "faint"))
         lay.addLayout(head)
         top_fans = max((e["voiceActors"][0].get("favourites") or 0) for e in edges)
-        flow = FlowLayout(spacing=12, uniform_rows=True)
+        # Phones: one full-width card per row; desktop: a grid of equal-height cards.
+        flow = vbox(spacing=10) if theme.COMPACT else FlowLayout(spacing=12, uniform_rows=True)
         for e in edges:
             flow.addWidget(self._cast_card(e, top_fans))
         host = QWidget()
@@ -397,7 +408,8 @@ class ProfilePage(QWidget):
         char, va = e["node"], e["voiceActors"][0]
         frame = QFrame()
         frame.setObjectName("cast")
-        frame.setFixedWidth(theme.px(372))
+        if not theme.COMPACT:
+            frame.setFixedWidth(theme.px(372))
         lay = vbox(frame, 8, 12)
 
         # Character on the left, voice actor on the right, facing each other.
@@ -516,10 +528,11 @@ class ProfilePage(QWidget):
             return None
         frame, lay = card(margins=18, spacing=10)
         lay.addWidget(label("Staff", "h2"))
-        flow = FlowLayout(spacing=10)
+        flow = vbox(spacing=8) if theme.COMPACT else FlowLayout(spacing=10)
         for e in edges[:8]:
             box, bl = card("episode", 8, 10, horizontal=True)
-            box.setFixedWidth(theme.px(290))
+            if not theme.COMPACT:
+                box.setFixedWidth(theme.px(290))
             node = e["node"]
             bl.addWidget(Cover((node.get("image") or {}).get("medium", ""), node["name"]["full"], 40, 56, 6))
             col = vbox(spacing=2)

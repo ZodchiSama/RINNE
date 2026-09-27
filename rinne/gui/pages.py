@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QModelIndex, QRect, QRectF, QSize, QSortFilterProxyModel, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPainterPath, QPen, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
-    QAbstractItemView, QButtonGroup, QComboBox, QFrame, QGraphicsOpacityEffect, QLabel, QLineEdit,
+    QAbstractItemView, QButtonGroup, QComboBox, QFrame, QGraphicsOpacityEffect, QGridLayout, QLabel,
+    QLineEdit, QMenu,
     QListView, QPushButton, QScrollArea, QStyle, QStyledItemDelegate,
     QStyleOptionViewItem, QToolButton, QWidget,
 )
@@ -18,7 +19,7 @@ from ..models import EPISODES, LIST_STATUSES, PLAN_TO_WATCH, STATUS_LABELS, WEEK
 from ..recommender import SERIES, rank
 from . import theme
 from .common import (
-    Clickable, FlowLayout, airing_text, badge, card, clear, fmt_minutes, hbox, label, progress, progress_text,
+    Clickable, ElidedLabel, FlowLayout, airing_text, page_margin, set_margins, touch_scroll, badge, card, clear, fmt_minutes, hbox, label, progress, progress_text,
     vbox,
 )
 from .images import Cover, cache
@@ -36,6 +37,7 @@ def scroll_page(horizontal: bool = False) -> tuple[QScrollArea, QWidget]:
     inner = QWidget()
     inner.setObjectName("page")
     area.setWidget(inner)
+    touch_scroll(area)
     return area, inner
 
 
@@ -59,7 +61,8 @@ class EpisodeCard(QFrame):
     def __init__(self, idx: int, anime: Anime | None, item, missed: bool, parent=None):
         super().__init__(parent)
         self.setObjectName("episode")
-        self.setFixedWidth(theme.px(262))
+        if not theme.COMPACT:
+            self.setFixedWidth(theme.px(262))
         title = anime.name if anime else f"#{item.mal_id}"
         finale = bool(anime and anime.episodes_total and item.episode == anime.episodes_total)
         self.setProperty("missed", missed and not item.done)
@@ -68,7 +71,10 @@ class EpisodeCard(QFrame):
         lay.addWidget(Cover(anime.image_url if anime else "", title, 46, 66, 7))
 
         text = vbox(spacing=4)
-        text.addWidget(two_line_label(title, theme.px(262 - 46 - 24 - 20 - 36)))
+        if theme.COMPACT:
+            text.addWidget(ElidedLabel(title, "cardTitle"))
+        else:
+            text.addWidget(two_line_label(title, theme.px(262 - 46 - 24 - 20 - 36)))
         meta = hbox(spacing=6)
         meta.addWidget(label(f"Episode {item.episode}", "small"))
         if finale:
@@ -121,19 +127,8 @@ class DayRow(QFrame):
         self.setObjectName("day")
         self.setProperty("today", on == today)
         self.setProperty("past", on < today)
-        row = hbox(self, 18, 14)
-
-        side = vbox(spacing=6)
-        head = hbox(spacing=8)
-        head.addWidget(label(WEEKDAYS[on.weekday()], "h2"))
-        if on == today:
-            head.addWidget(badge("Today"))
-        head.addStretch()
-        side.addLayout(head)
-        side.addWidget(label(f"{on.day} {on:%B}", "faint"))
 
         step = 1 if by_episodes else 15
-        amt = hbox(spacing=6)
         minus = QToolButton(text="−")
         plus = QToolButton(text="+")
         for b, d, tip in ((minus, -step, "Watch less this day"), (plus, step, "Watch more this day")):
@@ -144,11 +139,42 @@ class DayRow(QFrame):
         unit = ("episode" if amount == 1 else "episodes") if by_episodes else "min"
         value = label("Day off" if amount == 0 else f"{amount} {unit}", "small")
         value.setAlignment(Qt.AlignCenter)
+        summary = f"{count} ep · {fmt_minutes(minutes)}" if count else ""
+
+        if theme.COMPACT:
+            # Phone: day header on top, then one card per line.
+            col = vbox(self, 10, 12)
+            head = hbox(spacing=8)
+            head.addWidget(label(WEEKDAYS[on.weekday()], "h2"))
+            if on == today:
+                head.addWidget(badge("Today"))
+            head.addStretch()
+            head.addWidget(minus)
+            value.setMinimumWidth(theme.px(78))
+            head.addWidget(value)
+            head.addWidget(plus)
+            col.addLayout(head)
+            col.addWidget(label(f"{on.day} {on:%B}" + (f"  ·  {summary}" if summary else ""), "faint"))
+            self.cards = QWidget()
+            self.flow = vbox(self.cards, 8)
+            col.addWidget(self.cards)
+            return
+
+        row = hbox(self, 18, 14)
+        side = vbox(spacing=6)
+        head = hbox(spacing=8)
+        head.addWidget(label(WEEKDAYS[on.weekday()], "h2"))
+        if on == today:
+            head.addWidget(badge("Today"))
+        head.addStretch()
+        side.addLayout(head)
+        side.addWidget(label(f"{on.day} {on:%B}", "faint"))
+        amt = hbox(spacing=6)
         amt.addWidget(minus)
         amt.addWidget(value, 1)
         amt.addWidget(plus)
         side.addLayout(amt)
-        side.addWidget(label(f"{count} ep · {fmt_minutes(minutes)}" if count else "", "faint"))
+        side.addWidget(label(summary, "faint"))
         side.addStretch()
         side_w = QWidget()
         side_w.setLayout(side)
@@ -158,7 +184,6 @@ class DayRow(QFrame):
         self.cards = QWidget()
         self.flow = FlowLayout(self.cards, 10)
         row.addWidget(self.cards, 1)
-        self.empty = label("", "muted")
 
     def add(self, w: QWidget) -> None:
         self.flow.addWidget(w)
@@ -216,6 +241,7 @@ class WeekPage(QWidget):
         state, today = self.win.state, date.today()
         scroll = self.area.verticalScrollBar().value()
         clear(self.body)
+        set_margins(self.body, page_margin())
         s = state.settings
         week = state.week
         start = date.fromisoformat(week.week_start) if week else today
@@ -228,6 +254,9 @@ class WeekPage(QWidget):
         titles.addWidget(label(f"{start:%d %b} – {end:%d %b %Y}", "muted"))
         head.addLayout(titles)
         head.addStretch()
+        if theme.COMPACT:  # buttons go on their own row below the title
+            self.body.addLayout(head)
+            head = hbox(spacing=8)
         settings_btn = QPushButton("Customize days")
         settings_btn.setObjectName("ghost")
         settings_btn.clicked.connect(lambda: self.win.open_settings("schedule"))
@@ -247,11 +276,17 @@ class WeekPage(QWidget):
         def mins(its):
             return sum(state.library[i.mal_id].minutes_per_episode for i in its if i.mal_id in state.library)
         todays = [i for i in items if i.day == (today - start).days] if start <= today <= end else []
-        stats = hbox(spacing=12)
-        stats.addWidget(stat(f"{sum(i.done for i in todays)} / {len(todays)}", "Watched today"))
-        stats.addWidget(stat(f"{sum(i.done for i in items)} / {len(items)}", "Episodes this plan"))
-        stats.addWidget(stat(fmt_minutes(mins(items)), "Planned watch time"))
-        stats.addWidget(stat(str(len(rotation)), "Shows watching"))
+        tiles = [stat(f"{sum(i.done for i in todays)} / {len(todays)}", "Watched today"),
+                 stat(f"{sum(i.done for i in items)} / {len(items)}", "Episodes this plan"),
+                 stat(fmt_minutes(mins(items)), "Planned watch time"),
+                 stat(str(len(rotation)), "Shows watching")]
+        stats = QGridLayout()
+        stats.setSpacing(theme.px(10 if theme.COMPACT else 12))
+        for n, tile in enumerate(tiles):
+            if theme.COMPACT:
+                stats.addWidget(tile, n // 2, n % 2)  # 2 × 2 on phones
+            else:
+                stats.addWidget(tile, 0, n)
         self.body.addLayout(stats)
 
         # Now watching.
@@ -335,6 +370,7 @@ class UpNextPage(QWidget):
         state = self.win.state
         scroll = self.area.verticalScrollBar().value()
         clear(self.body)
+        set_margins(self.body, page_margin())
         titles = vbox(spacing=2)
         titles.addWidget(label("Up Next", "h1"))
         titles.addWidget(label("What takes over when each show finishes. The next season always "
@@ -363,7 +399,11 @@ class UpNextPage(QWidget):
         self.area.verticalScrollBar().setValue(scroll)
 
     def _succession(self, current: Anime, sug) -> QFrame:
-        frame, lay = card(margins=14, spacing=16, horizontal=True)
+        compact = theme.COMPACT
+        frame, outer = card(margins=14, spacing=10 if compact else 16, horizontal=not compact)
+        lay = hbox(spacing=12) if compact else outer
+        if compact:
+            outer.addLayout(lay)
         frame.setProperty("clickable", True)
         Clickable(frame).clicked.connect(lambda: self.win.open_profile(current))
         frame.setToolTip(f"Open {current.name}")
@@ -381,9 +421,15 @@ class UpNextPage(QWidget):
         left.addStretch()
         lw = QWidget()
         lw.setLayout(left)
-        lw.setFixedWidth(theme.px(230))
-        lay.addWidget(lw)
-        lay.addWidget(label("→", "arrow"), alignment=Qt.AlignVCenter)
+        if compact:
+            lay.addWidget(lw, 1)
+            outer.addWidget(label("↓", "arrow"), alignment=Qt.AlignHCenter)
+            lay = hbox(spacing=12)
+            outer.addLayout(lay)
+        else:
+            lw.setFixedWidth(theme.px(230))
+            lay.addWidget(lw)
+            lay.addWidget(label("→", "arrow"), alignment=Qt.AlignVCenter)
 
         if sug is None:
             lay.addWidget(label("Nothing to follow it — no next season and your Plan to Watch "
@@ -417,7 +463,10 @@ class UpNextPage(QWidget):
         lay.addWidget(Cover(a.image_url, a.name, 48, 68, 6))
         mid = vbox(spacing=4)
         top = hbox(spacing=8)
-        top.addWidget(label(a.name, "cardTitle"))
+        # A plain label can't shrink below its text width, which would push the page wider
+        # than a phone screen; the elided one shrinks with "…".
+        top.addWidget(ElidedLabel(a.name, "cardTitle") if theme.COMPACT else label(a.name, "cardTitle"),
+                      1 if theme.COMPACT else 0)
         if a.mean_score:
             top.addWidget(badge(f"★ {a.mean_score:.2f}", "badgeAmber"))
         top.addWidget(label(f"{a.episodes_total or '?'} eps", "faint"))
@@ -436,8 +485,15 @@ class UpNextPage(QWidget):
         never = QPushButton("Never suggest")
         never.setObjectName("ghost")
         never.clicked.connect(lambda: self.win.toggle_excluded(a))
-        lay.addWidget(never)
-        lay.addWidget(start)
+        if theme.COMPACT:  # buttons under the text on phones
+            btns = hbox(spacing=8)
+            btns.addStretch()
+            btns.addWidget(never)
+            btns.addWidget(start)
+            mid.addLayout(btns)
+        else:
+            lay.addWidget(never)
+            lay.addWidget(start)
         return frame
 
 
@@ -455,8 +511,10 @@ class PosterDelegate(QStyledItemDelegate):
         super().__init__(parent)
         self.win = win
 
+    cell: QSize | None = None  # set by LibraryPage (phones use a width-filling grid)
+
     def sizeHint(self, option, index) -> QSize:
-        return QSize(theme.px(172), theme.px(300))
+        return self.cell or QSize(theme.px(172), theme.px(300))
 
     def paint(self, p: QPainter, option: QStyleOptionViewItem, index: QModelIndex) -> None:
         anime = self.win.state.library.get(index.data(ID_ROLE))
@@ -568,24 +626,41 @@ class LibraryPage(QWidget):
     def __init__(self, win: MainWindow):
         super().__init__()
         self.win = win
-        root = vbox(self, 14, 28)
-        head = hbox()
-        titles = vbox(spacing=2)
+        self.root = root = vbox(self, 14, 28)
+        self.header = QWidget()
+        self.head_grid = QGridLayout(self.header)
+        self.head_grid.setContentsMargins(0, 0, 0, 0)
+        self.head_grid.setHorizontalSpacing(theme.px(8))
+        self.head_grid.setVerticalSpacing(theme.px(10))
+        self.titles = QWidget()
+        titles = vbox(self.titles, 2)
         titles.addWidget(label("Library", "h1"))
         self.count = label("", "muted")
         titles.addWidget(self.count)
-        head.addLayout(titles)
-        head.addStretch()
         self.search = QLineEdit(placeholderText="Search your list…")
-        self.search.setMinimumWidth(theme.px(260))
         self.sort = QComboBox()
         for text, key in SORTS:
             self.sort.addItem(f"Sort: {text}", key)
-        head.addWidget(self.search)
-        head.addWidget(self.sort)
-        root.addLayout(head)
+        self.import_btn = QPushButton("Import")
+        self.import_btn.setObjectName("ghost")
+        imenu = QMenu(self.import_btn)
+        imenu.addAction("From MAL export file…", win.import_file)
+        imenu.addAction("From MAL username…", win.import_username)
+        imenu.addSeparator()
+        imenu.addAction("Refresh all show details", lambda: win.run_enrich(force=True))
+        self.import_btn.setMenu(imenu)
+        self._head_compact: bool | None = None
+        root.addWidget(self.header)
 
-        chips = hbox(spacing=8)
+        chip_area = QScrollArea()  # scrolls sideways when the chips don't fit (phones)
+        chip_area.setWidgetResizable(True)
+        chip_area.setFrameShape(QFrame.NoFrame)
+        chip_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        chip_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        chip_host = QWidget()
+        chip_host.setObjectName("page")
+        chips = hbox(chip_host, 8)
+        touch_scroll(chip_area)
         self.group = QButtonGroup(self)
         for n, (text, key) in enumerate([("All", "")] + [(STATUS_LABELS[s], s) for s in LIST_STATUSES]):
             b = QPushButton(text)
@@ -598,7 +673,9 @@ class LibraryPage(QWidget):
             if key == "":
                 b.setChecked(True)
         chips.addStretch()
-        root.addLayout(chips)
+        chip_area.setWidget(chip_host)
+        chip_area.setFixedHeight(chip_host.sizeHint().height() + theme.px(2))
+        root.addWidget(chip_area)
 
         self.model = QStandardItemModel()
         self.proxy = LibraryFilter(self)
@@ -616,16 +693,69 @@ class LibraryPage(QWidget):
         self.view.setContextMenuPolicy(Qt.CustomContextMenu)
         self.view.customContextMenuRequested.connect(self._menu)
         self.view.clicked.connect(lambda idx: self._open(idx))
+        touch_scroll(self.view)
+        self.view.viewport().installEventFilter(self)  # re-fit the grid when the view resizes
         root.addWidget(self.view, 1)
-        root.addWidget(label("Click a show for its profile · right-click to change status or progress",
-                             "faint"))
+        self.hint = label("", "faint")
+        root.addWidget(self.hint)
 
         self.search.textChanged.connect(self.proxy.set_text)
         self.group.buttonClicked.connect(lambda b: self.proxy.set_status(b.property("status")))
         self.sort.currentIndexChanged.connect(lambda _: self.refresh())
         cache().loaded.connect(lambda _: self.view.viewport().update())
 
+    def _arrange_header(self) -> None:
+        """Desktop: title left, controls right. Phone: title, then search, then sort + import."""
+        if self._head_compact == theme.COMPACT:
+            return
+        self._head_compact = theme.COMPACT
+        for w in (self.titles, self.search, self.sort, self.import_btn):
+            self.head_grid.removeWidget(w)
+        g = self.head_grid
+        for c in range(4):
+            g.setColumnStretch(c, 0)
+        if theme.COMPACT:
+            self.search.setMinimumWidth(0)
+            g.addWidget(self.titles, 0, 0, 1, 2)
+            g.addWidget(self.search, 1, 0, 1, 2)
+            g.addWidget(self.sort, 2, 0)
+            g.addWidget(self.import_btn, 2, 1)
+            g.setColumnStretch(0, 1)
+            self.hint.setText("Tap a show for its profile — status and progress are there")
+        else:
+            self.search.setMinimumWidth(theme.px(260))
+            g.addWidget(self.titles, 0, 0)
+            g.addWidget(self.search, 0, 1)
+            g.addWidget(self.sort, 0, 2)
+            g.addWidget(self.import_btn, 0, 3)
+            g.setColumnStretch(0, 1)
+            self.hint.setText("Click a show for its profile · right-click to change status or progress")
+        set_margins(self.root, page_margin())
+
+    def _update_grid(self) -> None:
+        """Phones: as many columns as fit (at least 2), filling the width. Desktop: fixed cards."""
+        delegate = self.view.itemDelegate()
+        if theme.COMPACT:
+            vw = max(1, self.view.viewport().width() - theme.px(4))
+            cols = max(2, vw // theme.px(150))
+            w = vw // cols
+            size = QSize(w, round(w * 1.72))
+        else:
+            size = QSize(theme.px(172), theme.px(300))
+        delegate.cell = size
+        self.view.setGridSize(size)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._update_grid()
+
+    def eventFilter(self, obj, event) -> bool:
+        if obj is self.view.viewport() and event.type() == event.Type.Resize:
+            self._update_grid()
+        return False
+
     def refresh(self) -> None:
+        self._arrange_header()
         state = self.win.state
         key = self.sort.currentData()
         self.model.clear()
@@ -651,7 +781,7 @@ class LibraryPage(QWidget):
             counts[a.status] = counts.get(a.status, 0) + 1
         self.count.setText(f"{len(state.library)} shows · {counts['watching']} watching · "
                            f"{counts['completed']} completed · {counts[PLAN_TO_WATCH]} plan to watch")
-        self.view.setGridSize(QSize(theme.px(172), theme.px(300)))
+        self._update_grid()
 
     def _selected(self) -> Anime | None:
         idx = self.view.currentIndex()

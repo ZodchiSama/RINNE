@@ -69,6 +69,7 @@ SUCCESS = DANGER = WARN = GREEN_BG = AMBER_BG = TODAY_BG = ACCENT_CARD = CHIP = 
 STATUS_COLORS: dict[str, str] = {}
 DARK = True
 BACKDROP = False
+COMPACT = False  # phone / narrow-window layout, set by the main window
 current = "midnight"
 
 MIN_ZOOM, MAX_ZOOM = 0.7, 2.0
@@ -97,6 +98,14 @@ def zoom() -> float:
 def px(n: float) -> int:
     """A length in design pixels, scaled by the current zoom."""
     return max(1, round(n * _zoom))
+
+
+def fit_width(preferred: float) -> int:
+    """A dialog/popup width that fits on small screens (phones)."""
+    from PySide6.QtGui import QGuiApplication
+    screen = QGuiApplication.primaryScreen()
+    avail = screen.availableGeometry().width() if screen else 10_000
+    return max(px(240), min(px(preferred), avail - px(24)))
 
 
 def rgba(hex_color: str, alpha: float) -> str:
@@ -187,6 +196,10 @@ def stylesheet() -> str:
     #navBadge {{ background: {ACCENT}; color: {ON_ACCENT}; border-radius: {px(10)}px;
                  min-width: {px(20)}px; max-height: {px(20)}px; min-height: {px(20)}px;
                  padding: 0 {px(5)}px; font-size: {px(11)}px; font-weight: 800; qproperty-alignment: AlignCenter; }}
+    #bottomBar {{ background: {sidebar}; border-top: 1px solid {BORDER}; }}
+    QToolButton#bnav {{ background: transparent; border: none; border-radius: {px(12)}px; color: {MUTED};
+                        padding: {px(6)}px {px(4)}px; font-size: {px(11)}px; font-weight: 700; }}
+    QToolButton#bnav:checked {{ color: {SOFT_TEXT}; background: {ACCENT_SOFT}; }}
     #upNextCard {{ background: {surface_2}; border: 1px solid {BORDER}; border-radius: {px(12)}px; }}
     #upNextCard:hover {{ border: 1px solid {ACCENT}; }}
     #sideSection {{ color: {FAINT}; font-size: {px(11)}px; font-weight: 700;
