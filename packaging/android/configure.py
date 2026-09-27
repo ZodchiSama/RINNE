@@ -21,6 +21,9 @@ values = {
     "android.presplash_color": "#0E1016",
     "android.allow_backup": "True",
     "log_level": "2",
+    # Qt's Android PySide6/shiboken6 wheels link against libpython3.11.so, so the bundled
+    # Python must be 3.11 (python-for-android otherwise builds its newest default).
+    "requirements": "python3==3.11.13,hostpython3==3.11.13,shiboken6,PySide6",
 }
 if icon:
     values["icon.filename"] = icon
