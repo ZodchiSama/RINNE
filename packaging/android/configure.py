@@ -15,6 +15,8 @@ values = {
     "android.api": "35",
     "android.minapi": "28",  # Qt 6 for Android needs Android 9+
     "android.accept_sdk_license": "True",
+    # Pin build-tools: the newest release can need a licence the auto-accept doesn't cover.
+    "android.build_tools_version": "35.0.0",
     "android.presplash_color": "#0E1016",
     "android.allow_backup": "True",
     "log_level": "2",
