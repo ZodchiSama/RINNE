@@ -1,6 +1,11 @@
 """Release notes shown on the About page (newest first)."""
 
 CHANGELOG: list[tuple[str, str, list[str]]] = [
+    ("0.5.2", "Tidier days & Windows", [
+        "Each day's episodes are stacked by show: one card per show, its episodes listed in order",
+        "Shows with the fewest episodes left come first each day (and in “Up next today”)",
+        "Windows version: installer and portable exe, with a dark title bar in dark themes",
+    ]),
     ("0.5.0", "First public release", [
         "Welcome hub on first launch with a quick setup, and a guided tour of the app",
         "Cleaner sidebar with custom icons, today's episode count and an “Up next” card",

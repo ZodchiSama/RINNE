@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rinne"
-version = "0.5.0"
+version = "0.5.2"
 description = "Rinne — a weekly anime schedule from your MyAnimeList list that follows each series"
 requires-python = ">=3.10"
 license = "MIT"
