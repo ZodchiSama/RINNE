@@ -14,7 +14,18 @@ By **Zodchi**.
 Windows may warn that the app is from an unknown publisher, because it isn't code-signed yet:
 click **More info → Run anyway**.
 
-**Linux:**
+**Linux (AppImage):** download `Rinne-<version>-x86_64.AppImage` from the
+[latest release](https://github.com/ZodchiSama/RINNE/releases/latest), make it executable and run it:
+
+```sh
+chmod +x Rinne-*-x86_64.AppImage
+./Rinne-*-x86_64.AppImage
+```
+
+It runs on most distributions from 2022 on, with nothing to install. AppImage managers such as
+Gear Lever or AppImageLauncher can add it to your app menu and update it from GitHub releases.
+
+**Linux (from source):**
 
 ```sh
 git clone https://github.com/ZodchiSama/RINNE.git
@@ -146,7 +157,8 @@ Settings is a full page, and changes apply immediately:
 
 ```sh
 .venv/bin/python -m pytest
-# Windows builds are made by GitHub Actions (.github/workflows/windows.yml) on each v* tag.
+packaging/linux/build_appimage.sh   # AppImage in dist/ (needs the dev dependencies)
+# Windows and AppImage builds are also made by GitHub Actions on each v* tag.
 .venv/bin/python tools/make_icons.py   # rebuild icons from assets/source/
 ```
 

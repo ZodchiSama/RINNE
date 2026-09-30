@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.zodchisama.rinne</id>
+  <name>Rinne</name>
+  <summary>Weekly anime planner that follows each series</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="io.github.zodchisama">
+    <name>Zodchi</name>
+  </developer>
+  <description>
+    <p>
+      Rinne turns your MyAnimeList list into a 7-day watch plan. When a show ends, its next
+      season takes its place automatically — even if it isn't on your list yet — and Rinne
+      explains why.
+    </p>
+    <ul>
+      <li>A weekly schedule built from the shows you're watching</li>
+      <li>Follows every series: sequels replace finished seasons</li>
+      <li>Show profiles with cast, voice actors and announced seasons</li>
+      <li>Themes, a full-HD background slideshow and Discord Rich Presence</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">rinne.desktop</launchable>
+  <url type="homepage">https://github.com/ZodchiSama/RINNE</url>
+  <url type="bugtracker">https://github.com/ZodchiSama/RINNE/issues</url>
+  <content_rating type="oars-1.1"/>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Video</category>
+  </categories>
+  <keywords>
+    <keyword>anime</keyword>
+    <keyword>myanimelist</keyword>
+    <keyword>anilist</keyword>
+    <keyword>schedule</keyword>
+  </keywords>
+  <releases>
+    <release version="@VERSION@" date="@DATE@"/>
+  </releases>
+</component>
