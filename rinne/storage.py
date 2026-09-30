@@ -39,23 +39,12 @@ def _base(xdg_var: str, windows_var: str, linux_default: Path) -> Path:
     return linux_default
 
 
-def _android_base(sub: str) -> Path | None:
-    from .platform import android_private_dir, is_android
-    if is_android() and not os.environ.get("XDG_DATA_HOME"):
-        private = android_private_dir()
-        if private:
-            return Path(private) / sub
-    return None
-
-
 def data_dir() -> Path:
-    base = _android_base("data") or _base("XDG_DATA_HOME", "APPDATA", Path.home() / ".local" / "share")
-    return _app_dir(base)
+    return _app_dir(_base("XDG_DATA_HOME", "APPDATA", Path.home() / ".local" / "share"))
 
 
 def cache_dir() -> Path:
-    base = _android_base("cache") or _base("XDG_CACHE_HOME", "LOCALAPPDATA", Path.home() / ".cache")
-    return _app_dir(base)
+    return _app_dir(_base("XDG_CACHE_HOME", "LOCALAPPDATA", Path.home() / ".cache"))
 
 
 @dataclass

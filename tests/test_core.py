@@ -415,7 +415,7 @@ def test_artwork_parsing_and_cache(monkeypatch, tmp_path):
         calls.append(req.full_url)
         return io.BytesIO(_json.dumps(payload).encode())
 
-    monkeypatch.setattr(artwork.net, "urlopen", fake_urlopen)
+    monkeypatch.setattr(artwork.urllib.request, "urlopen", fake_urlopen)
     a = Anime(1, "x", anilist_id=99)
     artwork.apply(a, artwork.fetch(a.anilist_id, a.mal_id))
     assert a.fanart_url.endswith("fanart1080.jpg") and a.logo_url.endswith("logo.png") and a.artwork_checked
@@ -511,3 +511,30 @@ def test_windows_data_folders(monkeypatch, tmp_path):
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "Local"))
     assert storage.data_dir() == tmp_path / "Roaming" / "rinne"
     assert storage.cache_dir() == tmp_path / "Local" / "rinne"
+
+
+def test_day_is_grouped_by_show_fewest_episodes_left_first():
+    st = make_state(
+        show(1, status=WATCHING, episodes_total=24, title="Long"),
+        show(2, status=WATCHING, episodes_total=12, episodes_watched=10, title="Nearly done"),
+        show(3, status=WATCHING, episodes_total=13, title="Short"),
+        daily_episodes=[6] * 7, max_eps_per_show_per_day=2,
+    )
+    plan = scheduler.build_week(st, MONDAY)
+    monday = [(i.mal_id, i.episode) for i in plan.for_day(0)]
+    # 2 left < 13 left < 24 left, each show's episodes together and in order
+    assert monday == [(2, 11), (2, 12), (3, 1), (3, 2), (1, 1), (1, 2)]
+
+
+def test_ordering_survives_ticking_and_replanning():
+    st = make_state(
+        show(1, status=WATCHING, episodes_total=24, title="Long"),
+        show(2, status=WATCHING, episodes_total=12, episodes_watched=6, title="Half"),
+        daily_episodes=[4] * 7, max_eps_per_show_per_day=2,
+    )
+    scheduler.replan(st, MONDAY)
+    first = st.week.for_day(0)[0]
+    assert first.mal_id == 2  # 6 left beats 24 left
+    scheduler.toggle_item(st, first, MONDAY)
+    monday = [(i.mal_id, i.episode, i.done) for i in st.week.for_day(0)]
+    assert monday[0] == (2, 7, True) and [m for m, _, _ in monday] == [2, 2, 1, 1]

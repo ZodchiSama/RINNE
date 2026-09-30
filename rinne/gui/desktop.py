@@ -13,7 +13,6 @@ from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 from .. import DISPLAY_NAME, scheduler
 from ..discord_rpc import DiscordRPC, build_activity
 from ..models import CURRENTLY_AIRING, WATCHING
-from ..platform import is_android
 
 
 def app_icon() -> QIcon:
@@ -192,7 +191,7 @@ class DesktopMixin:
     def update_presence(self, force: bool = False) -> None:
         s = self.state.settings
         client_id = s.discord_client_id()
-        if not s.discord_enabled or is_android():  # no desktop Discord to talk to on Android
+        if not s.discord_enabled:
             if self._rpc is not None:
                 self._rpc.close()
                 self._rpc = None

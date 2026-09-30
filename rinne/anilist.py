@@ -14,7 +14,7 @@ import urllib.request
 from collections.abc import Callable, Iterable
 from datetime import date, datetime
 
-from . import USER_AGENT, net
+from . import USER_AGENT
 from .models import (
     CURRENTLY_AIRING, FINISHED_AIRING, NOT_YET_AIRED, Anime,
 )
@@ -81,7 +81,7 @@ def query(q: str, variables: dict, retries: int = 3) -> dict:
         req = urllib.request.Request(API, data=body, headers={
             "Content-Type": "application/json", "Accept": "application/json", "User-Agent": USER_AGENT})
         try:
-            with net.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=30) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
             if data.get("errors") and not data.get("data"):
                 raise AniListError(data["errors"][0].get("message", "AniList error"))

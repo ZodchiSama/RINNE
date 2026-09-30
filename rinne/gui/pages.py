@@ -20,7 +20,7 @@ from ..recommender import SERIES, rank
 from . import theme
 from .common import (
     Clickable, ElidedLabel, FlowLayout, airing_text, button_row, page_margin, set_margins,
-    touch_scroll, badge, card, clear, fmt_minutes, hbox, label, progress, progress_text,
+    badge, card, clear, fmt_minutes, hbox, label, progress, progress_text,
     vbox,
 )
 from .images import Cover, cache
@@ -38,7 +38,6 @@ def scroll_page(horizontal: bool = False) -> tuple[QScrollArea, QWidget]:
     inner = QWidget()
     inner.setObjectName("page")
     area.setWidget(inner)
-    touch_scroll(area)
     return area, inner
 
 
@@ -55,57 +54,72 @@ def two_line_label(text: str, width: int, name: str = "cardTitle") -> QLabel:
     return lbl
 
 
-class EpisodeCard(QFrame):
-    toggled = Signal(int)
+class ShowDayCard(QFrame):
+    """One show's episodes for one day, stacked in a single card."""
+
+    toggled = Signal(int)  # index into state.week.items
     opened = Signal()
 
-    def __init__(self, idx: int, anime: Anime | None, item, missed: bool, parent=None):
+    def __init__(self, anime: Anime | None, entries: list[tuple[int, object]], missed: bool, parent=None):
         super().__init__(parent)
         self.setObjectName("episode")
         if not theme.COMPACT:
             self.setFixedWidth(theme.px(262))
-        title = anime.name if anime else f"#{item.mal_id}"
-        finale = bool(anime and anime.episodes_total and item.episode == anime.episodes_total)
-        self.setProperty("missed", missed and not item.done)
-        self.setProperty("finale", finale and not item.done)
+        mal_id = entries[0][1].mal_id
+        title = anime.name if anime else f"#{mal_id}"
+        total = anime.episodes_total if anime else 0
+        all_done = all(it.done for _, it in entries)
+        self.setProperty("missed", missed and not all_done)
+        self.setProperty("finale", any(total and it.episode == total and not it.done for _, it in entries))
+
         lay = hbox(self, 12, 10)
-        lay.addWidget(Cover(anime.image_url if anime else "", title, 46, 66, 7))
-
-        text = vbox(spacing=4)
+        lay.addWidget(Cover(anime.image_url if anime else "", title, 46, 66, 7), alignment=Qt.AlignTop)
+        col = vbox(spacing=4)
         if theme.COMPACT:
-            text.addWidget(ElidedLabel(title, "cardTitle"))
+            col.addWidget(ElidedLabel(title, "cardTitle"))
         else:
-            text.addWidget(two_line_label(title, theme.px(262 - 46 - 24 - 20 - 36)))
-        meta = hbox(spacing=6)
-        meta.addWidget(label(f"Episode {item.episode}", "small"))
-        if finale:
-            meta.addWidget(badge("Finale"))
-        elif item.episode == 1:
-            meta.addWidget(badge("New", "badgeGreen"))
-        meta.addStretch()
-        text.addLayout(meta)
-        text.addStretch()
-        lay.addLayout(text, 1)
+            col.addWidget(two_line_label(title, theme.px(262 - 46 - 24 - 20)))
+        eps = [it.episode for _, it in entries]
+        if len(eps) > 1:
+            span = f"Episodes {eps[0]}–{eps[-1]}" if eps == list(range(eps[0], eps[-1] + 1)) \
+                else "Episodes " + ", ".join(map(str, eps))
+            col.addWidget(label(span, "faint"))
 
-        check = QToolButton()
-        check.setObjectName("check")
-        check.setCheckable(True)
-        check.setChecked(item.done)
-        check.setText("✓" if item.done else "")
-        check.setCursor(Qt.PointingHandCursor)
-        check.setToolTip("Mark as unwatched" if item.done else "Mark as watched")
-        check.clicked.connect(lambda: self.toggled.emit(idx))
-        lay.addWidget(check, alignment=Qt.AlignVCenter)
+        for idx, it in entries:
+            row_w = QWidget()
+            row = hbox(row_w, 6)
+            row.addWidget(label(f"Episode {it.episode}", "small"))
+            if total and it.episode == total:
+                row.addWidget(badge("Finale"))
+            elif it.episode == 1:
+                row.addWidget(badge("New", "badgeGreen"))
+            row.addStretch()
+            check = QToolButton()
+            check.setObjectName("check")
+            check.setCheckable(True)
+            check.setChecked(it.done)
+            check.setText("✓" if it.done else "")
+            check.setCursor(Qt.PointingHandCursor)
+            check.setToolTip(("Mark as unwatched" if it.done else "Mark as watched") + f" — episode {it.episode}")
+            check.clicked.connect(lambda _=False, i=idx: self.toggled.emit(i))
+            row.addWidget(check)
+            tips = [f"{title} — episode {it.episode}"]
+            if it.note:
+                tips.append(it.note)
+            if missed and not it.done:
+                tips.append("Missed — tick it if you watched it, or it'll be rescheduled on replan")
+            row_w.setToolTip("\n".join(tips))
+            if it.done and not all_done:
+                fx = QGraphicsOpacityEffect(row_w)
+                fx.setOpacity(0.45)
+                row_w.setGraphicsEffect(fx)
+            col.addWidget(row_w)
+        col.addStretch()
+        lay.addLayout(col, 1)
 
-        tips = [title]
-        if item.note:
-            tips.append(item.note)
-        if missed and not item.done:
-            tips.append("Missed — tick it if you watched it, or it'll be rescheduled on replan")
         if anime and anime.genres:
-            tips.append(", ".join(anime.genres[:5]))
-        self.setToolTip("\n".join(tips))
-        if item.done:
+            self.setToolTip(f"{title}\n{', '.join(anime.genres[:5])}")
+        if all_done:
             fx = QGraphicsOpacityEffect(self)
             fx.setOpacity(0.45)
             self.setGraphicsEffect(fx)
@@ -336,13 +350,17 @@ class WeekPage(QWidget):
             row = DayRow(on.weekday(), on, today, s.day_amount(on.weekday()), s.plan_by == EPISODES,
                          mins(i for _, i in day_items), len(day_items))
             row.amount_changed.connect(self.win.change_day_amount)
+            # One card per show, in the plan's order (fewest episodes left first).
+            groups: dict[int, list] = {}
             for n, it in day_items:
-                anime = state.library.get(it.mal_id)
-                ep = EpisodeCard(n, anime, it, on < today)
-                ep.toggled.connect(self.win.toggle_item)
+                groups.setdefault(it.mal_id, []).append((n, it))
+            for mal_id, entries in groups.items():
+                anime = state.library.get(mal_id)
+                show_card = ShowDayCard(anime, entries, on < today)
+                show_card.toggled.connect(self.win.toggle_item)
                 if anime:
-                    ep.opened.connect(lambda a=anime: self.win.open_profile(a))
-                row.add(ep)
+                    show_card.opened.connect(lambda a=anime: self.win.open_profile(a))
+                row.add(show_card)
             if on < today:
                 empty = "—"
             elif s.day_amount(day) == 0:
@@ -662,7 +680,6 @@ class LibraryPage(QWidget):
         chip_host = QWidget()
         chip_host.setObjectName("page")
         chips = hbox(chip_host, 8)
-        touch_scroll(chip_area)
         self.group = QButtonGroup(self)
         for n, (text, key) in enumerate([("All", "")] + [(STATUS_LABELS[s], s) for s in LIST_STATUSES]):
             b = QPushButton(text)
@@ -696,7 +713,6 @@ class LibraryPage(QWidget):
         self.view.setContextMenuPolicy(Qt.CustomContextMenu)
         self.view.customContextMenuRequested.connect(self._menu)
         self.view.clicked.connect(lambda idx: self._open(idx))
-        touch_scroll(self.view)
         self.view.viewport().installEventFilter(self)  # re-fit the grid when the view resizes
         root.addWidget(self.view, 1)
         self.hint = label("", "faint", wrap=True)

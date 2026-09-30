@@ -13,16 +13,6 @@ from ..models import CURRENTLY_AIRING, WEEKDAYS, Anime
 from . import theme
 
 
-def touch_scroll(area) -> None:
-    """Flick-to-scroll with a finger on Android (Qt widgets don't do it by default)."""
-    from ..platform import is_android
-    if not is_android():
-        return
-    from PySide6.QtWidgets import QScroller
-    target = area.viewport() if hasattr(area, "viewport") else area
-    QScroller.grabGesture(target, QScroller.LeftMouseButtonGesture)
-
-
 def button_row(*widgets, spacing: float = 8, stretch_before: bool = False) -> QWidget:
     """A row of buttons. On phones it wraps onto more lines instead of forcing the page wider."""
     host = QWidget()

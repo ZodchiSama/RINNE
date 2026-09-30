@@ -13,8 +13,7 @@ from PySide6.QtWidgets import (
 from .. import DISPLAY_NAME, __version__
 from ..models import EPISODES, TITLE_LANGUAGES
 from . import icons, theme
-from .common import FlowLayout, Switch, button_row, card, clear, hbox, label, touch_scroll, vbox
-from ..platform import is_android
+from .common import FlowLayout, Switch, button_row, card, clear, hbox, label, vbox
 from .settings import asset, theme_card
 
 if TYPE_CHECKING:
@@ -62,7 +61,6 @@ class WelcomePage(QWidget):
         self.area.setWidgetResizable(True)
         self.area.setFrameShape(QFrame.NoFrame)
         self.area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        touch_scroll(self.area)
         inner = QWidget()
         inner.setObjectName("page")
         self.area.setWidget(inner)
@@ -328,15 +326,14 @@ class WelcomePage(QWidget):
             seg.addWidget(b)
         row.addWidget(seg_box)
         ol.addLayout(row)
-        options = [("backdrop", "Background slideshow", "Full-HD art from today's shows behind the window.",
-                    "backdrop")]
-        if not is_android():  # Discord and desktop notifications are desktop-only for now
-            options += [
-                ("discord_enabled", "Discord Rich Presence",
-                 "Show “Watching Rinne” and today's next episode on your Discord profile.", "discord"),
-                ("notify_new_episodes", "New-episode notifications",
-                 "A desktop notification when a show you're watching airs a new episode.", "save"),
-            ]
+        options = [
+            ("backdrop", "Background slideshow", "Full-HD art from today's shows behind the window.",
+             "backdrop"),
+            ("discord_enabled", "Discord Rich Presence",
+             "Show “Watching Rinne” and today's next episode on your Discord profile.", "discord"),
+            ("notify_new_episodes", "New-episode notifications",
+             "A desktop notification when a show you're watching airs a new episode.", "save"),
+        ]
         for attr, title, desc, kind in options:
             r = hbox(spacing=10)
             tx = vbox(spacing=2)

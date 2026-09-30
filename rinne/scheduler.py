@@ -126,7 +126,22 @@ def build_week(state: State, week_start: date, from_day: int = 0) -> WeekPlan:
                         break
                 rr += 1
 
-    return WeekPlan(iso, kept + items)
+    return WeekPlan(iso, order_items(kept + items, state.library))
+
+
+def episodes_left(anime: Anime | None) -> int:
+    """Episodes still to watch; shows of unknown length count as very long."""
+    if anime is None or not anime.episodes_total:
+        return 10**6
+    return max(0, anime.episodes_total - anime.episodes_watched)
+
+
+def order_items(items: list[ScheduleItem], library: dict[int, Anime]) -> list[ScheduleItem]:
+    """Within each day: the show with the fewest episodes left first, and a show's episodes
+    together in order (so they stack instead of being interleaved)."""
+    return sorted(items, key=lambda i: (i.day, episodes_left(library.get(i.mal_id)),
+                                        (library[i.mal_id].name.lower() if i.mal_id in library else ""),
+                                        i.mal_id, i.episode))
 
 
 @dataclass

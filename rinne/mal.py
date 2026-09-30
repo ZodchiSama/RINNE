@@ -21,7 +21,7 @@ import xml.etree.ElementTree as ET
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
-from . import USER_AGENT, net
+from . import USER_AGENT
 from .models import (
     COMPLETED,
     CURRENTLY_AIRING,
@@ -122,7 +122,7 @@ def _get_json(url: str, headers: dict[str, str] | None = None, retries: int = 3)
     delay = 1.0
     for attempt in range(retries):
         try:
-            with net.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=30) as resp:
                 body = resp.read()
                 if resp.headers.get("Content-Encoding") == "gzip":
                     body = gzip.decompress(body)

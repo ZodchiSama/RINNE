@@ -16,10 +16,9 @@ from PySide6.QtWidgets import (
 from .. import DISPLAY_NAME, __version__
 from ..models import EPISODES, MINUTES, TITLE_LANGUAGES, WEEKDAYS, Settings
 from ..storage import cache_dir, data_dir, state_path
-from . import files, theme
-from ..platform import is_android
+from . import theme
 from .common import (
-    Clickable, FlowLayout, Switch, badge, button_row, card, clear, hbox, label, set_margins, touch_scroll,
+    Clickable, FlowLayout, Switch, badge, button_row, card, clear, hbox, label, set_margins,
     vbox,
 )
 from .pages import scroll_page
@@ -136,8 +135,7 @@ class SettingsPage(QWidget):
         self.area.verticalScrollBar().setValue(0)
 
     def sections(self) -> list[tuple[str, str]]:
-        """Discord needs the desktop Discord app, so its section is hidden on Android."""
-        return [(k, v) for k, v in SECTIONS if not (k == "discord" and is_android())]
+        return list(SECTIONS)
 
     def refresh(self) -> None:
         for b in self.nav.buttons():
@@ -174,7 +172,6 @@ class SettingsPage(QWidget):
         area.setWidget(host)
         area.setProperty("sideways", True)
         area.setFixedHeight(host.sizeHint().height() + theme.px(2))
-        touch_scroll(area)
         return area
 
     # ------------------------------------------------------------------ building blocks
@@ -253,20 +250,18 @@ class SettingsPage(QWidget):
         start = self._combo(START_PAGES, s.start_page)
         start.currentIndexChanged.connect(lambda _: self._set("start_page", start.currentData()))
         self._row("Open on", "The page Rinne shows when it starts.", start)
-        tray = self.win.tray_available() and not is_android()
-        if not is_android():
-            self._switch("Start minimized to the tray", "Launch quietly in the system tray." +
-                         ("" if tray else " <i>(No system tray detected.)</i>"), "start_minimized", enabled=tray)
+        tray = self.win.tray_available()
+        self._switch("Start minimized to the tray", "Launch quietly in the system tray." +
+                     ("" if tray else " <i>(No system tray detected.)</i>"), "start_minimized", enabled=tray)
         self._switch("Check airing shows on startup",
                      "Refresh episode counts and next-episode dates for shows you're watching that "
                      "are still airing.", "refresh_on_startup")
 
-        if not is_android():
-            self._group("Window")
-            self._switch("Keep running in the tray when closed",
+        self._group("Window")
+        self._switch("Keep running in the tray when closed",
                      "Closing the window hides Rinne to the tray so notifications keep working. "
-                         "Quit from the tray menu." + ("" if tray else " <i>(No system tray detected.)</i>"),
-                         "close_to_tray", kind="tray", enabled=tray)
+                     "Quit from the tray menu." + ("" if tray else " <i>(No system tray detected.)</i>"),
+                     "close_to_tray", kind="tray", enabled=tray)
 
         self._group("Getting started")
         again = button_row(self._button("Show the welcome screen", self.win.show_welcome),
@@ -413,10 +408,6 @@ class SettingsPage(QWidget):
 
     def _build_notifications(self, s: Settings) -> None:
         self._header("Notifications", "Desktop notifications about your shows.")
-        if is_android():
-            self.body.addWidget(label("Notifications aren't available on Android yet — they're coming "
-                                      "in a future version.", "muted", wrap=True))
-            return
         self._switch("New episode aired",
                      "When a new episode of a show on your Watching list comes out.", "notify_new_episodes")
         self._switch("Daily reminder", "A summary of today's plan at a time you choose.", "daily_reminder")
@@ -520,7 +511,7 @@ class SettingsPage(QWidget):
                                               "Rinne backup (*.json)")
         if path:
             self.win.save()
-            files.write_bytes(path, state_path().read_bytes())
+            shutil.copyfile(state_path(), path)
             self.win.statusBar().showMessage("Backup saved", 6000)
 
     def _restore(self) -> None:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import date
+from pathlib import Path
 
 from PySide6.QtCore import QEvent, QObject, QSize, Qt, QThread, QTimer, QUrl, Signal
 from PySide6.QtGui import QDesktopServices, QKeySequence, QPixmap, QShortcut
@@ -13,10 +14,9 @@ from PySide6.QtWidgets import (
 )
 
 from .. import DISPLAY_NAME, __version__, artwork, mal, models, scheduler
-from ..platform import is_android
 from ..models import COMPLETED, WATCHING, Anime
 from ..storage import load_state, save_state
-from . import files, icons, theme
+from . import icons, theme
 from .common import Clickable, ElidedLabel, clear, hbox, label, vbox
 from .images import Cover
 from .backdrop import Backdrop
@@ -65,9 +65,6 @@ class MainWindow(DesktopMixin, QMainWindow):
         self.state = load_state()
         models.title_language = self.state.settings.title_language
         s = self.state.settings
-        # On Android, build the phone layout from the start: the desktop layout's minimum width
-        # is wider than a phone, and Android would size the window to it.
-        theme.COMPACT = is_android()
         theme.apply(QApplication.instance(), s.zoom, s.theme, s.backdrop)
         self._jobs: list[tuple[QThread, Worker]] = []
         self._exclusive: tuple[QThread, Worker] | None = None
@@ -336,7 +333,7 @@ class MainWindow(DesktopMixin, QMainWindow):
 
     def _apply_compact(self) -> None:
         """Switch between the desktop layout and the phone layout."""
-        compact = is_android() or self.width() < theme.px(820)
+        compact = self.width() < theme.px(820)
         if compact == self._compact:
             return
         self._compact = compact
@@ -355,9 +352,7 @@ class MainWindow(DesktopMixin, QMainWindow):
         screen = self.screen().availableGeometry() if self.screen() else None
         if screen is None:
             return
-        if is_android():
-            self.setGeometry(screen)
-        elif self.width() > screen.width():
+        if self.width() > screen.width():
             self.resize(screen.width(), self.height())
 
     def _refresh_all(self) -> None:
@@ -703,7 +698,7 @@ class MainWindow(DesktopMixin, QMainWindow):
 
         from ..storage import State
         try:
-            state = State.from_dict(json.loads(files.read_bytes(str(path)).decode("utf-8")))
+            state = State.from_dict(json.loads(Path(path).read_text(encoding="utf-8")))
         except (OSError, ValueError, KeyError, TypeError) as e:
             QMessageBox.warning(self, "Restore failed", f"That file isn't a valid backup: {e}")
             return
@@ -735,7 +730,7 @@ class MainWindow(DesktopMixin, QMainWindow):
         if not path:
             return
         try:
-            entries = mal.parse_mal_export_bytes(files.read_bytes(path))
+            entries = mal.parse_mal_export(path)
         except (mal.ImportError_, OSError) as e:
             QMessageBox.warning(self, "Import failed", str(e))
             return
