@@ -10,9 +10,9 @@ USER_AGENT = f"Rinne/{__version__} (+linux desktop app)"
 DISCORD_APP_ID = "1553831739510628383"
 
 # Rinne's registered API clients (public identifiers, not secrets). Empty = not set up yet.
-MAL_CLIENT_ID = ""  # myanimelist.net/apiconfig, app type "other", redirect MAL_REDIRECT below
+MAL_CLIENT_ID = "66e1801e97640f29adf276a76c99eba6"  # myanimelist.net/apiconfig, app type "other", redirect MAL_REDIRECT below
 MAL_REDIRECT = "http://localhost:47811/callback"
-ANILIST_CLIENT_ID = ""  # anilist.co/settings/developer, redirect https://anilist.co/api/v2/oauth/pin
+ANILIST_CLIENT_ID = "52457"  # anilist.co/settings/developer, redirect https://anilist.co/api/v2/oauth/pin
 
 # Project links shown on the About page and used by the feedback dialog.
 # Leave a value empty to hide its button.
