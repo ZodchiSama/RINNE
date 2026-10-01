@@ -34,6 +34,14 @@ class ServicesMixin:
                 self.statusBar().showMessage(f"Rinne {rel['version']} is available"
                                              + (f": update it with {manager}" if manager else ""), 10000)
             self._show_update_chip()
+            if rel and not manager and s.update_alerted != rel["version"]:
+                s.update_alerted = rel["version"]  # one popup and one notification per release
+                self.save()
+                if s.notify_updates:
+                    self.notify(f"Rinne {rel['version']} is available", "Open Rinne to see what's new.")
+                if not manual:
+                    from .dialogs import UpdateDialog
+                    UpdateDialog(rel, self.open_update_page, self).exec()
             if on_result:
                 on_result(rel, None)
 
@@ -194,6 +202,7 @@ class ServicesMixin:
             self.statusBar().showMessage(f"Connected to MyAnimeList as {name}", 6000)
             if on_result:
                 on_result(None)
+            self.pull_account("mal")
 
         def failed(msg: str) -> None:
             if on_result:
@@ -224,9 +233,34 @@ class ServicesMixin:
             self.statusBar().showMessage(f"Connected to AniList as {name}", 6000)
             if on_result:
                 on_result(None)
+            self.pull_account("anilist")
 
         self._run(sync.anilist_viewer, (token,), done, with_progress=False, exclusive=False,
                   on_error=lambda msg: (on_result or (lambda m: QMessageBox.warning(self, "AniList", m)))(msg))
+
+    def pull_account(self, service: str) -> None:
+        """Bring in the list of a connected account (private entries too)."""
+        s = self.state.settings
+
+        def job(progress=None):
+            if service == "mal":
+                tokens = sync.mal_valid_token(s.mal_api_client_id(), s.mal_token)
+                return tokens, mal.fetch_mal_list("@me", s.mal_api_client_id(), progress,
+                                                  token=tokens["access_token"])
+            return None, anilist.fetch_user_list(s.anilist_user, progress, token=s.anilist_token)[0]
+
+        def done(result) -> None:
+            tokens, entries = result
+            if tokens:
+                s.mal_token = tokens
+            self._finish_import(entries)
+            # What the account holds now is the starting point for sync, so the import itself
+            # isn't sent back.
+            self.state.synced[service] = sync.baseline(self.state.library)
+            self.save()
+            self.refresh()
+
+        self._run(job, (), done)
 
     def disconnect_account(self, service: str) -> None:
         s = self.state.settings

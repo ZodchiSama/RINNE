@@ -750,7 +750,7 @@ def test_anilist_user_list_import(monkeypatch):
     monkeypatch.setattr(anilist, "_write_cache", lambda *a: None)
     def media(i, mal_id, title):
         return {"id": i, "idMal": mal_id, "title": {"romaji": title, "english": title + " EN"}, "episodes": 12}
-    monkeypatch.setattr(anilist, "query", lambda q, v: {"MediaListCollection": {"lists": [
+    monkeypatch.setattr(anilist, "query", lambda q, v, **kw: {"MediaListCollection": {"lists": [
         {"entries": [{"status": "CURRENT", "progress": 4, "score": 8, "priority": 3, "media": media(10, 1, "A")},
                      {"status": "COMPLETED", "progress": 0, "score": 9, "priority": 0, "media": media(11, 2, "B")},
                      {"status": "PLANNING", "progress": 0, "score": 0, "priority": 0, "media": media(12, None, "No MAL")}]},
@@ -762,7 +762,7 @@ def test_anilist_user_list_import(monkeypatch):
     assert entries[0].priority == 2 and entries[0].user_score == 8 and entries[0].enriched
     assert entries[0].title_english == "A EN" and entries[0].anilist_id == 10
 
-    def private(q, v):
+    def private(q, v, **kw):
         raise anilist.AniListError("Private User")
     monkeypatch.setattr(anilist, "query", private)
     with pytest.raises(mal.ImportError_, match="private"):
@@ -859,3 +859,15 @@ def test_update_check_knows_who_updates_packaged_copies(monkeypatch):
     assert updates.managed_by() == ""  # AppImage / Windows exe: Rinne checks GitHub itself
     monkeypatch.setenv("FLATPAK_ID", "io.github.zodchisama.rinne")
     assert updates.managed_by() == "Flatpak"
+
+
+def test_connected_mal_import_uses_the_sign_in_token(monkeypatch):
+    seen = {}
+
+    def fake_get(url, headers=None, retries=3):
+        seen["url"], seen["headers"] = url, headers
+        return {"data": [], "paging": {}}
+    monkeypatch.setattr(mal, "_get_json", fake_get)
+    mal.fetch_mal_list("@me", "cid", token="tok")
+    assert "/users/%40me/animelist" in seen["url"] or "/users/@me/animelist" in seen["url"]
+    assert seen["headers"] == {"Authorization": "Bearer tok"}  # private lists work too

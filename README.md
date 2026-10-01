@@ -14,16 +14,18 @@ By **Zodchi** · [MIT License](LICENSE)
 
 ## Features
 
-- **A 7-day plan** built from the shows you're watching, with episode titles and thumbnails.
-  The rest of the plan reshuffles as you tick episodes off.
+- **A weekly plan** (Sunday to Saturday) built from the shows you're watching, with episode
+  titles and thumbnails. Finish a day's episodes and it's checked off with a little celebration.
+- **Weekly goals:** days left unfinished wait until the week restarts (00:00 Sunday), then count
+  as failed. Stats keeps your completed and failed days.
 - **Follows every series.** A finished show is replaced by its next season. Only when a series
   runs out does Rinne pick from your Plan to Watch, and it explains each choice.
 - **You stay in control.** Drag a show to another day, pause or pin a show, set a show's pace,
   and give each weekday its own amount of episodes or minutes.
 - **Airing shows** are scheduled as episodes come out, and you catch up if you fall behind.
 - **New seasons** of shows you've watched are announced, and can be added automatically.
-- **Account sync** with MyAnimeList and AniList: ticked episodes, status changes and scores are
-  sent for you.
+- **Connect MyAnimeList or AniList:** your list comes in, private entries too, and ticked
+  episodes, status changes and scores are sent back for you.
 - **Show profiles** with synopsis, cast and voice actors, related entries, upcoming seasons and
   where to watch.
 - **Stats** and a weekly recap, plus a **calendar file** for Google Calendar, Thunderbird and
@@ -66,21 +68,22 @@ cd RINNE
 ./install.sh          # virtual environment, `rinne` command, icon and app-menu entry
 ```
 
-Rinne checks GitHub for new versions once a day and shows an **Update** button when one is out
-(Settings → General). AUR and Flatpak copies update through your package manager instead.
+Rinne checks GitHub for new versions once a day. When one is out it shows the release notes once,
+sends a notification, and keeps an **Update** button in the sidebar (Settings → General). After
+updating, a one-time *What's new* window lists the changes, and they stay in Settings → About.
+AUR and Flatpak copies update through your package manager instead.
 
 ## Getting your list in
 
-On first launch, a welcome screen walks you through importing and setting up your week. You can
-replay it, and a short tour, from Settings → General.
+On first launch, a welcome screen walks you through connecting your account and setting up your
+week. You can replay it, and a short tour, from Settings → General.
 
-- **MyAnimeList export file (no setup):** on MAL go to *Profile → Export*
-  (`myanimelist.net/panel.php?go=export`), export your anime list, then use
-  **Import → From MAL export file** on the `.xml.gz` file.
-- **MyAnimeList username:** **Import → From MAL username**. Needs a MAL Client ID, see
-  *Settings → Library & Data*.
-- **AniList username:** **Import → From AniList username**. Works with any public AniList profile,
-  no setup.
+- **Connect your account (recommended):** press **Connect** in the sidebar and sign in to
+  MyAnimeList or AniList. Rinne brings in your whole list, private entries included, and keeps
+  your account up to date from then on.
+- **Import by hand:** if you'd rather not connect, use *Don't want to connect?* in the same
+  window. You can import a MAL export file (*Profile → Export* on MAL), a MAL username, or a
+  public AniList username. Rinne first lists what you'd miss without a connection.
 
 Rinne then fills in show details from **AniList**: covers, English, romaji and Japanese titles,
 sequel links, episode lengths and exact airing dates. Episode titles and fan art come from
@@ -90,17 +93,19 @@ Re-importing is safe: progress you tracked in Rinne is never rolled back by an o
 
 ## Account sync
 
-In **Settings → Accounts**, connect MyAnimeList, AniList, or both. From then on, the episodes
+Once you're connected (from **Connect** in the sidebar or **Settings → Accounts**), the episodes
 you tick, status changes and scores are sent a few seconds later, and only for shows that
-changed. Sign-ins are stored only on your computer. Turn sending off per service at any time, or
-press **Sync now**.
+changed. Sign-ins are stored only on your computer. Turn sending off per service at any time,
+press **Sync now**, or bring your list in again from the Connect window.
 
 ## Using Rinne
 
-- **Your Week:** today is at the top, with one card per show listing its episodes. Tick an
-  episode when you've watched it. **Drag** a show onto another day to move it, or within a day to
-  reorder. Use **−** / **+** to change a day's amount. **Replan from today** (Ctrl R) starts a
-  fresh week.
+- **Your Week:** the week runs Sunday to Saturday, with a strip showing each day at a glance and
+  one card per show listing its episodes. Tick an episode when you've watched it. When a day is
+  done it folds into a one-line summary (**Show** opens it again). Earlier days you didn't
+  finish stay open, marked *Unfinished*. **Drag** a show onto another day to move it, or within
+  a day to reorder. Use **−** / **+** to change a day's amount. **Replan from today** (Ctrl R)
+  plans the rest of the week again.
 - **Click any show** to open its profile. You'll see why it's in your plan, its episodes, cast
   and voice actors, related entries and upcoming seasons, and where to watch it. **Your plan for
   this show** has the per-show controls:
@@ -110,8 +115,11 @@ press **Sync now**.
 - **Up Next:** newly announced seasons, and what takes over each show when it ends.
 - **Library:** your whole list as posters. Filter, search, sort, and right-click for quick
   changes.
-- **Stats:** episodes per week and per day, streaks, top genres and all-time totals. On Sunday
-  evenings a notification recaps your week (Settings → Notifications).
+- **Stats:** your daily goals (days complete and failed, success rate, a grid of recent weeks),
+  episodes per week and per day, streaks, top genres and all-time totals.
+- **Notifications** (Settings → Notifications): new episodes, a daily reminder, a Saturday
+  recap, a heads-up on Saturday evening if days are still unfinished, the start of a new week,
+  and new Rinne versions.
 - **Calendar:** **Settings → Schedule → Calendar** exports your plan as an `.ics` file, or keeps
   one updated for calendar apps to subscribe to.
 - **Zoom** with Ctrl + / Ctrl − or Ctrl + mouse wheel, and **Ctrl 0** resets it.
@@ -119,6 +127,8 @@ press **Sync now**.
 
 ## How scheduling works
 
+- **Weeks run Sunday to Saturday.** At 00:00 Sunday a new week is planned. Any day of the old
+  week with episodes left unticked counts as failed.
 - **Only shows on your Watching list are scheduled.** Plan to Watch shows join when one replaces
   a finished show, or when you press *Start watching*.
 - Plan by **episodes** or **minutes per day**, set separately for each weekday (0 = day off).

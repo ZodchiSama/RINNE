@@ -4,11 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QRectF, Qt, QUrl
-from PySide6.QtGui import QColor, QDesktopServices, QPainter, QPixmap, QRadialGradient
-from PySide6.QtWidgets import (
-    QButtonGroup, QFrame, QLabel, QLineEdit, QPushButton, QScrollArea, QWidget,
-)
+from PySide6.QtCore import QRectF, Qt
+from PySide6.QtGui import QColor, QPainter, QPixmap, QRadialGradient
+from PySide6.QtWidgets import QButtonGroup, QFrame, QLabel, QPushButton, QScrollArea, QWidget
 
 from .. import DISPLAY_NAME, __version__
 from ..models import EPISODES, TITLE_LANGUAGES
@@ -21,7 +19,6 @@ if TYPE_CHECKING:
     from .window import MainWindow
 
 STEPS = ["Welcome", "Your list", "Your week", "Make it yours", "Ready"]
-EXPORT_HELP = "https://myanimelist.net/panel.php?go=export"
 
 
 class Glow(QLabel):
@@ -185,8 +182,9 @@ class WelcomePage(QWidget):
         self.body.addWidget(foot)
 
     def _step_1(self) -> None:
-        self._title("Bring in your list", "Rinne builds your week from your MyAnimeList list. "
-                    "You can do this later from Import in the sidebar.")
+        self._title("Connect your list", "Sign in to MyAnimeList or AniList: Rinne brings in your list and "
+                    "keeps your account up to date as you tick episodes. You can do this later from "
+                    "Connect in the sidebar.")
         n = len(self.win.state.library)
         if n:
             ok, lay = card(margins=16, spacing=4)
@@ -196,87 +194,43 @@ class WelcomePage(QWidget):
             lay.addWidget(label(self.import_note or "Covers and details load in the background.", "small", wrap=True))
             self.body.addWidget(ok)
 
-        a, al = card(margins=18, spacing=8)
-        al.addWidget(label("From a MAL export file", "h2"))
-        al.addWidget(label("No account setup needed. On MyAnimeList open Profile → Export, choose "
-                           "Anime List, and download the file.", "small", wrap=True))
-        f = QPushButton("Choose export file…")
-        f.setObjectName("primary")
-        f.clicked.connect(self._import_file)
-        h = QPushButton("Open MAL export page ↗")
-        h.setObjectName("ghost")
-        h.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(EXPORT_HELP)))
-        al.addWidget(button_row(f, h))
-        self.body.addWidget(a)
+        from .connect import SERVICES, connected_name
+        row = (vbox if theme.COMPACT else hbox)(spacing=12)
+        for key, name, how in SERVICES:
+            frame, cl = card(margins=20, spacing=8)
+            cl.addWidget(label(name, "h2"))
+            user = connected_name(self.win, key)
+            if user:
+                cl.addWidget(label(f"✓ Connected as {user}", "small"))
+            else:
+                cl.addWidget(label(how, "small", wrap=True))
+                go = QPushButton(f"Connect {name}")
+                go.setObjectName("primary")
+                go.setMinimumHeight(theme.px(42))
+                go.clicked.connect(lambda _=False, k=key: self._connect(k))
+                cl.addWidget(go)
+            cl.addStretch()
+            row.addWidget(frame, 1)
+        self.body.addLayout(row)
 
-        c, cl = card(margins=18, spacing=8)
-        cl.addWidget(label("From AniList", "h2"))
-        cl.addWidget(label("Use your AniList list instead — just your username (the list must be public).",
-                           "small", wrap=True))
-        al_user = QLineEdit(self.win.state.settings.anilist_username)
-        al_user.setPlaceholderText("AniList username")
-        al_go = QPushButton("Import")
-        al_go.setObjectName("ghost")
-        al_go.clicked.connect(lambda: self._import_anilist(al_user.text()))
-        al_row = (vbox if theme.COMPACT else hbox)(spacing=8)
-        al_row.addWidget(al_user, 1)
-        al_row.addWidget(al_go)
-        cl.addLayout(al_row)
-        self.body.addWidget(c)
-
-        b, bl = card(margins=18, spacing=8)
-        bl.addWidget(label("By MyAnimeList username", "h2"))
-        bl.addWidget(label("Uses the official MAL API, which needs a free Client ID from "
-                           "<a href='https://myanimelist.net/apiconfig'>myanimelist.net/apiconfig</a> "
-                           "(Create ID → app type “other”).", "small", wrap=True, rich=True))
-        s = self.win.state.settings
-        user = QLineEdit(s.mal_username)
-        user.setPlaceholderText("MAL username")
-        cid = QLineEdit(s.mal_client_id)
-        cid.setPlaceholderText("API Client ID")
-        cid.setEchoMode(QLineEdit.PasswordEchoOnEdit)
-        row2 = (vbox if theme.COMPACT else hbox)(spacing=8)
-        row2.addWidget(user, 1)
-        row2.addWidget(cid, 1)
-        go = QPushButton("Import")
-        go.setObjectName("ghost")
-        go.clicked.connect(lambda: self._import_user(user.text(), cid.text()))
-        row2.addWidget(go)
-        bl.addLayout(row2)
-        for lbl in b.findChildren(QLabel):
-            lbl.setOpenExternalLinks(True)
-        self.body.addWidget(b)
+        manual = QPushButton("Don't want to connect? Import a file or username instead")
+        manual.setObjectName("link")
+        manual.clicked.connect(self._manual)
+        self.body.addWidget(manual, alignment=Qt.AlignLeft)
         self._nav("Continue" if n else "Skip for now")
 
-    def _import_anilist(self, user: str) -> None:
-        if not user.strip():
-            self.import_note = "Enter your AniList username."
+    def _connect(self, key: str) -> None:
+        def result(msg) -> None:
+            self.import_note = msg or "Connected. Bringing in your list…"
             self.refresh()
-            return
-        self.import_note = f"Importing {user.strip()}'s AniList list…"
-        self.win.import_anilist(user.strip())
-        self.refresh()
+        (self.win.connect_mal if key == "mal" else self.win.connect_anilist)(result)
 
-    def _import_file(self) -> None:
+    def _manual(self) -> None:
         before = len(self.win.state.library)
-        self.win.import_file()
+        self.win.import_manually()
         added = len(self.win.state.library) - before
-        if added or len(self.win.state.library):
-            self.import_note = (f"Added {added} shows. " if added else "") + \
-                "Fetching covers and details in the background…"
-        self.refresh()
-
-    def _import_user(self, user: str, cid: str) -> None:
-        user, cid = user.strip(), cid.strip()
-        if not user or not cid:
-            self.import_note = "Enter both your username and a Client ID."
-            self.refresh()
-            return
-        s = self.win.state.settings
-        s.mal_username, s.mal_client_id = user, cid
-        self.win.save()
-        self.import_note = f"Importing {user}'s list…"
-        self.win.import_username_direct(user, cid)
+        if added:
+            self.import_note = f"Added {added} shows. Fetching covers and details in the background…"
         self.refresh()
 
     def _step_2(self) -> None:

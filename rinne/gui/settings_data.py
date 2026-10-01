@@ -78,11 +78,11 @@ class DataSections:
         cid.setMinimumWidth(theme.px(240))
         cid.editingFinished.connect(lambda: self._set("mal_client_id", cid.text().strip()))
         self._row("API Client ID",
-                  "Only needed to import by username (free at myanimelist.net/apiconfig). "
-                  "Importing an export file needs nothing.", cid)
-        imp = button_row(self._button("Import export file…", self.win.import_file),
-                         self._button("Import by username", self.win.import_username),
-                         self._button("Import from AniList…", self.win.import_anilist),
+                  "Optional. Rinne has its own; set yours (myanimelist.net/apiconfig) only if you "
+                  "want MyAnimeList requests to use it.", cid)
+        imp = button_row(self._button("Import export file…", lambda: self.win.import_manually("file")),
+                         self._button("Import by username", lambda: self.win.import_manually("mal")),
+                         self._button("Import from AniList…", lambda: self.win.import_manually("anilist")),
                          self._button("Refresh all details", lambda: self.win.run_enrich(force=True)))
         self._row("Import", f"{len(self.win.state.library)} shows in your library.", imp)
 

@@ -423,8 +423,11 @@ class SettingsPage(DataSections, AboutSection, QWidget):
         self._switch("New episode aired",
                      "When a new episode of a show on your Watching list comes out.", "notify_new_episodes")
         self._switch("Daily reminder", "A summary of today's plan at a time you choose.", "daily_reminder")
-        self._switch("Weekly recap", "Sunday evening: how many episodes you watched, what you finished and "
+        self._switch("Weekly recap", "Saturday evening: how many episodes you watched, what you finished and "
                      "your streak.", "weekly_recap")
+        self._switch("Weekly goals", "When a new week starts (with how last week went), and on Saturday "
+                     "evening if days are still unfinished before the week restarts.", "notify_goals")
+        self._switch("Updates", "When a new version of Rinne is out.", "notify_updates")
         t = QTimeEdit(QTime.fromString(s.reminder_time, "HH:mm"))
         t.setDisplayFormat("HH:mm")
         t.timeChanged.connect(lambda v: self._set("reminder_time", v.toString("HH:mm")))

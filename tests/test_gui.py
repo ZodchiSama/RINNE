@@ -47,7 +47,9 @@ def win(app, tmp_path, monkeypatch, request):
              show(3, "Ao no Hako", episodes_total=25),
              show(4, "Mushishi", status="plan_to_watch", episodes_total=26),
              show(5, "Ping Pong", status="completed", episodes_watched=11, episodes_total=11, user_score=9)]
+    from rinne import __version__
     settings = Settings(check_updates=False, discord_enabled=False, notify_new_episodes=False,
+                        last_seen_version=__version__,
                         notify_premieres=False, weekly_recap=False, sync_mal=False, sync_anilist=False)
     state = State(library={a.mal_id: a for a in shows}, settings=settings)
     state.onboarded = True
@@ -208,3 +210,46 @@ def test_finishing_today_celebrates_then_folds_the_day(win, app, monkeypatch):
     assert win.week_page.findChildren(week_mod.CompletedDay)  # folded to one line
     QApplication.sendPostedEvents(None, QEvent.DeferredDelete)
     assert not win.week_page.findChildren(week_mod.Celebration)
+
+
+def test_manual_import_explains_what_connecting_gives_unless_connected(win, app, monkeypatch):
+    from rinne.gui import connect
+    asked = []
+    monkeypatch.setattr(connect, "confirm_manual", lambda w: asked.append(1) or False)
+    imported = []
+    monkeypatch.setattr(win, "import_file", lambda: imported.append("file"))
+    win.import_manually("file")
+    assert asked == [1] and imported == []  # chose "Connect instead" / cancel
+    win.state.settings.anilist_token = "t"
+    win.import_manually("file")
+    assert asked == [1] and imported == ["file"]  # connected: no nagging
+
+
+def test_whats_new_shows_once_after_an_update(win, app, monkeypatch):
+    from rinne.gui import dialogs
+    shown = []
+    monkeypatch.setattr(dialogs.WhatsNewDialog, "exec", lambda self: shown.append(1))
+    win.state.settings.last_seen_version = "0.5.2"
+    win._maybe_whats_new()
+    win._maybe_whats_new()
+    assert shown == [1]
+
+
+def test_update_popup_and_notification_once_per_release(win, app, monkeypatch):
+    from rinne import updates
+    from rinne.gui import dialogs
+    popups, notes = [], []
+    monkeypatch.setattr(dialogs.UpdateDialog, "exec", lambda self: popups.append(1))
+    monkeypatch.setattr(win, "notify", lambda title, body: notes.append(title))
+    monkeypatch.setattr(updates, "managed_by", lambda: "")
+    rel = {"version": "9.0.0", "url": "https://example.com", "name": "", "notes": "**Big** update"}
+    monkeypatch.setattr(updates, "check", lambda: rel)
+    import time
+    for _ in range(2):  # the second check finds the same release
+        win.update_info = None
+        win.check_for_updates()
+        end = time.time() + 3
+        while time.time() < end and win.update_info is None:  # the check runs in a worker thread
+            app.processEvents()
+            time.sleep(0.01)
+    assert popups == [1] and notes == ["Rinne 9.0.0 is available"]

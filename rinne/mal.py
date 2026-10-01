@@ -182,10 +182,12 @@ def _apply_mal_node(anime: Anime, node: dict) -> None:
         anime.enriched = True
 
 
-def fetch_mal_list(username: str, client_id: str, progress: Progress | None = None) -> list[Anime]:
-    if not client_id:
+def fetch_mal_list(username: str, client_id: str, progress: Progress | None = None,
+                   token: str = "") -> list[Anime]:
+    """A user's list. With a signed-in `token`, `username` can be "@me" (private lists work too)."""
+    if not client_id and not token:
         raise ImportError_("A MAL Client ID is required for username import.")
-    headers = {"X-MAL-CLIENT-ID": client_id}
+    headers = {"Authorization": f"Bearer {token}"} if token else {"X-MAL-CLIENT-ID": client_id}
     url = (
         f"{MAL_API}/users/{urllib.parse.quote(username)}/animelist"
         f"?fields={LIST_FIELDS}&limit=1000&nsfw=true"

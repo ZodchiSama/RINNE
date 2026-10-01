@@ -64,6 +64,7 @@ class State:
     # What was last sent to each connected service: {"mal": {mal_id: [status, eps, score]}, "anilist": {...}}
     synced: dict[str, dict[int, list]] = field(default_factory=dict)
     day_log: dict[str, str] = field(default_factory=dict)  # ISO date → "done" | "failed"
+    last_goal_reminder: str = ""  # week (its Sunday) of the last "week ends tonight" reminder
 
     def to_dict(self) -> dict:
         return {
@@ -80,6 +81,7 @@ class State:
             "last_recap": self.last_recap,
             "synced": {svc: {str(k): v for k, v in m.items()} for svc, m in self.synced.items()},
             "day_log": self.day_log,
+            "last_goal_reminder": self.last_goal_reminder,
         }
 
     @classmethod
@@ -94,7 +96,7 @@ class State:
                    {int(k): v for k, v in (d.get("announced") or {}).items()},
                    list(d.get("history") or []), d.get("last_recap", ""),
                    {svc: {int(k): v for k, v in m.items()} for svc, m in (d.get("synced") or {}).items()},
-                   dict(d.get("day_log") or {}))
+                   dict(d.get("day_log") or {}), d.get("last_goal_reminder", ""))
 
 
 def state_path() -> Path:

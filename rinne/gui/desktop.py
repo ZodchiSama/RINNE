@@ -158,6 +158,18 @@ class DesktopMixin:
                                 + ", ".join(names[:4]) + ("…" if len(names) > 4 else ""))
                 self.state.last_reminder = date.today().isoformat()
                 changed = True
+        if s.notify_goals and now.weekday() == 5 and now.hour >= 20 and self.state.week:
+            week = self.state.week
+            if week.calendar and self.state.last_goal_reminder != week.week_start:
+                start = date.fromisoformat(week.week_start)
+                left = [d for d in range(7) if week.for_day(d) and not week.day_complete(d)
+                        and start + timedelta(days=d) <= now.date()]
+                if left:
+                    self.notify("Your week ends at midnight",
+                                f"{len(left)} unfinished day{'s' if len(left) != 1 else ''} will count as "
+                                "failed when the new week starts.")
+                self.state.last_goal_reminder = week.week_start
+                changed = True
         if s.weekly_recap and now.weekday() == 5 and now.hour >= 19:  # Saturday evening: the week's last day
             week = f"{now.isocalendar().year}-W{now.isocalendar().week:02d}"
             if self.state.last_recap != week:

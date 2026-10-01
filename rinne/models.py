@@ -212,6 +212,10 @@ class Settings:
     # Notifications
     notify_new_episodes: bool = True
     daily_reminder: bool = False
+    notify_updates: bool = True  # a new Rinne release is out
+    notify_goals: bool = True  # a new week starts; days still unfinished on Saturday evening
+    last_seen_version: str = ""  # the version whose "What's new" was last shown
+    update_alerted: str = ""  # the newest release we already popped up about
     weekly_recap: bool = True  # Sunday evening summary of your week
     reminder_time: str = "19:00"
     # Discord Rich Presence

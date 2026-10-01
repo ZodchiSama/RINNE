@@ -31,7 +31,7 @@ def latest_release(timeout: float = 15) -> dict:
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         data = json.loads(resp.read().decode("utf-8"))
     return {"version": (data.get("tag_name") or "").lstrip("v"), "url": data.get("html_url", ""),
-            "name": data.get("name") or ""}
+            "name": data.get("name") or "", "notes": (data.get("body") or "")[:4000]}
 
 
 def managed_by() -> str:

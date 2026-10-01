@@ -263,14 +263,14 @@ _LIST_STATUS = {"CURRENT": "watching", "REPEATING": "watching", "COMPLETED": "co
                 "PAUSED": "on_hold", "DROPPED": "dropped", "PLANNING": "plan_to_watch"}
 
 
-def fetch_user_list(username: str, progress=None) -> tuple[list[Anime], int]:
-    """A public AniList list by username, with full show details.
+def fetch_user_list(username: str, progress=None, token: str = "") -> tuple[list[Anime], int]:
+    """An AniList list by username, with full show details (private too, with the owner's `token`).
     Returns (entries, skipped) — entries without a MyAnimeList id can't be tracked and are skipped."""
     from .mal import ImportError_
     if progress:
         progress(0, 0, f"Fetching {username}'s AniList list…")
     try:
-        data = query(LIST_QUERY, {"name": username.strip()})
+        data = query(LIST_QUERY, {"name": username.strip()}, token=token)
     except AniListError as e:
         msg = str(e)
         if "Private" in msg:

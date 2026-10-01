@@ -615,7 +615,8 @@ class WeekPage(QWidget):
         else:
             frame, lay = card(margins=22)
             lay.addWidget(label("Your Watching list is empty", "cardTitle"))
-            lay.addWidget(label("Only shows on your Watching list are scheduled. Import your MAL list, "
+            lay.addWidget(label("Only shows on your Watching list are scheduled. Connect your MyAnimeList "
+                                "or AniList account (Connect in the sidebar), "
                                 "or open Library, right-click a show and set it to Watching.",
                                 "muted", wrap=True))
             self.body.addWidget(frame)

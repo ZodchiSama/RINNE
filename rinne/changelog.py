@@ -2,8 +2,9 @@
 
 CHANGELOG: list[tuple[str, str, list[str]]] = [
     ("1.0.0", "Rinne 1.0", [
-        "Sync with your MyAnimeList and AniList accounts: ticked episodes, status and scores are sent for you",
-        "Import your list from AniList",
+        "Connect MyAnimeList or AniList: your list comes in and stays in sync as you tick episodes",
+        "Weekly goals: weeks run Sunday to Saturday; finish a day to see it celebrated, and Stats keeps "
+        "your completed and failed days",
         "Episode titles and thumbnails in your week, and “Where to watch” links",
         "Pause, pin or pace a show, drag shows between days, and catch up on airing shows",
         "New seasons of shows you watched are announced, and can be added automatically",

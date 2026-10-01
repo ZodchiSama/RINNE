@@ -9,7 +9,7 @@ from pathlib import Path
 from PySide6.QtCore import QEvent, QObject, QSize, Qt, QThread, QTimer, QUrl, Signal
 from PySide6.QtGui import QDesktopServices, QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (
-    QApplication, QButtonGroup, QFrame, QInputDialog, QLabel, QMainWindow, QMenu, QMessageBox, QProgressBar,
+    QApplication, QButtonGroup, QFrame, QInputDialog, QLabel, QMainWindow, QMessageBox, QProgressBar,
     QPushButton, QSizePolicy, QStackedWidget, QToolButton, QWidget,
 )
 
@@ -154,6 +154,17 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         QTimer.singleShot(300, self._startup_enrich)
         QTimer.singleShot(5000, self._auto_update_check)
         QTimer.singleShot(8000, self.check_announcements)
+        QTimer.singleShot(1200, self._maybe_whats_new)
+
+    def _maybe_whats_new(self) -> None:
+        """Once after an update: this version's notes, front and centre."""
+        s = self.state.settings
+        if not self.state.onboarded or s.last_seen_version == __version__:
+            return  # a fresh install learns about Rinne from the welcome screen instead
+        s.last_seen_version = __version__
+        self.save()
+        from .dialogs import WhatsNewDialog
+        WhatsNewDialog(self).exec()
 
     # ------------------------------------------------------------------ layout
 
@@ -210,15 +221,9 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         self.nav.button(0).setChecked(True)
         self.nav.idClicked.connect(self._go)
 
-        imp = nav_button(_("Import"), "import")
-        menu = QMenu(imp)
-        menu.addAction("From MAL export file…", self.import_file)
-        menu.addAction("From MAL username…", self.import_username)
-        menu.addAction("From AniList username…", self.import_anilist)
-        menu.addSeparator()
-        menu.addAction("Refresh all show details", lambda: self.run_enrich(force=True))
-        imp.clicked.connect(lambda: menu.exec(imp.mapToGlobal(imp.rect().topRight())))
-        imp.setToolTip("Import or refresh your MyAnimeList list")
+        imp = nav_button(_("Connect"), "import")
+        imp.clicked.connect(self.open_connect)
+        imp.setToolTip("Connect MyAnimeList or AniList (or import your list by hand)")
         self.import_btn = imp
         lay.addWidget(imp)
 
@@ -307,6 +312,14 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
             self.nav.button(current).setChecked(True)
         else:  # on the profile page, which has no nav button
             self._clear_nav()
+
+    def open_connect(self) -> None:
+        from .connect import ConnectDialog
+        ConnectDialog(self).exec()
+
+    def import_manually(self, kind: str = "") -> None:
+        from .connect import import_manually
+        import_manually(self, kind)
 
     def _go(self, n: int) -> None:
         self.stack.setCurrentIndex(n)
@@ -491,8 +504,8 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
             (("Ctrl++", "Ctrl+=", QKeySequence.ZoomIn), lambda: self.set_zoom(theme.zoom() + 0.1)),
             (("Ctrl+-", QKeySequence.ZoomOut), lambda: self.set_zoom(theme.zoom() - 0.1)),
             (("Ctrl+0",), lambda: self.set_zoom(1.0)),
-            (("Ctrl+O",), self.import_file),
-            (("Ctrl+I",), self.import_username),
+            (("Ctrl+O",), lambda: self.import_manually("file")),
+            (("Ctrl+I",), lambda: self.import_manually("mal")),
             (("Ctrl+R",), self.replan_fresh),
             (("Ctrl+,",), lambda: self.open_settings()),
             (("Ctrl+Q",), self.quit_app),
@@ -581,9 +594,12 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
                 days = [self.state.day_log.get((start + timedelta(days=d)).isoformat()) for d in range(7)]
                 done, failed = days.count("done"), days.count("failed")
                 if done or failed:
-                    self.statusBar().showMessage(
-                        f"New week! Last week: {done} day{'s' if done != 1 else ''} complete, "
-                        f"{failed} failed", 15000)
+                    summary = (f"Last week: {done} day{'s' if done != 1 else ''} complete, "
+                               f"{failed} failed.")
+                    self.statusBar().showMessage(f"New week! {summary}", 15000)
+                    if self.state.settings.notify_goals:
+                        planned = len(self.state.week.items) if self.state.week else 0
+                        self.notify("A new week begins", f"{summary} {planned} episodes planned this week.")
             if refresh:
                 self.refresh()
         self._schedule_midnight()
@@ -717,6 +733,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
 
     def finish_welcome(self, tour: bool) -> None:
         self.state.onboarded = True
+        self.state.settings.last_seen_version = __version__
         scheduler.replan(self.state)
         self.save()
         self.shell.setCurrentWidget(self.main_view)

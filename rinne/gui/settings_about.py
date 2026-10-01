@@ -134,6 +134,9 @@ class AboutSection:
 
         # --- What's new
         self._group("What's new")
+        from .dialogs import WhatsNewDialog
+        self.body.addWidget(self._button("Show this version's notes", lambda: WhatsNewDialog(self.win).exec()),
+                            alignment=Qt.AlignLeft)
         for version, title, notes in CHANGELOG[:3]:
             box, bl = card(margins=16, spacing=6)
             head = hbox(spacing=8)
