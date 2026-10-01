@@ -138,9 +138,9 @@ def test_dropping_a_show_on_another_day_moves_it(win, app):
     assert mal_id not in on_src
 
 
-def _widest(win: QWidget) -> list[str]:
-    """The innermost visible widgets that need more than a phone's width (for failure messages)."""
-    wide = [w for w in win.findChildren(QWidget) if w.isVisible() and w.minimumSizeHint().width() > 330]
+def _widest(win: QWidget, limit: int = 330) -> list[str]:
+    """The innermost visible widgets that need more than `limit` px (for failure messages)."""
+    wide = [w for w in win.findChildren(QWidget) if w.isVisible() and w.minimumSizeHint().width() > limit]
     inner = [w for w in wide if not any(c in wide for c in w.findChildren(QWidget))]
     return [f"{type(w).__name__}#{w.objectName()} {w.minimumSizeHint().width()}px "
             f"{getattr(w, 'text', lambda: '')()!r:.40}" for w in inner][:8]
@@ -180,7 +180,8 @@ def test_phone_width_has_no_sideways_overflow(win, app):
     for n in range(4):
         win._go(n)
         app.processEvents()
-        assert not _overflowing(win.pages[n], win.width()), (n, _overflowing(win.pages[n], win.width())[:5])
+        assert not _overflowing(win.pages[n], win.width()), (n, _overflowing(win.pages[n], win.width())[:5],
+                                                              _widest(win.pages[n], 250))
 
 
 @pytest.mark.parametrize("win", [{"_language": "Test", "Library": "Bibliothek",
