@@ -14,7 +14,8 @@ from .. import DISPLAY_NAME, __version__
 from ..models import EPISODES, TITLE_LANGUAGES
 from . import icons, theme
 from .common import FlowLayout, Switch, button_row, card, clear, hbox, label, vbox
-from .settings import asset, theme_card
+from .common import asset
+from .settings import theme_card
 
 if TYPE_CHECKING:
     from .window import MainWindow

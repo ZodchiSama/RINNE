@@ -52,7 +52,7 @@ def fetch(anilist_id: int = 0, mal_id: int = 0, max_age_days: float = MAX_AGE_DA
         if e.code != 404:
             return {}  # transient; try again next time
         data = {}
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError):  # offline, timeouts, dropped connections
         return {}
     art = {"fanart": "", "logo": "", "banner": ""}
     for img in data.get("images") or []:

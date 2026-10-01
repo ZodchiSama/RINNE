@@ -110,5 +110,6 @@ def save_state(state: State, path: Path | None = None) -> None:
     path = path or state_path()
     tmp = path.with_suffix(".tmp")
     with tmp.open("w", encoding="utf-8") as f:
-        json.dump(state.to_dict(), f, indent=1)
+        # dumps() uses the C encoder; dump() to a file is pure Python and ~20x slower.
+        f.write(json.dumps(state.to_dict(), ensure_ascii=False, separators=(",", ":")))
     tmp.replace(path)

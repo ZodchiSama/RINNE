@@ -2,59 +2,38 @@
 
 from __future__ import annotations
 
-import shutil
-from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QTime, Qt, QTimer, QUrl
-from PySide6.QtGui import QDesktopServices, QPixmap
+from PySide6.QtCore import QTime, Qt, QTimer
 from PySide6.QtWidgets import (
-    QButtonGroup, QComboBox, QFileDialog, QFrame, QGridLayout, QLabel, QLineEdit, QMessageBox,
-    QPushButton, QRadioButton, QSlider, QSpinBox, QTimeEdit, QWidget,
+    QButtonGroup, QComboBox, QFrame, QGridLayout, QLabel, QLineEdit, QPushButton, QRadioButton, QSlider,
+    QSpinBox, QTimeEdit, QWidget,
 )
 
-from .. import DISPLAY_NAME, __version__
+from .. import i18n
+from ..i18n import N_, _
 from ..models import EPISODES, MINUTES, TITLE_LANGUAGES, WEEKDAYS, Settings
-from ..logs import log_path
-from ..storage import cache_dir, data_dir, state_path
 from . import theme
-from .common import (
-    Clickable, FlowLayout, Switch, badge, button_row, card, clear, hbox, label, set_margins,
-    vbox,
-)
-from .pages import scroll_page
+from .common import Clickable, FlowLayout, Switch, badge, button_row, clear, hbox, label, set_margins, vbox
+from .common import scroll_page
+from .settings_about import AboutSection
+from .settings_data import DataSections
 
 if TYPE_CHECKING:
     from .window import MainWindow
 
-SECTIONS = [
-    ("general", "General"),
-    ("appearance", "Appearance"),
-    ("schedule", "Schedule"),
-    ("notifications", "Notifications"),
-    ("discord", "Discord"),
-    ("accounts", "Accounts"),
-    ("data", "Library && Data"),  # && = a literal & in button text
-    ("about", "About"),
+SECTIONS = [  # N_ marks them for translation; they're translated when shown
+    ("general", N_("General")),
+    ("appearance", N_("Appearance")),
+    ("schedule", N_("Schedule")),
+    ("notifications", N_("Notifications")),
+    ("discord", N_("Discord")),
+    ("accounts", N_("Accounts")),
+    ("data", N_("Library && Data")),  # && = a literal & in button text
+    ("about", N_("About")),
 ]
-START_PAGES = [("week", "Your Week"), ("next", "Up Next"), ("library", "Library")]
+START_PAGES = [("week", N_("Your Week")), ("next", N_("Up Next")), ("library", N_("Library"))]
 DISCORD_PORTAL = "https://discord.com/developers/applications"
-
-
-def asset(name: str) -> str:
-    return str(Path(__file__).resolve().parent.parent / "assets" / name)
-
-
-def folder_size(path: Path) -> int:
-    return sum(f.stat().st_size for f in path.rglob("*") if f.is_file()) if path.exists() else 0
-
-
-def human_size(n: int) -> str:
-    for unit in ("B", "KB", "MB", "GB"):
-        if n < 1024 or unit == "GB":
-            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
-        n /= 1024
-    return f"{n} B"
 
 
 def theme_card(key: str, pal: dict, selected: bool, on_click, width: int = 190) -> QFrame:
@@ -97,7 +76,7 @@ def theme_card(key: str, pal: dict, selected: bool, on_click, width: int = 190) 
     return frame
 
 
-class SettingsPage(QWidget):
+class SettingsPage(DataSections, AboutSection, QWidget):
     def __init__(self, win: MainWindow):
         super().__init__()
         self.win = win
@@ -107,11 +86,11 @@ class SettingsPage(QWidget):
         side = self.side = QFrame()
         side.setObjectName("page")
         side_lay = vbox(side, 4, 24)
-        side_lay.addWidget(label("Settings", "h1"))
+        side_lay.addWidget(label(_("Settings"), "h1"))
         side_lay.addSpacing(theme.px(10))
         self.nav = QButtonGroup(self)
         for n, (key, text) in enumerate(SECTIONS):
-            b = QPushButton(text)
+            b = QPushButton(_(text))
             b.setObjectName("subnav")
             b.setCheckable(True)
             b.setCursor(Qt.PointingHandCursor)
@@ -179,14 +158,14 @@ class SettingsPage(QWidget):
     # ------------------------------------------------------------------ building blocks
 
     def _header(self, title: str, subtitle: str = "") -> None:
-        self.body.addWidget(label(title, "h1"))
+        self.body.addWidget(label(_(title), "h1"))
         if subtitle:
-            self.body.addWidget(label(subtitle, "muted", wrap=True))
+            self.body.addWidget(label(_(subtitle), "muted", wrap=True))
         self.body.addSpacing(theme.px(4))
 
     def _group(self, title: str) -> None:
         self.body.addSpacing(theme.px(8))
-        self.body.addWidget(label(title.upper(), "sideSection"))
+        self.body.addWidget(label(_(title).upper(), "sideSection"))
 
     def _row(self, title: str, description: str, control: QWidget | None = None,
              stretch_control: bool = False) -> QFrame:
@@ -196,9 +175,9 @@ class SettingsPage(QWidget):
         stacked = theme.COMPACT and control is not None and not isinstance(control, Switch)
         row = (vbox if stacked else hbox)(frame, 10 if stacked else 16, 14)
         text = vbox(spacing=3)
-        text.addWidget(label(title, "settingTitle", wrap=True))
+        text.addWidget(label(_(title), "settingTitle", wrap=True))
         if description:
-            desc = label(description, "small", wrap=True, rich=True)
+            desc = label(_(description), "small", wrap=True, rich=True)
             desc.setOpenExternalLinks(True)
             text.addWidget(desc)
         row.addLayout(text, 1)
@@ -238,7 +217,7 @@ class SettingsPage(QWidget):
         return box
 
     def _button(self, text: str, fn, primary: bool = False) -> QPushButton:
-        b = QPushButton(text)
+        b = QPushButton(_(text))
         b.setObjectName("primary" if primary else "ghost")
         b.setCursor(Qt.PointingHandCursor)
         b.clicked.connect(fn)
@@ -249,7 +228,7 @@ class SettingsPage(QWidget):
     def _build_general(self, s: Settings) -> None:
         self._header("General", "How Rinne starts and behaves on your desktop.")
         self._group("Startup")
-        start = self._combo(START_PAGES, s.start_page)
+        start = self._combo([(k, _(t)) for k, t in START_PAGES], s.start_page)
         start.currentIndexChanged.connect(lambda _: self._set("start_page", start.currentData()))
         self._row("Open on", "The page Rinne shows when it starts.", start)
         tray = self.win.tray_available()
@@ -276,6 +255,14 @@ class SettingsPage(QWidget):
         lang = self._combo(list(TITLE_LANGUAGES.items()), s.title_language)
         lang.currentIndexChanged.connect(lambda _: self.win.set_title_language(lang.currentData()))
         self._row("Show titles in", "Romaji, English or Japanese. Searching matches all three.", lang)
+
+        self._group("Language")
+        langs = [("auto", "System default")] + [(k, v) for k, v in i18n.available().items()]
+        ui_lang = self._combo(langs, s.language)
+        ui_lang.currentIndexChanged.connect(lambda _i: self._set("language", ui_lang.currentData()))
+        self._row("Interface language", "Takes effect the next time Rinne starts. Only English is "
+                  "included so far: <a href=\"https://github.com/ZodchiSama/RINNE/blob/main/CONTRIBUTING.md"
+                  "#translating-rinne\">help translate Rinne</a>.", ui_lang)
 
     # ------------------------------------------------------------------ Appearance
 
@@ -484,288 +471,6 @@ class SettingsPage(QWidget):
         self.discord_status.setText(self.win.test_discord())
 
     # ------------------------------------------------------------------ Accounts
-
-    def _build_accounts(self, s: Settings) -> None:
-        from .. import ANILIST_CLIENT_ID
-        self._header("Accounts", "Connect MyAnimeList or AniList and Rinne keeps your list up to date: "
-                     "episodes you tick, status changes and scores are sent a few seconds later.")
-        status_label = label("", "small", wrap=True)
-
-        def result(msg) -> None:
-            status_label.setText(msg or "")
-            QTimer.singleShot(100, self.refresh)
-
-        for svc, name, user, connected, available, sync_attr in [
-            ("mal", "MyAnimeList", s.mal_user, bool(s.mal_token), bool(s.mal_api_client_id()), "sync_mal"),
-            ("anilist", "AniList", s.anilist_user, bool(s.anilist_token), bool(ANILIST_CLIENT_ID), "sync_anilist"),
-        ]:
-            self._group(name)
-            if connected:
-                disc = self._button("Disconnect", lambda _=False, v=svc: (self.win.disconnect_account(v), self.refresh()))
-                self._row(f"Connected as {user or 'your account'}",
-                          "Only status, episodes watched and score are sent — for shows that change.", disc)
-                self._switch(f"Send my progress to {name}", "", sync_attr, kind="save")
-            elif available:
-                go = self._button(f"Connect {name}", (lambda: self.win.connect_mal(result)) if svc == "mal"
-                                  else (lambda: self.win.connect_anilist(result)), primary=True)
-                how = ("Opens MyAnimeList in your browser; approve Rinne and you're done."
-                       if svc == "mal" else
-                       "Opens AniList in your browser; approve Rinne, then paste the code it shows.")
-                self._row("Not connected", how, go)
-            else:
-                self._row("Not available in this build", f"{name} sign-in hasn't been set up yet.", None)
-        if s.mal_token or s.anilist_token:
-            self._group("Sync")
-            self._row("Sync now", "Send any changes immediately instead of waiting a few seconds.",
-                      self._button("Sync now", lambda: (status_label.setText("Syncing…"),
-                                                        self.win.sync_now(result))))
-        self.body.addWidget(status_label)
-        self.body.addWidget(label("Sign-ins are stored only on this computer, in Rinne's data folder. Backups "
-                                  "you export include them — keep backup files private.", "faint", wrap=True))
-
-    # ------------------------------------------------------------------ Library & Data
-
-    def _build_data(self, s: Settings) -> None:
-        self._header("Library & Data", "Your MyAnimeList connection, caches and backups.")
-        self._group("MyAnimeList")
-        user = QLineEdit(s.mal_username)
-        user.setMinimumWidth(theme.px(240))
-        user.editingFinished.connect(lambda: self._set("mal_username", user.text().strip()))
-        self._row("Username", "Used by “Import from MAL username”.", user)
-        cid = QLineEdit(s.mal_client_id)
-        cid.setEchoMode(QLineEdit.PasswordEchoOnEdit)
-        cid.setPlaceholderText("optional")
-        cid.setMinimumWidth(theme.px(240))
-        cid.editingFinished.connect(lambda: self._set("mal_client_id", cid.text().strip()))
-        self._row("API Client ID",
-                  "Only needed to import by username (free at myanimelist.net/apiconfig). "
-                  "Importing an export file needs nothing.", cid)
-        imp = button_row(self._button("Import export file…", self.win.import_file),
-                         self._button("Import by username", self.win.import_username),
-                         self._button("Import from AniList…", self.win.import_anilist),
-                         self._button("Refresh all details", lambda: self.win.run_enrich(force=True)))
-        self._row("Import", f"{len(self.win.state.library)} shows in your library.", imp)
-
-        self._group("Storage")
-        d = data_dir()
-        self._row("Data folder", f"<code>{d}</code>", self._button("Open", lambda: self._open(d)))
-        img = cache_dir() / "images"
-        self._row("Image cache", f"Cover art and backgrounds — {human_size(folder_size(img))}.",
-                  self._button("Clear", lambda: self._clear(img, "image cache")))
-        meta = [cache_dir() / k for k in ("anilist", "anilist_profile", "anilist_chain", "artwork", "jikan", "mal")]
-        self._row("Metadata cache", f"Show details from AniList and others — "
-                  f"{human_size(sum(folder_size(m) for m in meta))}. Clearing makes Rinne fetch fresh details.",
-                  self._button("Clear", lambda: self._clear(meta, "metadata cache")))
-
-        self._group("Backup")
-        bk = button_row(self._button("Export backup…", self._export),
-                        self._button("Restore backup…", self._restore))
-        self._row("Library backup", "Your library, progress, plan and settings in one file.", bk)
-        self._row("Reset settings", "Restore every setting to its default. Your library is kept.",
-                  self._button("Reset", self._reset))
-
-    def _export_calendar(self) -> None:
-        from ..calendar_export import write
-        path, _ = QFileDialog.getSaveFileName(self, "Export calendar", str(Path.home() / "rinne-plan.ics"),
-                                              "iCalendar file (*.ics)")
-        if path:
-            write(self.win.state, Path(path))
-            self.win.statusBar().showMessage(f"Calendar saved to {path}", 6000)
-
-    def _open(self, path: Path) -> None:
-        QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
-
-    def _clear(self, paths, what: str) -> None:
-        if QMessageBox.question(self, "Clear cache", f"Clear the {what}?") != QMessageBox.Yes:
-            return
-        for p in paths if isinstance(paths, list) else [paths]:
-            shutil.rmtree(p, ignore_errors=True)
-        self.refresh()
-
-    def _export(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(self, "Export backup", str(Path.home() / "rinne-backup.json"),
-                                              "Rinne backup (*.json)")
-        if path:
-            self.win.save()
-            shutil.copyfile(state_path(), path)
-            self.win.statusBar().showMessage("Backup saved", 6000)
-
-    def _restore(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Restore backup", str(Path.home()), "Rinne backup (*.json)")
-        if not path:
-            return
-        if QMessageBox.question(self, "Restore backup",
-                                "Replace your current library, plan and settings with this backup?") != QMessageBox.Yes:
-            return
-        self.win.restore_backup(path)
-
-    def _reset(self) -> None:
-        if QMessageBox.question(self, "Reset settings", "Reset all settings to their defaults?") == QMessageBox.Yes:
-            self.win.reset_settings()
-
-    # ------------------------------------------------------------------ About
-
-    def _build_about(self, s: Settings) -> None:
-        from .. import AUTHOR, COMMUNITY_URL, CONTACT_EMAIL, HOMEPAGE_URL, ISSUES_URL, LICENSE
-        from ..changelog import CHANGELOG
-        from .feedback import FeedbackDialog, system_info, system_info_text
-
-        frame, lay = card(margins=18 if theme.COMPACT else 28, spacing=10)
-        top = (vbox if theme.COMPACT else hbox)(spacing=16 if theme.COMPACT else 24)
-        logo = QLabel()
-        pix = QPixmap(asset("logo-round.png"))
-        size = theme.px(110 if theme.COMPACT else 150)
-        dpr = self.devicePixelRatioF() or 1.0
-        pix = pix.scaled(round(size * dpr), round(size * dpr), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        pix.setDevicePixelRatio(dpr)
-        logo.setPixmap(pix)
-        top.addWidget(logo)
-        info = vbox(spacing=6)
-        info.addStretch()
-        info.addWidget(label(DISPLAY_NAME, "h1"))
-        row = hbox(spacing=8)
-        row.addWidget(badge(f"v{__version__}"))
-        row.addWidget(badge(CHANGELOG[0][1], "badgeGreen"))
-        row.addWidget(label(f"by {AUTHOR}", "credit"))
-        row.addStretch()
-        info.addLayout(row)
-        info.addWidget(label("輪廻 — the cycle of rebirth. A weekly anime planner for Linux that follows "
-                             "each series: when a show ends, its next season is reborn in its place.",
-                             "muted", wrap=True))
-        about_buttons = [self._button("Send feedback",
-                                      lambda: FeedbackDialog(self.win.state, "bug", self).exec(), primary=True)]
-        if HOMEPAGE_URL:
-            about_buttons.append(self._button("Project page ↗",
-                                              lambda: QDesktopServices.openUrl(QUrl(HOMEPAGE_URL))))
-        about_buttons.append(self._button("Take the tour", self.win.start_tour))
-        info.addWidget(button_row(*about_buttons))
-        info.addStretch()
-        top.addLayout(info, 1)
-        lay.addLayout(top)
-        self.body.addWidget(frame)
-
-        # --- Feedback & contact
-        self._group("Feedback & contact")
-        self._row("Report a bug", "Something broken or confusing? Describe it and Rinne adds the details "
-                  "needed to fix it.", self._button("Report…", lambda: FeedbackDialog(self.win.state, "bug", self).exec()))
-        self._row("Suggest a feature", "Ideas for making Rinne better are always welcome.",
-                  self._button("Suggest…", lambda: FeedbackDialog(self.win.state, "idea", self).exec()))
-        if ISSUES_URL:
-            self._row("Issue tracker", "See known issues and follow what's being worked on.",
-                      self._button("Open ↗", lambda: QDesktopServices.openUrl(QUrl(ISSUES_URL))))
-        if COMMUNITY_URL:
-            self._row("Community", "Chat with other Rinne users and the developer.",
-                      self._button("Join ↗", lambda: QDesktopServices.openUrl(QUrl(COMMUNITY_URL))))
-        if CONTACT_EMAIL:
-            self._row("Contact", f"Reach {AUTHOR} directly at <b>{CONTACT_EMAIL}</b>.",
-                      self._button("Email ↗", lambda: QDesktopServices.openUrl(QUrl(f"mailto:{CONTACT_EMAIL}"))))
-
-        # --- Version & system
-        self._group("Version & system")
-        sysbox, sl = card(margins=16, spacing=6)
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(theme.px(12 if theme.COMPACT else 24))
-        grid.setColumnStretch(1, 1)
-        for n, (k, v) in enumerate(system_info(self.win.state)):
-            grid.addWidget(label(k, "small"), n, 0)
-            grid.addWidget(label(v, "", wrap=True), n, 1)
-        n = grid.rowCount()
-        grid.addWidget(label("Data folder", "small"), n, 0)
-        # A zero-width space after each "/" and "-" lets a long path wrap on narrow screens.
-        grid.addWidget(label(str(data_dir()).replace("/", "/\u200b").replace("-", "-\u200b"), "", wrap=True), n, 1)
-        if LICENSE:
-            grid.addWidget(label("License", "small"), n + 1, 0)
-            grid.addWidget(label(LICENSE, ""), n + 1, 1)
-        sl.addLayout(grid)
-        copy_row = hbox(spacing=8)
-        copied = label("", "small")
-
-        def copy_info() -> None:
-            from PySide6.QtGui import QGuiApplication
-            QGuiApplication.clipboard().setText(system_info_text(self.win.state))
-            copied.setText("Copied.")
-
-        copy_row.addWidget(self._button("Copy system info", copy_info))
-        update_status = label("", "small", wrap=True)
-
-        def check_now() -> None:
-            update_status.setText("Checking…")
-
-            def result(rel, error) -> None:
-                if error:
-                    update_status.setText(f"Couldn't check: {error}")
-                elif rel:
-                    update_status.setText(f"Rinne {rel['version']} is available — use the button in the sidebar.")
-                else:
-                    update_status.setText(f"You're up to date (v{__version__}).")
-
-            self.win.check_for_updates(manual=True, on_result=result)
-
-        copy_row.addWidget(self._button("Check for updates", check_now))
-        copy_row.addWidget(self._button("Open log", lambda: self._open(log_path())))
-        sl.addWidget(update_status)
-        copy_row.addWidget(copied)
-        copy_row.addStretch()
-        sl.addLayout(copy_row)
-        self.body.addWidget(sysbox)
-
-        # --- What's new
-        self._group("What's new")
-        for version, title, notes in CHANGELOG[:3]:
-            box, bl = card(margins=16, spacing=6)
-            head = hbox(spacing=8)
-            head.addWidget(badge(f"v{version}", "badge" if version != __version__ else "badgeGreen"))
-            head.addWidget(label(title, "settingTitle"))
-            head.addStretch()
-            bl.addLayout(head)
-            for note in notes:
-                bl.addWidget(label(f"•  {note}", "small", wrap=True))
-            self.body.addWidget(box)
-
-        # --- Privacy
-        self._group("Privacy")
-        priv, pl = card(margins=16, spacing=6)
-        for line in [
-            "Everything — your library, progress and settings — stays on this computer.",
-            "No accounts, analytics or tracking. Rinne never sends your list anywhere.",
-            "To show details it looks up shows by ID on AniList, and fan art via ani.zip / TheTVDB.",
-            "MyAnimeList is contacted only when you import by username.",
-            "Discord Rich Presence talks only to the Discord app on your computer, and can be turned off.",
-        ]:
-            pl.addWidget(label(f"•  {line}", "small", wrap=True))
-        self.body.addWidget(priv)
-
-        # --- Data sources
-        self._group("Data sources & thanks")
-        for name, what, url in [
-            ("AniList", "Show details, titles, relations, cast and airing dates", "https://anilist.co"),
-            ("MyAnimeList", "Your list (export file or API)", "https://myanimelist.net"),
-            ("ani.zip / TheTVDB", "Full-HD fan art for backgrounds and banners", "https://thetvdb.com"),
-            ("Jikan", "Fallback details from MyAnimeList", "https://jikan.moe"),
-        ]:
-            self._row(name, what, self._button("Visit", lambda u=url: QDesktopServices.openUrl(QUrl(u))))
-
-        # --- Shortcuts
-        self._group("Keyboard shortcuts")
-        keys, kl = card(margins=16, spacing=6)
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(theme.px(24))
-        grid.setColumnStretch(1, 1)
-        for n, (k, what) in enumerate([
-            ("Ctrl 1 / 2 / 3 / 4", "Your Week / Up Next / Library / Stats"), ("Ctrl ,", "Settings"),
-            ("Ctrl R", "Replan from today"), ("Ctrl O", "Import MAL export file"),
-            ("Ctrl I", "Import by MAL username"), ("Ctrl + / − / 0", "Zoom in / out / reset"),
-            ("Ctrl Q", "Quit"),
-        ]):
-            grid.addWidget(badge(k, "chipLabel"), n, 0, alignment=Qt.AlignLeft)
-            grid.addWidget(label(what, "small"), n, 1)
-        kl.addLayout(grid)
-        self.body.addWidget(keys)
-        foot = label(f"Made with ♥ by {AUTHOR}", "faint")
-        foot.setAlignment(Qt.AlignCenter)
-        self.body.addWidget(foot)
-
-    # ------------------------------------------------------------------ helpers
 
     def _set(self, attr: str, value, kind: str = "save") -> None:
         setattr(self.win.state.settings, attr, value)

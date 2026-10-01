@@ -146,13 +146,16 @@ class Anime:
         return self.episodes_total or None
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        # A shallow copy: much faster than asdict() on big libraries, and json.dump only reads it.
+        return {f: getattr(self, f) for f in _ANIME_FIELDS}
 
     @classmethod
     def from_dict(cls, d: dict) -> Anime:
         known = {k: v for k, v in d.items() if k in cls.__dataclass_fields__}
         return cls(**known)
 
+
+_ANIME_FIELDS = tuple(Anime.__dataclass_fields__)
 
 # Metadata fields that come from MAL/Jikan (as opposed to the user's list entry).
 META_FIELDS = (
@@ -194,6 +197,7 @@ class Settings:
         return self.mal_client_id.strip() or MAL_CLIENT_ID
     zoom: float = 1.0
     title_language: str = ROMAJI
+    language: str = "auto"  # interface language: "auto" (system), "en", or a rinne/locale catalog
     theme: str = "midnight"
     backdrop: bool = False  # slideshow of today's shows behind the window
     slide_seconds: int = 9

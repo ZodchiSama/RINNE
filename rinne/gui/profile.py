@@ -19,7 +19,7 @@ from .common import (
     set_margins, vbox, watch_button,
 )
 from .images import Cover, cache
-from .pages import scroll_page
+from .common import scroll_page
 
 if TYPE_CHECKING:
     from .window import MainWindow

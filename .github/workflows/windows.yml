@@ -44,7 +44,7 @@ jobs:
       - name: Build app folder (used by the installer)
         run: >
           pyinstaller --noconfirm --windowed --name Rinne --paths .
-          --icon rinne/assets/icon.ico --add-data "rinne/assets;rinne/assets"
+          --icon rinne/assets/icon.ico --add-data "rinne/assets;rinne/assets" --add-data "rinne/locale;rinne/locale"
           --version-file build/version_info.txt packaging/windows/launcher.py
 
       - name: Self-test the app folder
@@ -57,7 +57,7 @@ jobs:
       - name: Build portable exe
         run: >
           pyinstaller --noconfirm --windowed --onefile --name Rinne-Portable-${{ steps.version.outputs.version }}
-          --paths . --icon rinne/assets/icon.ico --add-data "rinne/assets;rinne/assets"
+          --paths . --icon rinne/assets/icon.ico --add-data "rinne/assets;rinne/assets" --add-data "rinne/locale;rinne/locale"
           --version-file build/version_info.txt packaging/windows/launcher.py
 
       - name: Self-test the portable exe

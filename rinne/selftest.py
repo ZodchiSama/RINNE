@@ -39,7 +39,7 @@ def run(report: str | None) -> int:
     lines.append(f"Rinne {__version__} on {sys.platform}, Python {sys.version.split()[0]}")
 
     def assets():
-        from .gui.settings import asset
+        from .gui.common import asset
         missing = [n for n in ("icon-256.png", "logo-round.png", "icon-1024.png") if not Path(asset(n)).exists()]
         if missing:
             raise FileNotFoundError(", ".join(missing))

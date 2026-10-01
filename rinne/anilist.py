@@ -99,11 +99,15 @@ def query(q: str, variables: dict, retries: int = 3, token: str = "") -> dict:
                 time.sleep(1 + attempt)
                 continue
             raise AniListError(f"HTTP {e.code} from AniList") from e
-        except urllib.error.URLError as e:
-            if attempt < retries - 1:
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+            reason = getattr(e, "reason", e)
+            # Retry blips (timeouts, dropped connections), but not being offline: that only makes
+            # every lookup wait seconds before failing.
+            transient = isinstance(reason, (TimeoutError, ConnectionResetError, ConnectionAbortedError))
+            if transient and attempt < retries - 1:
                 time.sleep(1 + attempt)
                 continue
-            raise AniListError(f"Network error: {e.reason}") from e
+            raise AniListError(f"Network error: {reason}") from e
     raise AniListError("AniList request failed")
 
 

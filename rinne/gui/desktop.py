@@ -16,7 +16,7 @@ from ..models import CURRENTLY_AIRING, WATCHING
 
 
 def app_icon() -> QIcon:
-    from .settings import asset
+    from .common import asset
     icon = QIcon()
     for n in (16, 24, 32, 48, 64, 128, 256, 512):
         icon.addFile(asset(f"icon-{n}.png"))
@@ -93,7 +93,7 @@ class DesktopMixin:
     # ------------------------------------------------------------------ notifications
 
     def notify(self, title: str, body: str) -> None:
-        from .settings import asset
+        from .common import asset
         if shutil.which("notify-send"):
             QProcess.startDetached("notify-send", ["-a", DISPLAY_NAME, "-i", asset("icon-256.png"), title, body])
         elif self._tray is not None:

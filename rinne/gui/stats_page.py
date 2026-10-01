@@ -11,10 +11,11 @@ from PySide6.QtGui import QFontMetrics, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QFrame, QGridLayout, QToolTip, QWidget
 
 from .. import stats as stats_mod
+from ..i18n import _
 from . import theme
 from .common import card, clear, fmt_minutes, hbox, label, page_margin, set_margins, vbox
 from .images import Cover
-from .pages import scroll_page
+from .common import scroll_page
 
 if TYPE_CHECKING:
     from .window import MainWindow
@@ -73,7 +74,7 @@ class BarChart(QWidget):
         # Bars: thin, with a gap between them; 4px rounded tops anchored to the baseline.
         bar_w = max(theme.px(3), min(slot - theme.px(2), slot * 0.62))
         radius = min(theme.px(4), bar_w / 2)
-        for i, (_, value, _) in enumerate(self.data):
+        for i, (_label, value, _tip) in enumerate(self.data):
             if value <= 0:
                 continue
             h = max(radius, value / top_value * plot.height())
@@ -93,7 +94,7 @@ class BarChart(QWidget):
         p.setPen(theme.qcolor(theme.MUTED))
         widest = max(fm.horizontalAdvance(lbl) for lbl, _, _ in self.data) + theme.px(10)
         every = max(1, math.ceil(widest / slot))
-        for i, (lbl, _, _) in enumerate(self.data):
+        for i, (lbl, _value, _tip) in enumerate(self.data):
             if (len(self.data) - 1 - i) % every:
                 continue
             cx = plot.left() + (i + 0.5) * slot
@@ -176,7 +177,7 @@ class StatsPage(QWidget):
         st = self.win.state
         s = stats_mod.compute(st)
         titles = vbox(spacing=2)
-        titles.addWidget(label("Stats", "h1"))
+        titles.addWidget(label(_("Stats"), "h1"))
         titles.addWidget(label("Your watching, by the numbers.", "muted"))
         self.body.addLayout(titles)
 

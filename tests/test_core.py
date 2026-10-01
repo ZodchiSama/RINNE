@@ -773,3 +773,36 @@ def test_mal_signin_local_redirect(monkeypatch):
     tokens = sync.mal_authorize("cid", timeout=10, open_browser=fake_browser)
     assert tokens["access_token"] == "AT" and tokens["expires_at"] > 0
     assert seen["exchange"]["code"] == "abc" and seen["exchange"]["code_verifier"] == seen["challenge"]
+
+
+# --------------------------------------------------------------------------- translations
+
+
+def test_translations_load_fall_back_and_reset(tmp_path, monkeypatch):
+    import json
+
+    from rinne import i18n
+    (tmp_path / "es.json").write_text(json.dumps({"_language": "Español", "Your Week": "Tu semana",
+                                                  "Library": ""}), encoding="utf-8")
+    monkeypatch.setattr(i18n, "LOCALE_DIR", tmp_path)
+    try:
+        assert i18n.available() == {"en": "English", "es": "Español"}
+        assert i18n.set_language("es_MX") == "es"  # region falls back to the language
+        assert i18n._("Your Week") == "Tu semana"
+        assert i18n._("Library") == "Library"  # empty entry → English
+        assert i18n._("Stats") == "Stats"  # missing entry → English
+        monkeypatch.setenv("LC_ALL", "es_ES.UTF-8")
+        assert i18n.set_language("auto") == "es"
+        assert i18n.set_language("fr") == "en"
+        assert i18n._("Your Week") == "Your Week"
+    finally:
+        i18n.set_language("en")
+
+
+def test_translation_template_is_up_to_date():
+    import subprocess
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    result = subprocess.run([sys.executable, str(root / "tools" / "extract_strings.py"), "--check"],
+                            capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout

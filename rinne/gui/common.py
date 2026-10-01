@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import QObject, QPoint, QRect, QSize, Qt, Signal
-from PySide6.QtGui import QPainter
+from PySide6.QtGui import QFontMetrics, QPainter
 from PySide6.QtWidgets import (
-    QAbstractButton, QBoxLayout, QFrame, QHBoxLayout, QLabel, QLayout, QProgressBar, QSizePolicy,
+    QAbstractButton, QBoxLayout, QFrame, QHBoxLayout, QLabel, QLayout, QProgressBar, QScrollArea, QSizePolicy,
     QVBoxLayout, QWidget,
 )
 
@@ -286,3 +288,61 @@ class Clickable(QObject):
         if event.type() == QEvent.MouseButtonRelease and event.button() == Qt.LeftButton:
             self.clicked.emit()
         return False
+
+
+def scroll_page(horizontal: bool = False) -> tuple[QScrollArea, QWidget]:
+    area = QScrollArea()
+    area.setWidgetResizable(True)
+    area.setFrameShape(QFrame.NoFrame)
+    if not horizontal:
+        area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+    inner = QWidget()
+    inner.setObjectName("page")
+    area.setWidget(inner)
+    return area, inner
+
+
+# =========================================================================== This Week
+
+
+def two_line_label(text: str, width: int, name: str = "cardTitle") -> QLabel:
+    """A label showing at most two lines, ending in … if the title is longer."""
+    lbl = label("", name)
+    fm = QFontMetrics(lbl.font())
+    lbl.setText(elide_lines(text, fm, width, 2))
+    lbl.setToolTip(text)
+    lbl.setFixedHeight(fm.lineSpacing() * min(2, lbl.text().count("\n") + 1) + 2)
+    return lbl
+
+
+def elide_lines(text: str, fm: QFontMetrics, width: int, lines: int) -> str:
+    words, out, cur = text.split(), [], ""
+    for w in words:
+        trial = f"{cur} {w}".strip()
+        if fm.horizontalAdvance(trial) <= width or not cur:
+            cur = trial
+        else:
+            out.append(cur)
+            cur = w
+            if len(out) == lines - 1:
+                break
+    rest = " ".join(words[len(" ".join(out + [cur]).split()):])
+    last = f"{cur} {rest}".strip() if rest else cur
+    out.append(last)
+    return "\n".join(fm.elidedText(line, Qt.ElideRight, width) for line in out[:lines])
+
+
+def asset(name: str) -> str:
+    return str(Path(__file__).resolve().parent.parent / "assets" / name)
+
+
+def folder_size(path: Path) -> int:
+    return sum(f.stat().st_size for f in path.rglob("*") if f.is_file()) if path.exists() else 0
+
+
+def human_size(n: int) -> str:
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1024 or unit == "GB":
+            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
+        n /= 1024
+    return f"{n} B"

@@ -17,6 +17,7 @@ rm -rf "$build" && mkdir -p "$build" "$root/dist"
 # 1) Freeze. --paths . : the package is installed in editable mode, which PyInstaller can't follow.
 pyinstaller --noconfirm --log-level WARN --windowed --name Rinne --paths "$root" \
   --add-data "$root/rinne/assets:rinne/assets" \
+  --add-data "$root/rinne/locale:rinne/locale" \
   --distpath "$build/dist" --workpath "$build/work" --specpath "$build" \
   "$root/packaging/windows/launcher.py"
 

@@ -33,4 +33,4 @@ rinne = "rinne.gui:main"
 include = ["rinne*"]
 
 [tool.setuptools.package-data]
-rinne = ["assets/*.png", "assets/*.ico"]
+rinne = ["assets/*.png", "assets/*.ico", "locale/*.json"]
