@@ -42,7 +42,11 @@ class ShowDayCard(QFrame):
     def __init__(self, anime: Anime | None, entries: list[tuple[int, object]], missed: bool, parent=None):
         super().__init__(parent)
         self.setObjectName("episode")
-        if not theme.COMPACT:
+        if theme.COMPACT:
+            # Take the column's width rather than the content's, so wider fonts (Windows) can't
+            # push a phone layout sideways; titles elide and lines wrap instead.
+            self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        else:
             self.setFixedWidth(theme.px(300))
         mal_id = entries[0][1].mal_id
         details = artwork.episodes(anime) if anime else {}
@@ -63,7 +67,7 @@ class ShowDayCard(QFrame):
         if len(eps) > 1:
             span = f"Episodes {eps[0]}–{eps[-1]}" if eps == list(range(eps[0], eps[-1] + 1)) \
                 else "Episodes " + ", ".join(map(str, eps))
-            col.addWidget(label(span, "faint"))
+            col.addWidget(label(span, "faint", wrap=True))
 
         for idx, it in entries:
             row_w = QWidget()
