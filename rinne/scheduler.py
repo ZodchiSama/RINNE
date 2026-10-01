@@ -33,12 +33,21 @@ def monday_of(d: date) -> date:
 
 def _rotation_key(a: Anime) -> tuple:
     frac = a.episodes_watched / a.episodes_total if a.episodes_total else 0.0
-    return (-a.priority, -frac, a.started_on or "9999", a.title.lower())
+    return (not a.pinned, -a.priority, -frac, a.started_on or "9999", a.title.lower())
 
 
-def current_rotation(library: dict[int, Anime]) -> list[Anime]:
-    """Every show on the Watching list, most-urgent first."""
-    watching = [a for a in library.values() if a.status == WATCHING and not a.excluded]
+def is_behind(show: Anime, on: date) -> bool:
+    """An airing show with at least two aired episodes you haven't watched."""
+    if show.airing_status != CURRENTLY_AIRING:
+        return False
+    available = show.episodes_available(on)
+    return available is not None and available - show.episodes_watched >= 2
+
+
+def current_rotation(library: dict[int, Anime], include_paused: bool = False) -> list[Anime]:
+    """Every show on the Watching list (except paused ones), most-urgent first."""
+    watching = [a for a in library.values()
+                if a.status == WATCHING and not a.excluded and (include_paused or not a.paused)]
     watching.sort(key=_rotation_key)
     return watching
 
@@ -80,9 +89,26 @@ def build_week(state: State, week_start: date, from_day: int = 0) -> WeekPlan:
     def cost(a: Anime) -> int:
         return 1 if by_episodes else a.minutes_per_episode
 
+    catch_up = settings.catch_up_airing
+
+    def add(show: Anime, day: int, on: date) -> None:
+        show.episodes_watched += 1
+        item = ScheduleItem(day, show.mal_id, show.episodes_watched)
+        items.append(item)
+        if show.is_finished:
+            show.status = COMPLETED
+            nxt = preview_next(state, state.library[show.mal_id], on)
+            item.note = f"Finale — next up: {nxt.anime.name}" if nxt else "Finale"
+            rotation.remove(show)
+
+    def can_watch(show: Anime, on: date) -> bool:
+        available = show.episodes_available(on)
+        return available is None or show.episodes_watched < available
+
     rr = 0  # round-robin offset carried across days for fairness
     for day in range(from_day, PLAN_DAYS):
         on = week_start + timedelta(days=day)
+        on_iso = on.isoformat()
         budget = settings.day_amount(on.weekday())
         per_show: dict[int, int] = {}
         for it in kept:
@@ -92,41 +118,72 @@ def build_week(state: State, week_start: date, from_day: int = 0) -> WeekPlan:
                 per_show[it.mal_id] = per_show.get(it.mal_id, 0) + 1
         scheduled_today = any(it.day == day for it in kept)
 
+        # Manual moves: shows moved away sit this day out; shows moved here get their
+        # episodes on top of the day's amount.
+        away = {m["mal_id"] for m in state.moves if m.get("from") == on_iso}
+        for m in state.moves:
+            if m.get("to") != on_iso:
+                continue
+            show = next((r for r in rotation if r.mal_id == m["mal_id"]), None)
+            for _ in range(max(1, int(m.get("count", 1)))):
+                if show is None or show not in rotation or not can_watch(show, on):
+                    break
+                add(show, day, on)
+                scheduled_today = True
+
+        def cap(show: Anime, relaxed: bool) -> int:
+            if show.pace:
+                return show.pace
+            if relaxed:
+                return 10**6
+            base = settings.max_eps_per_show_per_day
+            return base + 1 if catch_up and is_behind(show, on) else base
+
+        def turn_order() -> list[Anime]:
+            """Pinned shows (and airing shows you're behind on) first, then the rest fairly."""
+            first = [s for s in rotation if s.pinned or (catch_up and is_behind(s, on))]
+            rest = [s for s in rotation if s not in first]
+            if rest:
+                k = rr % len(rest)
+                rest = rest[k:] + rest[:k]
+            return [s for s in first + rest if s.mal_id not in away]
+
+        # Priority first: pinned shows get their daily episode, and airing shows you're behind
+        # on fill their (raised) cap, before the rest share the day.
+        for show in list(rotation):
+            if show.mal_id in away or not (show.pinned or (catch_up and is_behind(show, on))):
+                continue
+            want = cap(show, False) if (catch_up and is_behind(show, on)) else 1
+            while (budget > 0 and show in rotation and per_show.get(show.mal_id, 0) < want
+                   and can_watch(show, on) and not (cost(show) > budget and scheduled_today)):
+                add(show, day, on)
+                budget -= cost(show)
+                per_show[show.mal_id] = per_show.get(show.mal_id, 0) + 1
+                scheduled_today = True
+
         # First pass respects the per-show daily cap; if the day still has room (e.g. you
         # asked for 6 episodes but watch only 2 shows), a second pass relaxes it.
-        for cap in (settings.max_eps_per_show_per_day, 10**6):
+        for relaxed in (False, True):
             progressed = True
             while progressed and budget > 0 and rotation:
                 progressed = False
-                for step in range(len(rotation)):
-                    if not rotation:
-                        break
-                    idx = (rr + step) % len(rotation)
-                    show = rotation[idx]
-                    if per_show.get(show.mal_id, 0) >= cap:
+                for show in turn_order():
+                    if show not in rotation or per_show.get(show.mal_id, 0) >= cap(show, relaxed):
                         continue
-                    available = show.episodes_available(on)
-                    if available is not None and show.episodes_watched >= available:
+                    if not can_watch(show, on):
                         continue
                     c = cost(show)
                     if c > budget and scheduled_today:
                         continue  # doesn't fit; an oversized item only goes on an empty day
-                    show.episodes_watched += 1
-                    item = ScheduleItem(day, show.mal_id, show.episodes_watched)
-                    items.append(item)
+                    add(show, day, on)
                     budget -= c
                     per_show[show.mal_id] = per_show.get(show.mal_id, 0) + 1
                     scheduled_today = progressed = True
-                    if show.is_finished:
-                        show.status = COMPLETED
-                        nxt = preview_next(state, state.library[show.mal_id], on)
-                        item.note = f"Finale — next up: {nxt.anime.name}" if nxt else "Finale"
-                        rotation.remove(show)
                     if budget <= 0:
                         break
                 rr += 1
 
-    return WeekPlan(iso, order_items(kept + items, state.library))
+    return WeekPlan(iso, order_items(kept + items, state.library, week_start, state.day_order))
 
 
 def episodes_left(anime: Anime | None) -> int:
@@ -136,12 +193,44 @@ def episodes_left(anime: Anime | None) -> int:
     return max(0, anime.episodes_total - anime.episodes_watched)
 
 
-def order_items(items: list[ScheduleItem], library: dict[int, Anime]) -> list[ScheduleItem]:
-    """Within each day: the show with the fewest episodes left first, and a show's episodes
-    together in order (so they stack instead of being interleaved)."""
-    return sorted(items, key=lambda i: (i.day, episodes_left(library.get(i.mal_id)),
+def order_items(items: list[ScheduleItem], library: dict[int, Anime], week_start: date | None = None,
+                day_order: dict[str, list[int]] | None = None) -> list[ScheduleItem]:
+    """Within each day: an order you set by dragging wins; otherwise the show with the fewest
+    episodes left first. A show's episodes always stay together, in order."""
+    def manual(i: ScheduleItem) -> int:
+        if not week_start or not day_order:
+            return 0
+        order = day_order.get((week_start + timedelta(days=i.day)).isoformat()) or []
+        return order.index(i.mal_id) if i.mal_id in order else len(order)
+
+    return sorted(items, key=lambda i: (i.day, manual(i), episodes_left(library.get(i.mal_id)),
                                         (library[i.mal_id].name.lower() if i.mal_id in library else ""),
                                         i.mal_id, i.episode))
+
+
+def move_show(state: State, mal_id: int, from_date: date, to_date: date, today: date | None = None) -> None:
+    """Move a show's episodes on one day to another day (kept across replans)."""
+    week, start = state.week, plan_start(state)
+    count = sum(1 for i in week.items if i.mal_id == mal_id and not i.done
+                and start + timedelta(days=i.day) == from_date) if week and start else 1
+    if from_date == to_date or count == 0:
+        return
+    state.moves.append({"mal_id": mal_id, "from": from_date.isoformat(), "to": to_date.isoformat(),
+                        "count": count})
+    replan(state, today)
+
+
+def reorder_day(state: State, on: date, mal_ids: list[int], today: date | None = None) -> None:
+    """Set the order of shows on one day."""
+    state.day_order[on.isoformat()] = list(mal_ids)
+    replan(state, today)
+
+
+def prune_overrides(state: State, today: date | None = None) -> None:
+    """Forget manual moves and orders for days that have passed."""
+    today_iso = (today or date.today()).isoformat()
+    state.moves = [m for m in state.moves if max(m.get("from", ""), m.get("to", "")) >= today_iso]
+    state.day_order = {d: o for d, o in state.day_order.items() if d >= today_iso}
 
 
 @dataclass
@@ -267,6 +356,7 @@ def replan(state: State, today: date | None = None) -> None:
     """Rebuild the plan from today onward. Earlier days of the current 7-day plan keep their
     history; once the plan has run out, a new one starts today."""
     today = today or date.today()
+    prune_overrides(state, today)
     start = plan_start(state)
     if start is not None and start <= today < start + timedelta(days=PLAN_DAYS):
         state.week = build_week(state, start, (today - start).days)

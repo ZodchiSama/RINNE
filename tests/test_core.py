@@ -591,3 +591,91 @@ def test_older_entries_refetch_once_for_new_fields():
     assert a.needs_enrichment
     anilist.apply_media(a, {"id": 5, "title": {"native": "x"}, "externalLinks": []})
     assert a.meta_version == META_VERSION and not a.needs_enrichment
+
+
+def test_paused_show_is_not_scheduled():
+    st = make_state(show(1, status=WATCHING, paused=True), show(2, status=WATCHING), daily_episodes=[2] * 7)
+    plan = scheduler.build_week(st, MONDAY)
+    assert {i.mal_id for i in plan.items} == {2}
+    assert [a.mal_id for a in scheduler.current_rotation(st.library, include_paused=True)] == [1, 2] or \
+        {a.mal_id for a in scheduler.current_rotation(st.library, include_paused=True)} == {1, 2}
+
+
+def test_pinned_show_gets_an_episode_every_day():
+    st = make_state(*(show(i, status=WATCHING, episodes_total=50) for i in range(1, 5)),
+                    show(9, status=WATCHING, episodes_total=50, pinned=True), daily_episodes=[1] * 7)
+    plan = scheduler.build_week(st, MONDAY)
+    assert all([i.mal_id for i in plan.for_day(d)] == [9] for d in range(7))
+
+
+def test_per_show_pace():
+    st = make_state(show(1, status=WATCHING, episodes_total=50, pace=1), show(2, status=WATCHING, episodes_total=50),
+                    daily_episodes=[6] * 7, max_eps_per_show_per_day=2)
+    monday = [i.mal_id for i in scheduler.build_week(st, MONDAY).for_day(0)]
+    assert monday.count(1) == 1 and monday.count(2) == 5  # pace holds even when filling the day
+
+
+def test_catch_up_prioritises_airing_show_you_are_behind_on():
+    behind = show(1, status=WATCHING, episodes_total=12, episodes_watched=0,
+                  airing_status=CURRENTLY_AIRING, aired_from="2026-08-01")  # ~8 episodes out
+    st = make_state(show(2, status=WATCHING, episodes_total=50), show(3, status=WATCHING, episodes_total=50),
+                    behind, daily_episodes=[3] * 7, max_eps_per_show_per_day=2)
+    monday = [i.mal_id for i in scheduler.build_week(st, MONDAY).for_day(0)]
+    assert monday.count(1) == 3  # first in line, cap + 1
+    st.settings.catch_up_airing = False
+    assert [i.mal_id for i in scheduler.build_week(st, MONDAY).for_day(0)].count(1) <= 2
+
+
+def test_move_show_to_another_day_survives_replans():
+    st = make_state(show(1, status=WATCHING, episodes_total=50, title="A"),
+                    show(2, status=WATCHING, episodes_total=50, title="B"), daily_episodes=[2] * 7,
+                    max_eps_per_show_per_day=1)
+    scheduler.replan(st, MONDAY)
+    tue = MONDAY + __import__("datetime").timedelta(days=1)
+    wed = MONDAY + __import__("datetime").timedelta(days=2)
+    scheduler.move_show(st, 1, tue, wed, MONDAY)
+    assert [i.mal_id for i in st.week.for_day(1)] == [2, 2]  # B fills Tuesday
+    assert [i.mal_id for i in st.week.for_day(2)].count(1) == 2  # A's Tuesday episode moved here
+    scheduler.replan(st, MONDAY)  # e.g. after ticking something
+    assert 1 not in [i.mal_id for i in st.week.for_day(1)]
+
+
+def test_manual_day_order_and_pruning():
+    st = make_state(show(1, status=WATCHING, episodes_total=12, episodes_watched=10),  # fewest left
+                    show(2, status=WATCHING, episodes_total=50), daily_episodes=[2] * 7, max_eps_per_show_per_day=1)
+    scheduler.replan(st, MONDAY)
+    assert st.week.for_day(0)[0].mal_id == 1
+    scheduler.reorder_day(st, MONDAY, [2, 1], MONDAY)
+    assert [i.mal_id for i in st.week.for_day(0)] == [2, 1]
+    later = MONDAY + __import__("datetime").timedelta(days=3)
+    scheduler.prune_overrides(st, later)
+    assert st.day_order == {}
+
+
+def test_calendar_export():
+    from rinne import calendar_export
+    st = make_state(show(1, status=WATCHING, title="Ao no Hako", episodes_total=50,
+                         streaming=[{"site": "Netflix", "url": "https://n/x"}]),
+                    daily_episodes=[2] * 7)
+    scheduler.replan(st, MONDAY)
+    ics = calendar_export.build_ics(st)
+    assert ics.startswith("BEGIN:VCALENDAR\r\n") and ics.endswith("END:VCALENDAR\r\n")
+    assert ics.count("BEGIN:VEVENT") == 7 and "DTSTART;VALUE=DATE:20260921" in ics
+    assert "SUMMARY:Ao no Hako — Ep 1–2" in ics and "UID:2026-09-21-1@rinne" in ics
+    assert all(len(line.encode()) <= 75 for line in ics.split("\r\n"))
+    assert "Netflix" in ics.replace("\r\n ", "")
+
+
+def test_announced_sequels(monkeypatch):
+    from rinne import anilist, announcements
+    lib = lib_of(show(1, status=COMPLETED, relations={"sequel": [2]}), show(3, status=PLAN_TO_WATCH, relations={"sequel": [4]}),
+                 show(5, status=COMPLETED, relations={"sequel": [6]}), show(6, status=PLAN_TO_WATCH))
+    assert announcements.sequel_candidates(lib) == {2: lib[1]}  # PTW parents and listed sequels skipped
+    monkeypatch.setattr(anilist, "_read_cache", lambda *a: None)
+    monkeypatch.setattr(anilist, "_write_cache", lambda *a: None)
+    monkeypatch.setattr(anilist, "query", lambda q, v: {"Page": {"media": [
+        {"idMal": 2, "status": "RELEASING", "title": {"romaji": "S2"}, "startDate": {"year": 2026}}]}})
+    res = announcements.check(lib)
+    assert [r["mal_id"] for r in res] == [2] and res[0]["after"] is lib[1]
+    assert announcements.premiered(res, {2: "NOT_YET_RELEASED"}) == res
+    assert announcements.premiered(res, {2: "RELEASING"}) == []

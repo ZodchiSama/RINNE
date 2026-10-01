@@ -13,7 +13,10 @@ from PySide6.QtWidgets import (
     QMessageBox, QProgressBar, QPushButton, QSizePolicy, QStackedWidget, QToolButton, QWidget,
 )
 
-from .. import DISPLAY_NAME, HOMEPAGE_URL, __version__, artwork, mal, models, scheduler, updates
+from .. import (
+    DISPLAY_NAME, HOMEPAGE_URL, __version__, anilist, announcements, artwork, mal, models, scheduler, updates,
+)
+from .profile import pick_title
 from ..logs import log
 from ..models import COMPLETED, WATCHING, Anime
 from ..storage import load_state, save_state
@@ -141,6 +144,7 @@ class MainWindow(DesktopMixin, QMainWindow):
         self.backdrop.set_enabled(self.state.settings.backdrop)
         QTimer.singleShot(300, self._startup_enrich)
         QTimer.singleShot(5000, self._auto_update_check)
+        QTimer.singleShot(8000, self.check_announcements)
 
     # ------------------------------------------------------------------ layout
 
@@ -552,7 +556,63 @@ class MainWindow(DesktopMixin, QMainWindow):
     def save(self) -> None:
         save_state(self.state)
 
+    def _write_calendar(self) -> None:
+        if self.state.settings.calendar_file:
+            from ..calendar_export import write
+            try:
+                write(self.state)
+            except OSError as e:
+                log.warning("Couldn't write the calendar file: %s", e)
+
+    # ------------------------------------------------------------------ new seasons
+
+    def check_announcements(self) -> None:
+        """Daily: announced/airing sequels of your shows that aren't on your list."""
+        def done(results: list) -> None:
+            self.announcements = results
+            s = self.state.settings
+            for r in announcements.premiered(results, self.state.announced):
+                title = pick_title(r["node"].get("title"))
+                if s.auto_add_sequels:
+                    self.add_sequel(r["mal_id"], start=False, quiet=True)
+                if s.notify_premieres and self.state.announced.get(r["mal_id"]):  # skip first sighting
+                    self.notify("New season out now",
+                                f"{title} (after {r['after'].name}) has started airing."
+                                + (" Added to Plan to Watch." if s.auto_add_sequels else ""))
+            self.state.announced = {r["mal_id"]: r["node"]["status"] for r in results}
+            self.save()
+            if self.stack.currentWidget() is self.next_page:
+                self.next_page.refresh()
+
+        self._run(announcements.check, (self.state.library,), done, with_progress=False,
+                  exclusive=False, on_error=lambda msg: log.info("Announcement check failed: %s", msg))
+
+    def add_sequel(self, mal_id: int, start: bool = False, quiet: bool = False) -> None:
+        """Add an announced/airing sequel to the library (Plan to Watch, or start watching)."""
+        if mal_id in self.state.library:
+            if start:
+                self.start_show(self.state.library[mal_id])
+            return
+
+        def done(anime) -> None:
+            if anime is None:
+                return
+            anime.status, anime.added_by_app = "plan_to_watch", True
+            self.state.library[anime.mal_id] = anime
+            self.announcements = [r for r in getattr(self, "announcements", []) if r["mal_id"] != mal_id]
+            if start:
+                self.start_show(anime)
+            else:
+                self.save()
+                self.refresh()
+            if not quiet:
+                self.statusBar().showMessage(f"Added {anime.name} to Plan to Watch", 6000)
+
+        self._run(anilist.lookup, (mal_id,), done, with_progress=False, exclusive=False,
+                  on_error=lambda msg: QMessageBox.warning(self, "Couldn't add the season", msg))
+
     def refresh(self) -> None:
+        self._write_calendar()
         self._update_backdrop()
         self.schedule_presence()
         self._update_sidebar_live()
@@ -592,6 +652,25 @@ class MainWindow(DesktopMixin, QMainWindow):
         self.refresh()
         if event.finished:
             self._on_finished(event.finished)
+
+    def move_show(self, mal_id: int, from_date, to_date) -> None:
+        """Drag & drop: move a show's episodes from one day to another."""
+        scheduler.move_show(self.state, mal_id, from_date, to_date)
+        self.save()
+        self.refresh()
+        a = self.state.library.get(mal_id)
+        self.statusBar().showMessage(f"Moved {a.name if a else 'show'} to {to_date:%A}", 5000)
+
+    def reorder_day(self, on, mal_ids: list) -> None:
+        scheduler.reorder_day(self.state, on, mal_ids)
+        self.save()
+        self.refresh()
+
+    def set_show_option(self, anime: Anime, **values) -> None:
+        """Per-show planning controls: paused / pinned / pace."""
+        for key, value in values.items():
+            setattr(anime, key, value)
+        self.replan()
 
     def change_day_amount(self, day: int, delta: int) -> None:
         s = self.state.settings
@@ -741,6 +820,8 @@ class MainWindow(DesktopMixin, QMainWindow):
                 QTimer.singleShot(1200, self.settings_page.refresh)
         elif kind == "tray":
             self.update_tray()
+        elif kind == "calendar":
+            self._write_calendar()
         self.save()
 
     def _configure_backdrop(self) -> None:

@@ -15,8 +15,8 @@ from .. import anilist, artwork, explain, models
 from ..models import CURRENTLY_AIRING, LIST_STATUSES, STATUS_LABELS, Anime
 from . import theme
 from .common import (
-    Clickable, FlowLayout, badge, button_row, card, clear, hbox, label, page_margin, progress, set_margins,
-    vbox, watch_button,
+    Clickable, FlowLayout, Switch, badge, button_row, card, clear, hbox, label, page_margin, progress,
+    set_margins, vbox, watch_button,
 )
 from .images import Cover, cache
 from .pages import scroll_page
@@ -204,6 +204,8 @@ class ProfilePage(QWidget):
         for line in explain.why(self.win.state, a):
             why.addWidget(label(f"•  {line}", "", wrap=True))
         self.body.addWidget(why_frame)
+        if a.status == "watching" and a.mal_id in self.win.state.library:
+            self.body.addWidget(self._plan_controls(a))
         self.body.addWidget(self._coming_up())
         if eps := self._episodes(a):
             self.body.addWidget(eps)
@@ -372,6 +374,40 @@ class ProfilePage(QWidget):
                 lambda: QDesktopServices.openUrl(QUrl(f"https://myanimelist.net/anime/{mal_id}")))
             row_w.setToolTip("Open on MyAnimeList")
         return row_w
+
+    def _plan_controls(self, a: Anime) -> QFrame:
+        """Pause, pin and pace for this show."""
+        from PySide6.QtWidgets import QComboBox
+        frame, lay = card(margins=18, spacing=10)
+        lay.addWidget(label("Your plan for this show", "h2"))
+        for attr, title, desc in [
+            ("paused", "Pause", "Keep it on your Watching list but leave it out of the plan for now."),
+            ("pinned", "Pin", "Give it an episode every day, before your other shows."),
+        ]:
+            row = hbox(spacing=10)
+            text = vbox(spacing=2)
+            text.addWidget(label(title, "settingTitle"))
+            text.addWidget(label(desc, "small", wrap=True))
+            row.addLayout(text, 1)
+            sw = Switch(getattr(a, attr))
+            sw.toggled.connect(lambda on, k=attr: self.win.set_show_option(a, **{k: on}))
+            row.addWidget(sw, alignment=Qt.AlignVCenter)
+            lay.addLayout(row)
+        row = hbox(spacing=10)
+        text = vbox(spacing=2)
+        text.addWidget(label("Pace", "settingTitle"))
+        text.addWidget(label("Episodes of this show per day. Automatic shares the day with your other shows.",
+                             "small", wrap=True))
+        row.addLayout(text, 1)
+        pace = QComboBox()
+        pace.addItem("Automatic", 0)
+        for n in range(1, 7):
+            pace.addItem(f"{n} a day", n)
+        pace.setCurrentIndex(max(0, min(6, a.pace)))
+        pace.currentIndexChanged.connect(lambda _: self.win.set_show_option(a, pace=pace.currentData()))
+        row.addWidget(pace, alignment=Qt.AlignVCenter)
+        lay.addLayout(row)
+        return frame
 
     def _episodes(self, a: Anime) -> QFrame | None:
         """Every episode with its screenshot, title and air date; watched ones dimmed."""

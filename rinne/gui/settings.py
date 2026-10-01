@@ -404,6 +404,27 @@ class SettingsPage(QWidget):
                      "follow_extras", kind="replan")
         self._switch("Allow currently-airing shows as Plan to Watch picks",
                      "Airing shows are paced as episodes release.", "allow_airing", kind="replan")
+        self._switch("Catch up on airing shows",
+                     "When you're two or more episodes behind on an airing show, it goes first each day "
+                     "and gets an extra episode until you're caught up.", "catch_up_airing", kind="replan")
+
+        self._group("New seasons")
+        self._switch("Tell me when a new season premieres",
+                     "When a sequel of a show you've watched starts airing, you get a notification and it "
+                     "appears under Up Next.", "notify_premieres")
+        self._switch("Add new seasons to Plan to Watch automatically",
+                     "Premiered sequels are added for you (they still only join your plan when a show "
+                     "finishes or you start them).", "auto_add_sequels")
+
+        self._group("Calendar")
+        cal_buttons = button_row(self._button("Export calendar file…", self._export_calendar))
+        self._row("Export your plan", "An .ics file with one all-day event per show per day, for Google "
+                  "Calendar, Thunderbird, GNOME Calendar and others.", cal_buttons)
+        from ..calendar_export import calendar_path
+        self._switch("Keep a calendar file up to date",
+                     f"Rinne rewrites <code>{str(calendar_path()).replace('/', '/&#8203;')}</code> whenever "
+                     "the plan changes. Subscribe to it in your calendar app to always see this week's plan.",
+                     "calendar_file", kind="calendar")
         self.body.addWidget(self._button("Replan from today", self.win.replan_fresh, primary=True),
                             alignment=Qt.AlignLeft)
 
@@ -498,6 +519,14 @@ class SettingsPage(QWidget):
         self._row("Library backup", "Your library, progress, plan and settings in one file.", bk)
         self._row("Reset settings", "Restore every setting to its default. Your library is kept.",
                   self._button("Reset", self._reset))
+
+    def _export_calendar(self) -> None:
+        from ..calendar_export import write
+        path, _ = QFileDialog.getSaveFileName(self, "Export calendar", str(Path.home() / "rinne-plan.ics"),
+                                              "iCalendar file (*.ics)")
+        if path:
+            write(self.win.state, Path(path))
+            self.win.statusBar().showMessage(f"Calendar saved to {path}", 6000)
 
     def _open(self, path: Path) -> None:
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))

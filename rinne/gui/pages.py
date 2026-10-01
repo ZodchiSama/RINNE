@@ -5,9 +5,12 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QModelIndex, QRect, QRectF, QSize, QSortFilterProxyModel, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPainterPath, QPen, QStandardItem, QStandardItemModel
+from PySide6.QtCore import QMimeData, QModelIndex, QPoint, QRect, QRectF, QSize, QSortFilterProxyModel, Qt, Signal
+from PySide6.QtGui import (
+    QColor, QDrag, QFont, QFontMetrics, QPainter, QPainterPath, QPen, QStandardItem, QStandardItemModel,
+)
 from PySide6.QtWidgets import (
+    QApplication,
     QAbstractItemView, QButtonGroup, QComboBox, QFrame, QGraphicsOpacityEffect, QGridLayout, QLabel,
     QLineEdit, QMenu,
     QListView, QPushButton, QScrollArea, QStyle, QStyledItemDelegate,
@@ -142,17 +145,48 @@ class ShowDayCard(QFrame):
             fx.setOpacity(0.45)
             self.setGraphicsEffect(fx)
         self.setCursor(Qt.PointingHandCursor)
+        self.mal_id = mal_id
+        self.on: date | None = None  # set by the week page; enables dragging
+        self._press = None
+        self._dragged = False
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.LeftButton:
+            self._press, self._dragged = event.position().toPoint(), False
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:
+        if (self._press is not None and self.on is not None and event.buttons() & Qt.LeftButton
+                and (event.position().toPoint() - self._press).manhattanLength() >= QApplication.startDragDistance()):
+            self._dragged = True
+            self._press = None
+            drag = QDrag(self)
+            mime = QMimeData()
+            mime.setData(DRAG_MIME, f"{self.mal_id}|{self.on.isoformat()}".encode())
+            drag.setMimeData(mime)
+            pix = self.grab()
+            drag.setPixmap(pix.scaledToWidth(max(1, pix.width() * 3 // 4), Qt.SmoothTransformation))
+            drag.setHotSpot(QPoint(theme.px(20), theme.px(20)))
+            drag.exec(Qt.MoveAction)
+            return
+        super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event) -> None:
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.LeftButton and not self._dragged:
             self.opened.emit()
+        self._press = None
         super().mouseReleaseEvent(event)
+
+
+DRAG_MIME = "application/x-rinne-show"
 
 
 class DayRow(QFrame):
     """One day of the agenda: date and daily amount on the left, episode cards flowing right."""
 
     amount_changed = Signal(int, int)  # day, delta
+    moved = Signal(int, object, object)  # mal_id, from date, to date
+    reordered = Signal(object, list)  # date, mal_ids in the new order
 
     def __init__(self, day: int, on: date, today: date, amount: int, by_episodes: bool,
                  minutes: int, count: int, parent=None):
@@ -223,6 +257,46 @@ class DayRow(QFrame):
     def add(self, w: QWidget) -> None:
         self.flow.addWidget(w)
 
+    # ---- drag & drop: move a show here from another day, or reorder within this day
+    def enable_drops(self, on: date) -> None:
+        self.on = on
+        self.setAcceptDrops(True)
+
+    def _cards(self) -> list:
+        return [c for c in self.cards.findChildren(ShowDayCard, options=Qt.FindDirectChildrenOnly)]
+
+    def dragEnterEvent(self, event) -> None:
+        if event.mimeData().hasFormat(DRAG_MIME):
+            event.acceptProposedAction()
+            self.setProperty("dropTarget", True)
+            self.style().unpolish(self)
+            self.style().polish(self)
+
+    def dragLeaveEvent(self, event) -> None:
+        self.setProperty("dropTarget", False)
+        self.style().unpolish(self)
+        self.style().polish(self)
+
+    def dropEvent(self, event) -> None:
+        self.dragLeaveEvent(event)
+        try:
+            mal_s, from_s = bytes(event.mimeData().data(DRAG_MIME)).decode().split("|")
+            mal_id, from_date = int(mal_s), date.fromisoformat(from_s)
+        except ValueError:
+            return
+        event.acceptProposedAction()
+        if from_date != self.on:
+            self.moved.emit(mal_id, from_date, self.on)
+            return
+        # Same day: put the dragged show before the card it was dropped on.
+        pos = self.cards.mapFrom(self, event.position().toPoint())
+        order = [c.mal_id for c in self._cards()]
+        target = next((c.mal_id for c in self._cards() if c.geometry().contains(pos)), None)
+        if mal_id in order:
+            order.remove(mal_id)
+        order.insert(order.index(target) if target in order else len(order), mal_id)
+        self.reordered.emit(self.on, order)
+
     def finish(self, empty_text: str) -> None:
         if self.flow.count() == 0:
             self.flow.addWidget(label(empty_text, "muted"))
@@ -247,6 +321,17 @@ class WatchingCard(QFrame):
         if air := airing_text(anime):
             meta.addWidget(badge(air, "badgeAmber"))
         lay.addLayout(meta)
+        flags = [badge("Paused", "chipLabel")] if anime.paused else []
+        if anime.pinned:
+            flags.append(badge("📌 Pinned"))
+        if anime.pace:
+            flags.append(badge(f"{anime.pace}/day", "chipLabel"))
+        if flags:
+            lay.addWidget(button_row(*flags, spacing=4))
+        if anime.paused:
+            fx = QGraphicsOpacityEffect(self)
+            fx.setOpacity(0.55)
+            self.setGraphicsEffect(fx)
         lay.addStretch()
         self.setToolTip(", ".join(anime.genres[:6]))
 
@@ -325,9 +410,10 @@ class WeekPage(QWidget):
                 stats.addWidget(tile, 0, n)
         self.body.addLayout(stats)
 
-        # Now watching.
+        # Now watching (paused shows too, so they can be found and resumed).
         self.body.addWidget(label("Now watching", "h2"))
-        if rotation:
+        watching_all = scheduler.current_rotation(state.library, include_paused=True)
+        if watching_all:
             strip_area = QScrollArea()
             strip_area.setWidgetResizable(True)
             strip_area.setFrameShape(QFrame.NoFrame)
@@ -335,7 +421,7 @@ class WeekPage(QWidget):
             strip = QWidget()
             strip.setObjectName("page")
             row = hbox(strip, 12)
-            for a in rotation:
+            for a in watching_all:
                 wc = WatchingCard(a)
                 wc.opened.connect(lambda a=a: self.win.open_profile(a))
                 row.addWidget(wc)
@@ -368,6 +454,10 @@ class WeekPage(QWidget):
             row = DayRow(on.weekday(), on, today, s.day_amount(on.weekday()), s.plan_by == EPISODES,
                          mins(i for _, i in day_items), len(day_items))
             row.amount_changed.connect(self.win.change_day_amount)
+            if on >= today:
+                row.enable_drops(on)
+                row.moved.connect(self.win.move_show)
+                row.reordered.connect(self.win.reorder_day)
             # One card per show, in the plan's order (fewest episodes left first).
             groups: dict[int, list] = {}
             for n, it in day_items:
@@ -375,6 +465,8 @@ class WeekPage(QWidget):
             for mal_id, entries in groups.items():
                 anime = state.library.get(mal_id)
                 show_card = ShowDayCard(anime, entries, on < today)
+                if on >= today:
+                    show_card.on = on  # draggable
                 show_card.toggled.connect(self.win.toggle_item)
                 if anime:
                     show_card.opened.connect(lambda a=anime: self.win.open_profile(a))
@@ -417,6 +509,15 @@ class UpNextPage(QWidget):
         titles.addWidget(label("What takes over when each show finishes. The next season always "
                                "comes first — even if it isn't on your MAL list yet.", "muted", wrap=True))
         self.body.addLayout(titles)
+
+        news = getattr(self.win, "announcements", None) or []
+        if news:
+            self.body.addWidget(label("New seasons", "h2"))
+            self.body.addWidget(label("Sequels of shows you've watched that are airing or announced — and not on "
+                                      "your list yet.", "muted", wrap=True))
+            for entry in news[:8]:
+                self.body.addWidget(self._announcement(entry))
+            self.body.addSpacing(theme.px(8))
 
         rotation = scheduler.current_rotation(state.library)
         self.body.addWidget(label("When a show finishes", "h2"))
@@ -490,6 +591,34 @@ class UpNextPage(QWidget):
             right.addWidget(label(text, "small", wrap=True))
         right.addStretch()
         lay.addLayout(right, 1)
+        return frame
+
+    def _announcement(self, entry: dict) -> QFrame:
+        from .profile import pick_title, when_text  # (profile imports this module)
+        node = entry["node"]
+        title = pick_title(node.get("title"))
+        frame, lay = card(margins=12, spacing=14, horizontal=True)
+        lay.addWidget(Cover((node.get("coverImage") or {}).get("large", ""), title, 58, 82, 8), alignment=Qt.AlignTop)
+        col = vbox(spacing=4)
+        airing = node.get("status") == "RELEASING"
+        tags = [badge("Airing now", "badgeGreen") if airing else badge("Announced", "badgeAmber")]
+        if node.get("format"):
+            tags.append(badge(node["format"].replace("_", " "), "chipLabel"))
+        col.addWidget(button_row(*tags, spacing=6))
+        col.addWidget(label(title, "cardTitle", wrap=True))
+        col.addWidget(label(when_text(node), "small", wrap=True))
+        col.addWidget(label(f"Follows {entry['after'].name}", "faint", wrap=True))
+        add = QPushButton("Add to Plan to Watch")
+        add.setObjectName("ghost")
+        add.clicked.connect(lambda: self.win.add_sequel(entry["mal_id"]))
+        buttons = [add]
+        if airing:
+            start = QPushButton("Start watching")
+            start.setObjectName("primary")
+            start.clicked.connect(lambda: self.win.add_sequel(entry["mal_id"], start=True))
+            buttons.append(start)
+        col.addWidget(button_row(*buttons))
+        lay.addLayout(col, 1)
         return frame
 
     def _pick_row(self, n: int, sug) -> QFrame:
@@ -844,6 +973,11 @@ class LibraryPage(QWidget):
             act.setChecked(anime.status == s)
             act.triggered.connect(lambda _=False, s=s: self.win.set_status(anime, s))
         menu.addAction("Set episodes watched…", self._edit_progress)
+        if anime.status == "watching":
+            menu.addAction("Resume" if anime.paused else "Pause",
+                           lambda: self.win.set_show_option(anime, paused=not anime.paused))
+            menu.addAction("Unpin" if anime.pinned else "Pin (an episode every day)",
+                           lambda: self.win.set_show_option(anime, pinned=not anime.pinned))
         menu.addSeparator()
         excl = menu.addAction("Never suggest this")
         excl.setCheckable(True)

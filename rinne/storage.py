@@ -55,6 +55,10 @@ class State:
     notified: dict[int, int] = field(default_factory=dict)  # mal_id -> last episode announced
     last_reminder: str = ""  # ISO date of the last daily reminder
     onboarded: bool = False  # has seen the welcome hub
+    # Manual plan changes: [{"mal_id", "from": iso date, "to": iso date, "count"}]
+    moves: list[dict] = field(default_factory=list)
+    day_order: dict[str, list[int]] = field(default_factory=dict)  # iso date -> mal_ids in order
+    announced: dict[int, str] = field(default_factory=dict)  # sequel mal_id -> last seen status
 
     def to_dict(self) -> dict:
         return {
@@ -64,6 +68,9 @@ class State:
             "notified": {str(k): v for k, v in self.notified.items()},
             "last_reminder": self.last_reminder,
             "onboarded": self.onboarded,
+            "moves": self.moves,
+            "day_order": self.day_order,
+            "announced": {str(k): v for k, v in self.announced.items()},
         }
 
     @classmethod
@@ -73,7 +80,9 @@ class State:
         week = WeekPlan.from_dict(d["week"]) if d.get("week") else None
         notified = {int(k): v for k, v in (d.get("notified") or {}).items()}
         return cls(library, settings, week, notified, d.get("last_reminder", ""),
-                   bool(d.get("onboarded", False)))
+                   bool(d.get("onboarded", False)), list(d.get("moves") or []),
+                   {k: list(v) for k, v in (d.get("day_order") or {}).items()},
+                   {int(k): v for k, v in (d.get("announced") or {}).items()})
 
 
 def state_path() -> Path:

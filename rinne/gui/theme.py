@@ -262,6 +262,7 @@ def stylesheet() -> str:
     #card, #day, #stat {{ background: {surface}; border: 1px solid {BORDER}; border-radius: {r}px; }}
     #day[today="true"] {{ border: 2px solid {ACCENT}; background: {today_bg}; }}
     #day[past="true"] {{ background: {sidebar}; }}
+    #day[dropTarget="true"] {{ border: 2px dashed {ACCENT}; background: {ACCENT_CARD}; }}
     #episode {{ background: {surface_2}; border-radius: {px(10)}px; border: 1px solid transparent; }}
     #episode:hover, #card[clickable="true"]:hover {{ border: 1px solid {ACCENT}; }}
     #episode[missed="true"] {{ border-left: {px(3)}px solid {DANGER}; }}

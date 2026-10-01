@@ -80,6 +80,10 @@ class Anime:
     started_on: str = ""  # ISO date the scheduler promoted it to Watching
     finished_on: str = ""
     added_by_app: bool = False  # e.g. a sequel pulled in that wasn't on the MAL list
+    # Per-show planning controls
+    paused: bool = False  # stays on Watching but isn't scheduled
+    pinned: bool = False  # gets an episode every day, before other shows
+    pace: int = 0  # episodes per day for this show (0 = automatic)
     # Why the app put this on the Watching list: {"date", "replaced", "kind", "reasons"}.
     origin: dict = field(default_factory=dict)
 
@@ -168,6 +172,10 @@ class Settings:
     daily_episodes: list[int] = field(default_factory=lambda: [2, 2, 2, 2, 2, 4, 4])
     daily_minutes: list[int] = field(default_factory=lambda: [60, 60, 60, 60, 60, 120, 120])
     max_eps_per_show_per_day: int = 2  # soft: exceeded only to fill the day's amount
+    catch_up_airing: bool = True  # airing shows you're behind on get priority
+    calendar_file: bool = False  # keep <data>/rinne-plan.ics up to date
+    notify_premieres: bool = True  # a sequel of a show you watched starts airing
+    auto_add_sequels: bool = False  # …and add it to Plan to Watch automatically
     auto_replace: bool = True
     allow_airing: bool = True
     mal_username: str = ""
