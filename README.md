@@ -1,111 +1,142 @@
 <p align="center"><img src="rinne/assets/logo-round.png" width="160" alt="Rinne"></p>
 
-# Rinne 輪廻
+<h1 align="center">Rinne 輪廻</h1>
 
-*The cycle of rebirth.* A desktop app for Linux and Windows that turns your MyAnimeList list into a weekly watch
-schedule. When a show ends, its next season is reborn in its place, and the app explains why.
+<p align="center"><i>The cycle of rebirth.</i> A desktop anime planner for Linux and Windows.</p>
 
-By **Zodchi**.
+Rinne turns your **MyAnimeList** or **AniList** list into a weekly watch plan. When a show ends,
+its next season is reborn in its place, even if it isn't on your list yet, and Rinne tells you
+why. Tick episodes as you watch and your MAL or AniList account stays up to date.
+
+By **Zodchi** · [MIT License](LICENSE)
+
+<p align="center"><img src="docs/screenshots/week.png" alt="Your Week: a 7-day plan with a card per show" width="860"></p>
+
+## Features
+
+- **A 7-day plan** built from the shows you're watching, with episode titles and thumbnails.
+  The rest of the plan reshuffles as you tick episodes off.
+- **Follows every series.** A finished show is replaced by its next season. Only when a series
+  runs out does Rinne pick from your Plan to Watch, and it explains each choice.
+- **You stay in control.** Drag a show to another day, pause or pin a show, set a show's pace,
+  and give each weekday its own amount of episodes or minutes.
+- **Airing shows** are scheduled as episodes come out, and you catch up if you fall behind.
+- **New seasons** of shows you've watched are announced, and can be added automatically.
+- **Account sync** with MyAnimeList and AniList: ticked episodes, status changes and scores are
+  sent for you.
+- **Show profiles** with synopsis, cast and voice actors, related entries, upcoming seasons and
+  where to watch.
+- **Stats** and a weekly recap, plus a **calendar file** for Google Calendar, Thunderbird and
+  others.
+- **Themes** (Midnight, Dark, Light, Yotsuba), a full-HD background slideshow of today's shows,
+  and **Discord Rich Presence** with no setup.
+
+| | |
+|---|---|
+| ![Profile](docs/screenshots/profile.png) | ![Up Next](docs/screenshots/up-next.png) |
+| ![Stats](docs/screenshots/stats.png) | ![Yotsuba theme](docs/screenshots/yotsuba.png) |
 
 ## Install
 
 **Windows:** download `Rinne-Setup-<version>.exe` (installer) or `Rinne-Portable-<version>.exe`
-(no install, runs from anywhere) from the [latest release](https://github.com/ZodchiSama/RINNE/releases/latest).
-Windows may warn that the app is from an unknown publisher, because it isn't code-signed yet:
-click **More info → Run anyway**.
+(no install) from the [latest release](https://github.com/ZodchiSama/RINNE/releases/latest).
+If Windows says it protected your PC, click **More info → Run anyway**. The build isn't
+code-signed yet.
 
 **Linux (AppImage):** download `Rinne-<version>-x86_64.AppImage` from the
-[latest release](https://github.com/ZodchiSama/RINNE/releases/latest), make it executable and run it:
+[latest release](https://github.com/ZodchiSama/RINNE/releases/latest), then:
 
 ```sh
 chmod +x Rinne-*-x86_64.AppImage
 ./Rinne-*-x86_64.AppImage
 ```
 
-It runs on most distributions from 2022 on, with nothing to install. AppImage managers such as
-Gear Lever or AppImageLauncher can add it to your app menu and update it from GitHub releases.
+It runs on most distributions from 2022 onwards. Gear Lever or AppImageLauncher can add it to your
+app menu and keep it updated.
 
-**Linux (from source):**
+**Arch Linux (AUR)**, coming soon: `yay -S rinne`
+
+**Flathub**, coming soon: `flatpak install flathub io.github.zodchisama.rinne`
+
+**From source:**
 
 ```sh
 git clone https://github.com/ZodchiSama/RINNE.git
 cd RINNE
-./install.sh          # venv + `rinne` command + app icon + app-menu entry
+./install.sh          # virtual environment, `rinne` command, icon and app-menu entry
 ```
 
-Or run from source: `python3 -m venv .venv && .venv/bin/pip install -e .[dev] && .venv/bin/rinne`
+Rinne checks GitHub for new versions once a day and shows an **Update** button when one is out
+(Settings → General). AUR and Flatpak copies update through your package manager instead.
 
 ## Getting your list in
 
-- **Export file (no setup):** on MAL go to *Profile → Export* (`myanimelist.net/panel.php?go=export`),
-  export your Anime List, then use **Import → From MAL export file** on the `.xml.gz`.
-- **By username:** create a free Client ID at `myanimelist.net/apiconfig` (app type "other"),
-  paste it in **Settings → Library & Data**, then use **Import → From MAL username**.
+On first launch, a welcome screen walks you through importing and setting up your week. You can
+replay it, and a short tour, from Settings → General.
 
-After an import, the app fetches show details from **AniList** (no account needed, 50 shows per
-request): covers, English/romaji/Japanese titles, sequel/prequel links, episode length and exact
-airing progress. Anything AniList doesn't have is looked up on MAL (with a Client ID) or Jikan.
-Responses are cached on disk.
+- **MyAnimeList export file (no setup):** on MAL go to *Profile → Export*
+  (`myanimelist.net/panel.php?go=export`), export your anime list, then use
+  **Import → From MAL export file** on the `.xml.gz` file.
+- **MyAnimeList username:** **Import → From MAL username**. Needs a MAL Client ID, see
+  *Settings → Library & Data*.
+- **AniList username:** **Import → From AniList username**. Works with any public AniList profile,
+  no setup.
 
-Re-importing is safe. Progress you tracked in the app is never rolled back by an older MAL list,
-but if you set a show to On-Hold or Dropped on MAL, that change is applied.
+Rinne then fills in show details from **AniList**: covers, English, romaji and Japanese titles,
+sequel links, episode lengths and exact airing dates. Episode titles and fan art come from
+TheTVDB through ani.zip. Everything is cached on disk.
 
-## First launch
+Re-importing is safe: progress you tracked in Rinne is never rolled back by an older list.
 
-A welcome hub introduces Rinne and runs a quick setup: import your list, choose how many episodes
-you watch, and pick a theme, titles, the slideshow, Discord and notifications. A guided tour then
-shows where everything is. Both can be replayed from Settings → General.
+## Account sync
 
-## Using it
+In **Settings → Accounts**, connect MyAnimeList, AniList, or both. From then on, the episodes
+you tick, status changes and scores are sent a few seconds later, and only for shows that
+changed. Sign-ins are stored only on your computer. Turn sending off per service at any time, or
+press **Sync now**.
 
-- **Your Week:** a 7-day plan with today at the top, and a cover card for each episode. Tick one
-  when you've watched it and the rest of the plan is replanned. Use **−** / **+** on a day to
-  change how much you watch that day. **Replan from today** (Ctrl R) starts a new 7-day plan
-  today and ignores past days.
-- **Click any show** (episode card, poster, Up Next row) to open its **profile**:
-  - why it's on your list and in your plan
-  - synopsis and tags
-  - the cast and their Japanese voice actors, with fan counts, "big name" badges, roles you know
-    them from in shows you've watched, and their other notable roles
-  - related entries, staff, and recommendations
-- **Titles:** switch between **Romaji / English / 日本語** in **Settings → General**. Search
-  matches all three.
-- **Coming up** (on every profile): new seasons, films and spin-offs that are announced or airing
-  now, with their start date (or expected season). The app finds these by following the sequel
-  chain on AniList, so a Season 3 announcement shows up even on your Season 1 profile.
-- **Themes:** Midnight, Dark, Light and Yotsuba (4chan's classic cream-and-maroon), picked in
-  **Settings → Appearance**. **Slides** puts a slideshow of today's shows, in full-HD fan art from
-  TheTVDB, behind the whole window, and works with any theme.
-- **Up Next:** what will replace each show you're watching when it finishes, and why.
-- **Library:** your whole list as a poster grid. Filter by status, search, sort. Right-click a show
-  to change its status or progress.
-- **Zoom:** press **Ctrl +** / **Ctrl −** or use **Ctrl + mouse wheel**. **Ctrl 0** resets it.
-  The zoom level is saved.
-- Shortcuts: Ctrl 1/2/3 switch pages, Ctrl O imports a file, Ctrl R replans from today, Ctrl , opens Settings.
+## Using Rinne
+
+- **Your Week:** today is at the top, with one card per show listing its episodes. Tick an
+  episode when you've watched it. **Drag** a show onto another day to move it, or within a day to
+  reorder. Use **−** / **+** to change a day's amount. **Replan from today** (Ctrl R) starts a
+  fresh week.
+- **Click any show** to open its profile. You'll see why it's in your plan, its episodes, cast
+  and voice actors, related entries and upcoming seasons, and where to watch it. **Your plan for
+  this show** has the per-show controls:
+  - **Pause:** keep it on Watching but leave it out of the plan.
+  - **Pin:** an episode every day, before your other shows.
+  - **Pace:** a fixed number of episodes a day.
+- **Up Next:** newly announced seasons, and what takes over each show when it ends.
+- **Library:** your whole list as posters. Filter, search, sort, and right-click for quick
+  changes.
+- **Stats:** episodes per week and per day, streaks, top genres and all-time totals. On Sunday
+  evenings a notification recaps your week (Settings → Notifications).
+- **Calendar:** **Settings → Schedule → Calendar** exports your plan as an `.ics` file, or keeps
+  one updated for calendar apps to subscribe to.
+- **Zoom** with Ctrl + / Ctrl − or Ctrl + mouse wheel, and **Ctrl 0** resets it.
+  **Ctrl 1–4** switch pages and **Ctrl ,** opens Settings.
 
 ## How scheduling works
 
-- **Only shows on your Watching list are scheduled.** Plan to Watch shows never appear on their
-  own. They join the schedule only when one replaces a finished show, or when you press
-  *Start watching*.
-- **Settings → Your week:** choose to plan by **episodes per day** or **minutes per day**, and set
-  each weekday separately (0 = day off). Quick presets are included.
-- Episodes are shared out evenly across your shows. "Max episodes of one show per day" is kept
-  when possible. If you watch only a couple of shows, it's exceeded so each day still gets the
-  number of episodes you asked for.
-- **Airing shows** are paced by release, using AniList's exact next-episode date. An episode is
-  only scheduled after it has aired.
-- A show's final episode is marked **Finale**, and its tooltip names what comes next.
+- **Only shows on your Watching list are scheduled.** Plan to Watch shows join when one replaces
+  a finished show, or when you press *Start watching*.
+- Plan by **episodes** or **minutes per day**, set separately for each weekday (0 = day off).
+- Episodes are shared out fairly across your shows, with a "max episodes of one show per day" cap.
+  Pinned shows go first, and a show's own pace overrides the cap.
+- **Airing shows** only get episodes that have aired, using AniList's exact release times. If
+  you're behind on an airing show, it gets an extra episode a day until you catch up
+  (Settings → Schedule).
+- Within a day, shows with the fewest episodes left come first, unless you reordered them.
 
 ## What replaces a finished show
 
 When you tick a finale:
 
-1. **Follow the series.** The app walks the sequel chain. It skips seasons you've already
-   completed and resumes a season you put On Hold. If the next season **isn't on your MAL list**,
-   the app fetches it from MAL/Jikan and adds it.
+1. **Follow the series.** Rinne walks the sequel chain. It skips seasons you've completed and
+   resumes one you put On Hold. If the next season isn't on your list, Rinne adds it.
 2. The chain stops at a season that hasn't aired yet, one you dropped, or one you're already
-   watching. Only then does the app pick from **Plan to Watch**, scored by:
+   watching. Only then does Rinne pick from **Plan to Watch**, scored by:
 
 | Signal | Effect |
 |---|---|
@@ -118,53 +149,43 @@ When you tick a finale:
 | Genres already covered by your other shows | up to −10 (keeps variety) |
 | Long shows (> 50 eps) / short (≤ 13) | small − / + |
 
-A pop-up shows what's next and why. You can turn automatic replacement off in Settings.
-Right-click a show in Library and choose *Never suggest this* to exclude it.
+A pop-up shows what comes next and why. Automatic replacement can be turned off in Settings, and
+*Never suggest this* (right-click in Library) excludes a show.
 
-## Settings
+## Data and privacy
 
-Settings is a full page, and changes apply immediately:
+- Your list, plan and settings live in `~/.local/share/rinne/` (Windows: `%APPDATA%\rinne`),
+  with a cache in `~/.cache/rinne/` (Windows: `%LOCALAPPDATA%\rinne`).
+- Rinne talks only to AniList, MyAnimeList/Jikan, ani.zip, GitHub (update check) and, if it's
+  running, your local Discord app. There's no telemetry.
+- A log file (`rinne.log` in the data folder) helps with bug reports. **Settings → About** can
+  open it, and the feedback form can attach the last lines.
 
-- **General:** which page to open on, starting minimized to the tray, keeping Rinne running in the
-  tray when you close the window, checking airing shows on startup, and title language.
-- **Appearance:** theme cards (Midnight, Dark, Light, Yotsuba), the slideshow (time per image and
-  dimming), and interface size.
-- **Schedule:** episodes or minutes per day, presets, the per-show daily cap, starting the next
-  season automatically, following the series into movies/OVAs/specials, and airing shows as picks.
-- **Notifications:** new-episode alerts and a daily reminder of today's plan.
-- **Discord:** Rich Presence shown as "Watching Rinne", with today's next episode, cover art, a
-  MyAnimeList button, and a private mode. It works automatically while the Discord desktop app is
-  running: Rinne ships with its own Discord application, so there's no setup. A custom
-  Application ID can be set under Advanced.
-- **Library & Data:** MyAnimeList account, imports, cache sizes and clearing, backup/restore,
-  and resetting settings.
-- **About:** version, credits, data sources and keyboard shortcuts.
+## Translations
 
-## Data
-
-- State: `~/.local/share/rinne/state.json`
-- API and image cache: `~/.cache/rinne/`
-- Folders from the old name (`smart-watchlist`) are moved over automatically on first launch.
+Rinne ships in English. The interface is ready for translations, which are a single JSON file
+each. See [CONTRIBUTING.md](CONTRIBUTING.md#translating-rinne) for how to add a language.
 
 ## Limitations
 
-- Progress stays local. Updating your MAL list would need OAuth login, which isn't implemented yet.
-- Only shows already on your list are suggested as Plan to Watch picks. Unlisted sequels are handled (see above).
-- A few obscure entries (specials, doujin works) have no data on AniList or MAL/Jikan. They get a
-  lettered placeholder cover.
+- Only shows already on your list are picked from Plan to Watch. Unlisted sequels are handled.
+- A few obscure entries have no data on AniList or MAL and get a lettered placeholder cover.
 
 ## Development
 
 ```sh
-.venv/bin/python -m pytest
-packaging/linux/build_appimage.sh   # AppImage in dist/ (needs the dev dependencies)
-# Windows and AppImage builds are also made by GitHub Actions on each v* tag.
-.venv/bin/python tools/make_icons.py   # rebuild icons from assets/source/
+python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
+.venv/bin/python -m pytest              # logic and interface tests (offscreen, no network)
+packaging/linux/build_appimage.sh       # AppImage in dist/
 ```
+
+Pushing a `v*` tag builds the Windows installer, the portable exe and the AppImage on GitHub
+Actions. Packaging for the AUR and Flathub is in [`packaging/`](packaging/). See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the code layout.
 
 ## Feedback
 
-Found a bug or have an idea? Use **Settings → About → Send feedback** in the app,
+Found a bug or have an idea? Use **Settings → About → Send feedback**,
 [open an issue](https://github.com/ZodchiSama/RINNE/issues), or email **zodchi.san@proton.me**.
 
 ## License

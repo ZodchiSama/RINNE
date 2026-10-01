@@ -1,6 +1,6 @@
 """Rinne — a weekly anime schedule built from your MyAnimeList list, that follows each series."""
 
-__version__ = "0.5.2"
+__version__ = "1.0.0"
 APP_NAME = "rinne"  # data/cache folder and desktop-entry name
 DISPLAY_NAME = "Rinne"
 LEGACY_APP_NAMES = ("smart-watchlist",)  # older folder names, migrated on first run

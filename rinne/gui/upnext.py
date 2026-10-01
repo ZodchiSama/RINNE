@@ -111,7 +111,12 @@ class UpNextPage(QWidget):
                                 "list is empty.", "muted", wrap=True), 1)
             return frame
         nxt = sug.anime
-        lay.addWidget(Cover(nxt.image_url, nxt.name, 70, 100, 8))
+        image = nxt.image_url
+        if not image:  # a season not on the list yet: the new-seasons check may have its cover
+            node = next((r["node"] for r in getattr(self.win, "announcements", None) or []
+                         if r["mal_id"] == nxt.mal_id), {})
+            image = (node.get("coverImage") or {}).get("large", "")
+        lay.addWidget(Cover(image, nxt.name, 70, 100, 8))
         right = vbox(spacing=4)
         if sug.kind == SERIES:
             kind = ("Next season · will be added from MAL", "badgeAmber") \

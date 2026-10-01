@@ -1,6 +1,17 @@
 """Release notes shown on the About page (newest first)."""
 
 CHANGELOG: list[tuple[str, str, list[str]]] = [
+    ("1.0.0", "Rinne 1.0", [
+        "Sync with your MyAnimeList and AniList accounts: ticked episodes, status and scores are sent for you",
+        "Import your list from AniList",
+        "Episode titles and thumbnails in your week, and “Where to watch” links",
+        "Pause, pin or pace a show, drag shows between days, and catch up on airing shows",
+        "New seasons of shows you watched are announced, and can be added automatically",
+        "Stats page and a weekly recap",
+        "Calendar file (.ics) of your plan for Google Calendar, Thunderbird and others",
+        "Update check, a log file for bug reports, and much faster with big libraries",
+        "Packages for the AUR and Flathub; translations can now be added",
+    ]),
     ("0.5.2", "Tidier days & Windows", [
         "Each day's episodes are stacked by show: one card per show, its episodes listed in order",
         "Shows with the fewest episodes left come first each day (and in “Up next today”)",
