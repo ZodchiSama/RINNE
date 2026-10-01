@@ -590,8 +590,9 @@ class WeekPage(QWidget):
             else:
                 stats.addWidget(tile, 0, n)
         self.body.addLayout(stats)
-        if week:
-            self.body.addWidget(week_strip(state, start, today))
+        self.strip = week_strip(state, start, today) if week else None
+        if self.strip:
+            self.body.addWidget(self.strip)
 
         # Now watching (paused shows too, so they can be found and resumed).
         self.body.addWidget(label("Now watching", "h2"))

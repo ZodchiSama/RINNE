@@ -160,9 +160,14 @@ def _overflowing(page: QWidget, limit: int) -> list[str]:
 
 
 def test_phone_width_has_no_sideways_overflow(win, app):
-    for _ in range(2):  # the first resize switches to the phone layout, which lowers the minimum width
+    import time
+    # The first resize switches to the phone layout, which lowers the minimum width; some
+    # platforms (Windows) deliver the resize events a little later, so keep trying briefly.
+    end = time.time() + 5
+    while time.time() < end and win.width() > 360:
         win.resize(320, 700)
         app.processEvents()
+        time.sleep(0.02)
     assert win.width() <= 360, win.minimumSizeHint()
     for n in range(4):
         win._go(n)

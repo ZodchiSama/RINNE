@@ -152,9 +152,12 @@ class WelcomePage(QWidget):
 
         feats = (vbox if theme.COMPACT else hbox)(spacing=12)
         for ic, head, text in [
-            ("week", "Plans your week", "A 7-day schedule from the shows you're watching on MyAnimeList."),
+            ("week", "Plans your week", "A Sunday-to-Saturday plan built from the shows you're watching."),
+            ("stats", "Daily goals", "Finish a day's episodes to check it off. Stats keeps your completed "
+             "and failed days."),
             ("next", "Follows every series", "Finish a season and the next one takes its slot automatically."),
-            ("sparkle", "Knows your shows", "Covers, cast & voice actors, and what's coming up next."),
+            ("sparkle", "Stays in sync", "Connect MyAnimeList or AniList and your progress is saved there "
+             "as you watch."),
         ]:
             frame, lay = card(margins=16, spacing=6)
             ico = QLabel()

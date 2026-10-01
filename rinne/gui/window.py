@@ -748,21 +748,26 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
             self.shell.setCurrentWidget(self.main_view)
         week = lambda: self._nav_to(0)  # noqa: E731
         steps = [
-            Step(_("Your Week"), "Your plan for the next 7 days, built from the shows on your Watching list.",
-                 lambda: self.nav_target(0), week),
-            Step("Tick as you watch", "Click the circle on an episode when you've watched it — the rest of the "
-                 "week replans itself. Use − / + on a day to watch more or less that day. Click any card "
-                 "to open the show's profile.", lambda: getattr(self.week_page, "first_day", None), week),
-            Step("Replan from today", "Fell behind or changed your mind? Start a fresh 7-day plan from today.",
-                 lambda: getattr(self.week_page, "replan_btn", None), week),
+            Step(_("Your Week"), "Your plan for this week, Sunday to Saturday, built from the shows on your "
+                 "Watching list. A new week is planned at 00:00 every Sunday.", lambda: self.nav_target(0), week),
+            Step("Your week at a glance", "Each day of the week: ✓ when it's complete, ! when an earlier day is "
+                 "still unfinished. Unfinished days count as failed once the week restarts.",
+                 lambda: getattr(self.week_page, "strip", None), week),
+            Step("Tick as you watch", "Click the circle on an episode when you've watched it. Finish all of a "
+                 "day's episodes and the day is checked off. Use − / + to watch more or less on a day, drag a "
+                 "show to another day, and click any card to open the show's profile.",
+                 lambda: getattr(self.week_page, "first_day", None), week),
+            Step("Replan from today", "Fell behind or changed your mind? Plan the rest of the week again from "
+                 "today. Earlier days stay as they are.", lambda: getattr(self.week_page, "replan_btn", None), week),
             Step(_("Up Next"), "What takes over when each show ends. The next season always comes first — "
                  "even if it isn't on your MAL list yet — otherwise the best pick from Plan to Watch.",
                  lambda: self.nav_target(1)),
             Step(_("Library"), "Your whole list as posters. Click any show for its profile: why it's on your "
                  "list, cast & voice actors, and new seasons coming up.", lambda: self.nav_target(2)),
-            Step(_("Stats"), "Episodes per week and per day, streaks, top genres and all-time totals.",
-                 lambda: self.nav_target(3)),
-            Step("Import", "Bring in or refresh your MyAnimeList list any time.",
+            Step(_("Stats"), "Your daily goals (days complete and failed), episodes per week and per day, "
+                 "streaks, top genres and all-time totals.", lambda: self.nav_target(3)),
+            Step(_("Connect"), "Connect MyAnimeList or AniList: your list comes in and your progress is "
+                 "saved there as you watch. You can also import a file or username by hand.",
                  lambda: getattr(self.lib_page, "import_btn", None) if theme.COMPACT else self.import_btn,
                  (lambda: self._nav_to(2)) if theme.COMPACT else None),
             Step("Up next today", "Today's next episode, always one click away.",
