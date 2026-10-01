@@ -342,7 +342,7 @@ class WatchingCard(QFrame):
 def stat(value: str, caption: str) -> QFrame:
     frame, lay = card("stat", 14, 2)
     lay.addWidget(label(value, "statValue"))
-    lay.addWidget(label(caption, "statLabel"))
+    lay.addWidget(label(caption, "statLabel", wrap=True))  # wraps rather than widening a phone layout
     return frame
 
 
