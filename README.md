@@ -2,7 +2,7 @@
 
 # Rinne 輪廻
 
-*The cycle of rebirth.* A Linux desktop app that turns your MyAnimeList list into a weekly watch
+*The cycle of rebirth.* A desktop app for Linux and Windows that turns your MyAnimeList list into a weekly watch
 schedule. When a show ends, its next season is reborn in its place, and the app explains why.
 
 By **Zodchi**.
@@ -29,7 +29,7 @@ Gear Lever or AppImageLauncher can add it to your app menu and update it from Gi
 
 ```sh
 git clone https://github.com/ZodchiSama/RINNE.git
-cd rinne
+cd RINNE
 ./install.sh          # venv + `rinne` command + app icon + app-menu entry
 ```
 
@@ -40,7 +40,7 @@ Or run from source: `python3 -m venv .venv && .venv/bin/pip install -e .[dev] &&
 - **Export file (no setup):** on MAL go to *Profile → Export* (`myanimelist.net/panel.php?go=export`),
   export your Anime List, then use **Import → From MAL export file** on the `.xml.gz`.
 - **By username:** create a free Client ID at `myanimelist.net/apiconfig` (app type "other"),
-  paste it in **Schedule → Settings**, then use **Import → From MAL username**.
+  paste it in **Settings → Library & Data**, then use **Import → From MAL username**.
 
 After an import, the app fetches show details from **AniList** (no account needed, 50 shows per
 request): covers, English/romaji/Japanese titles, sequel/prequel links, episode length and exact
@@ -68,13 +68,13 @@ shows where everything is. Both can be replayed from Settings → General.
   - the cast and their Japanese voice actors, with fan counts, "big name" badges, roles you know
     them from in shows you've watched, and their other notable roles
   - related entries, staff, and recommendations
-- **Titles:** switch between **Romaji / English / 日本語** at the bottom of the sidebar. Search
+- **Titles:** switch between **Romaji / English / 日本語** in **Settings → General**. Search
   matches all three.
 - **Coming up** (on every profile): new seasons, films and spin-offs that are announced or airing
   now, with their start date (or expected season). The app finds these by following the sequel
   chain on AniList, so a Season 3 announcement shows up even on your Season 1 profile.
-- **Themes:** Midnight, Dark, Light and Yotsuba (4chan's classic cream-and-maroon), picked in the
-  sidebar or in Settings. **Slides** puts a slideshow of today's shows, in full-HD fan art from
+- **Themes:** Midnight, Dark, Light and Yotsuba (4chan's classic cream-and-maroon), picked in
+  **Settings → Appearance**. **Slides** puts a slideshow of today's shows, in full-HD fan art from
   TheTVDB, behind the whole window, and works with any theme.
 - **Up Next:** what will replace each show you're watching when it finishes, and why.
 - **Library:** your whole list as a poster grid. Filter by status, search, sort. Right-click a show

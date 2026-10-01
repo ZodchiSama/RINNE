@@ -192,6 +192,9 @@ class Settings:
     discord_show_cover: bool = True
     discord_buttons: bool = True
     discord_private: bool = False
+    # Updates
+    check_updates: bool = True
+    last_update_check: str = ""  # ISO date
 
     def day_amount(self, day: int) -> int:
         return (self.daily_episodes if self.plan_by == EPISODES else self.daily_minutes)[day]

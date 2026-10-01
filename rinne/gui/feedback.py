@@ -82,6 +82,9 @@ class FeedbackDialog(QDialog):
         self.include = QCheckBox("Include system info (version, OS, Qt — no personal data)")
         self.include.setChecked(True)
         root.addWidget(self.include)
+        self.include_log = QCheckBox("Include the recent log (helps find crashes; contains no account details)")
+        self.include_log.setChecked(kind == "bug")
+        root.addWidget(self.include_log)
 
         self.status = label("", "small", wrap=True)
         root.addWidget(self.status)
@@ -119,6 +122,11 @@ class FeedbackDialog(QDialog):
         parts = [self.details.toPlainText().strip() or "(no details)"]
         if self.include.isChecked():
             parts.append("---\n" + system_info_text(self.state))
+        if self.include_log.isChecked():
+            from ..logs import tail
+            recent = tail(60)
+            if recent:
+                parts.append("--- recent log ---\n" + recent)
         return "\n\n".join(parts)
 
     def copy(self) -> None:

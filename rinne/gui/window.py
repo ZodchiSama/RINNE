@@ -13,7 +13,8 @@ from PySide6.QtWidgets import (
     QMessageBox, QProgressBar, QPushButton, QSizePolicy, QStackedWidget, QToolButton, QWidget,
 )
 
-from .. import DISPLAY_NAME, __version__, artwork, mal, models, scheduler
+from .. import DISPLAY_NAME, HOMEPAGE_URL, __version__, artwork, mal, models, scheduler, updates
+from ..logs import log
 from ..models import COMPLETED, WATCHING, Anime
 from ..storage import load_state, save_state
 from . import icons, theme
@@ -51,8 +52,10 @@ class Worker(QObject):
         try:
             self.done.emit(self.fn(*self.args, **kwargs))
         except mal.ImportError_ as e:
+            log.warning("%s failed: %s", getattr(self.fn, "__name__", "task"), e)
             self.failed.emit(str(e))
         except Exception as e:  # surface anything unexpected instead of dying silently
+            log.exception("%s crashed", getattr(self.fn, "__name__", "task"))
             self.failed.emit(f"{type(e).__name__}: {e}")
 
 
@@ -137,6 +140,7 @@ class MainWindow(DesktopMixin, QMainWindow):
         self.refresh()
         self.backdrop.set_enabled(self.state.settings.backdrop)
         QTimer.singleShot(300, self._startup_enrich)
+        QTimer.singleShot(5000, self._auto_update_check)
 
     # ------------------------------------------------------------------ layout
 
@@ -221,12 +225,59 @@ class MainWindow(DesktopMixin, QMainWindow):
         self.settings_btn.clicked.connect(lambda: self.open_settings())
         lay.addWidget(self.settings_btn)
 
+        self.update_btn = QPushButton("")
+        self.update_btn.setObjectName("updateChip")
+        self.update_btn.setCursor(Qt.PointingHandCursor)
+        self.update_btn.clicked.connect(self.open_update_page)
+        self.update_btn.setVisible(bool(getattr(self, "update_info", None)))
+        lay.addWidget(self.update_btn)
         foot = label(f"v{__version__}  ·  by <span style='color:{theme.ACCENT}; font-weight:700'>Zodchi</span>",
                      "faint", rich=True)
         foot.setAlignment(Qt.AlignCenter)
         lay.addSpacing(theme.px(4))
         lay.addWidget(foot)
         self._update_sidebar_live()
+
+    # ------------------------------------------------------------------ updates
+
+    def check_for_updates(self, manual: bool = False, on_result=None) -> None:
+        """Ask GitHub for a newer release (daily on startup, or from the About page)."""
+        s = self.state.settings
+
+        def done(rel) -> None:
+            s.last_update_check = date.today().isoformat()
+            self.save()
+            self.update_info = rel
+            if rel:
+                log.info("Update available: %s", rel["version"])
+                self.statusBar().showMessage(f"Rinne {rel['version']} is available", 10000)
+            self._show_update_chip()
+            if on_result:
+                on_result(rel, None)
+
+        def failed(msg: str) -> None:
+            log.info("Update check failed: %s", msg)
+            if on_result:
+                on_result(None, msg)
+
+        self._run(updates.check, (), done, with_progress=False, exclusive=False, on_error=failed)
+
+    def _auto_update_check(self) -> None:
+        s = self.state.settings
+        if s.check_updates and s.last_update_check != date.today().isoformat():
+            self.check_for_updates()
+
+    def _show_update_chip(self) -> None:
+        info = getattr(self, "update_info", None)
+        if hasattr(self, "update_btn"):
+            self.update_btn.setVisible(bool(info))
+            if info:
+                self.update_btn.setText(f"⬆  Update to {info['version']}")
+                self.update_btn.setToolTip("Open the download page")
+
+    def open_update_page(self) -> None:
+        info = getattr(self, "update_info", None)
+        QDesktopServices.openUrl(QUrl(info["url"] if info else HOMEPAGE_URL))
 
     def _update_sidebar_live(self) -> None:
         """Refresh the parts of the sidebar that change with your plan."""
@@ -828,6 +879,7 @@ class MainWindow(DesktopMixin, QMainWindow):
             worker.on_done(result)
 
     def _on_job_failed(self, message: str) -> None:
+        log.warning("Background task failed: %s", message)
         worker = self.sender()
         if isinstance(worker, Worker) and worker.on_error:
             worker.on_error(message)

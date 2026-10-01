@@ -538,3 +538,24 @@ def test_ordering_survives_ticking_and_replanning():
     scheduler.toggle_item(st, first, MONDAY)
     monday = [(i.mal_id, i.episode, i.done) for i in st.week.for_day(0)]
     assert monday[0] == (2, 7, True) and [m for m, _, _ in monday] == [2, 2, 1, 1]
+
+
+def test_version_comparison():
+    from rinne import updates
+    assert updates.parse_version("v1.2.3") == (1, 2, 3)
+    assert updates.parse_version("1.0") == (1, 0, 0)
+    assert updates.is_newer("1.0.0", "0.5.2") and updates.is_newer("v0.5.10", "0.5.2")
+    assert not updates.is_newer("0.5.2", "0.5.2") and not updates.is_newer("0.4.9", "0.5.2")
+
+
+def test_log_file_and_tail(monkeypatch, tmp_path):
+    from rinne import logs
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    monkeypatch.setattr(logs, "_path", None)
+    path = logs.setup()
+    logs.log.warning("hello from the test")
+    for h in logs.log.handlers:
+        h.flush()
+    assert path.exists() and "hello from the test" in logs.tail(5)
+    for h in list(logs.log.handlers):
+        logs.log.removeHandler(h)

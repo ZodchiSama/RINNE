@@ -19,6 +19,8 @@ def main() -> int:
         from ..selftest import run
         i = sys.argv.index("--selftest")
         return run(sys.argv[i + 1] if i + 1 < len(sys.argv) else None)
+    from ..logs import setup as setup_logging
+    setup_logging()
     if sys.platform == "win32":
         _windows_setup()
 

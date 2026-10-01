@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 
 from .. import DISPLAY_NAME, __version__
 from ..models import EPISODES, MINUTES, TITLE_LANGUAGES, WEEKDAYS, Settings
+from ..logs import log_path
 from ..storage import cache_dir, data_dir, state_path
 from . import theme
 from .common import (
@@ -253,6 +254,8 @@ class SettingsPage(QWidget):
         tray = self.win.tray_available()
         self._switch("Start minimized to the tray", "Launch quietly in the system tray." +
                      ("" if tray else " <i>(No system tray detected.)</i>"), "start_minimized", enabled=tray)
+        self._switch("Check for updates", "Once a day, look for a newer Rinne release on GitHub.",
+                     "check_updates")
         self._switch("Check airing shows on startup",
                      "Refresh episode counts and next-episode dates for shows you're watching that "
                      "are still airing.", "refresh_on_startup")
@@ -610,6 +613,24 @@ class SettingsPage(QWidget):
             copied.setText("Copied.")
 
         copy_row.addWidget(self._button("Copy system info", copy_info))
+        update_status = label("", "small", wrap=True)
+
+        def check_now() -> None:
+            update_status.setText("Checking…")
+
+            def result(rel, error) -> None:
+                if error:
+                    update_status.setText(f"Couldn't check: {error}")
+                elif rel:
+                    update_status.setText(f"Rinne {rel['version']} is available — use the button in the sidebar.")
+                else:
+                    update_status.setText(f"You're up to date (v{__version__}).")
+
+            self.win.check_for_updates(manual=True, on_result=result)
+
+        copy_row.addWidget(self._button("Check for updates", check_now))
+        copy_row.addWidget(self._button("Open log", lambda: self._open(log_path())))
+        sl.addWidget(update_status)
         copy_row.addWidget(copied)
         copy_row.addStretch()
         sl.addLayout(copy_row)

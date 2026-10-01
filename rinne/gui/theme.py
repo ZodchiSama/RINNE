@@ -200,6 +200,8 @@ def stylesheet() -> str:
     QToolButton#bnav {{ background: transparent; border: none; border-radius: {px(12)}px; color: {MUTED};
                         padding: {px(6)}px {px(4)}px; font-size: {px(11)}px; font-weight: 700; }}
     QToolButton#bnav:checked {{ color: {SOFT_TEXT}; background: {ACCENT_SOFT}; }}
+    QPushButton#updateChip {{ background: {GREEN_BG}; color: {SUCCESS}; border: 1px solid {SUCCESS};
+                              border-radius: {px(9)}px; padding: {px(6)}px; font-weight: 700; }}
     #upNextCard {{ background: {surface_2}; border: 1px solid {BORDER}; border-radius: {px(12)}px; }}
     #upNextCard:hover {{ border: 1px solid {ACCENT}; }}
     #sideSection {{ color: {FAINT}; font-size: {px(11)}px; font-weight: 700;
