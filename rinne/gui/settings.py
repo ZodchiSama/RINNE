@@ -33,6 +33,7 @@ SECTIONS = [
     ("schedule", "Schedule"),
     ("notifications", "Notifications"),
     ("discord", "Discord"),
+    ("accounts", "Accounts"),
     ("data", "Library && Data"),  # && = a literal & in button text
     ("about", "About"),
 ]
@@ -482,6 +483,46 @@ class SettingsPage(QWidget):
     def _test_discord(self) -> None:
         self.discord_status.setText(self.win.test_discord())
 
+    # ------------------------------------------------------------------ Accounts
+
+    def _build_accounts(self, s: Settings) -> None:
+        from .. import ANILIST_CLIENT_ID
+        self._header("Accounts", "Connect MyAnimeList or AniList and Rinne keeps your list up to date: "
+                     "episodes you tick, status changes and scores are sent a few seconds later.")
+        status_label = label("", "small", wrap=True)
+
+        def result(msg) -> None:
+            status_label.setText(msg or "")
+            QTimer.singleShot(100, self.refresh)
+
+        for svc, name, user, connected, available, sync_attr in [
+            ("mal", "MyAnimeList", s.mal_user, bool(s.mal_token), bool(s.mal_api_client_id()), "sync_mal"),
+            ("anilist", "AniList", s.anilist_user, bool(s.anilist_token), bool(ANILIST_CLIENT_ID), "sync_anilist"),
+        ]:
+            self._group(name)
+            if connected:
+                disc = self._button("Disconnect", lambda _=False, v=svc: (self.win.disconnect_account(v), self.refresh()))
+                self._row(f"Connected as {user or 'your account'}",
+                          "Only status, episodes watched and score are sent — for shows that change.", disc)
+                self._switch(f"Send my progress to {name}", "", sync_attr, kind="save")
+            elif available:
+                go = self._button(f"Connect {name}", (lambda: self.win.connect_mal(result)) if svc == "mal"
+                                  else (lambda: self.win.connect_anilist(result)), primary=True)
+                how = ("Opens MyAnimeList in your browser; approve Rinne and you're done."
+                       if svc == "mal" else
+                       "Opens AniList in your browser; approve Rinne, then paste the code it shows.")
+                self._row("Not connected", how, go)
+            else:
+                self._row("Not available in this build", f"{name} sign-in hasn't been set up yet.", None)
+        if s.mal_token or s.anilist_token:
+            self._group("Sync")
+            self._row("Sync now", "Send any changes immediately instead of waiting a few seconds.",
+                      self._button("Sync now", lambda: (status_label.setText("Syncing…"),
+                                                        self.win.sync_now(result))))
+        self.body.addWidget(status_label)
+        self.body.addWidget(label("Sign-ins are stored only on this computer, in Rinne's data folder. Backups "
+                                  "you export include them — keep backup files private.", "faint", wrap=True))
+
     # ------------------------------------------------------------------ Library & Data
 
     def _build_data(self, s: Settings) -> None:
@@ -501,6 +542,7 @@ class SettingsPage(QWidget):
                   "Importing an export file needs nothing.", cid)
         imp = button_row(self._button("Import export file…", self.win.import_file),
                          self._button("Import by username", self.win.import_username),
+                         self._button("Import from AniList…", self.win.import_anilist),
                          self._button("Refresh all details", lambda: self.win.run_enrich(force=True)))
         self._row("Import", f"{len(self.win.state.library)} shows in your library.", imp)
 

@@ -700,3 +700,76 @@ def test_watch_history_and_stats():
     assert s.genres[0] == ("Drama", 17) and s.completion_rate == 0.5
     assert s.total_episodes == 17 and s.finished_this_week == ["Show 2"]
     assert "5 episodes this week (2h 00m)" in stats.recap_text(s)
+
+
+def test_anilist_user_list_import(monkeypatch):
+    from rinne import anilist, mal
+    monkeypatch.setattr(anilist, "_write_cache", lambda *a: None)
+    def media(i, mal_id, title):
+        return {"id": i, "idMal": mal_id, "title": {"romaji": title, "english": title + " EN"}, "episodes": 12}
+    monkeypatch.setattr(anilist, "query", lambda q, v: {"MediaListCollection": {"lists": [
+        {"entries": [{"status": "CURRENT", "progress": 4, "score": 8, "priority": 3, "media": media(10, 1, "A")},
+                     {"status": "COMPLETED", "progress": 0, "score": 9, "priority": 0, "media": media(11, 2, "B")},
+                     {"status": "PLANNING", "progress": 0, "score": 0, "priority": 0, "media": media(12, None, "No MAL")}]},
+        {"entries": [{"status": "CURRENT", "progress": 4, "score": 8, "priority": 0, "media": media(10, 1, "A")}]},
+    ]}})
+    entries, skipped = anilist.fetch_user_list("someone")
+    assert skipped == 1 and [(a.mal_id, a.status, a.episodes_watched) for a in entries] == \
+        [(1, WATCHING, 4), (2, COMPLETED, 12)]
+    assert entries[0].priority == 2 and entries[0].user_score == 8 and entries[0].enriched
+    assert entries[0].title_english == "A EN" and entries[0].anilist_id == 10
+
+    def private(q, v):
+        raise anilist.AniListError("Private User")
+    monkeypatch.setattr(anilist, "query", private)
+    with pytest.raises(mal.ImportError_, match="private"):
+        anilist.fetch_user_list("someone")
+
+
+def test_sync_change_detection_and_push(monkeypatch):
+    import time as _time
+    from rinne import sync
+    a, b = show(1, status=WATCHING, episodes_watched=3, anilist_id=11), show(2, status=COMPLETED, anilist_id=12)
+    lib = lib_of(a, b)
+    synced = sync.baseline(lib)
+    assert sync.pending_changes(lib, synced) == []
+    a.episodes_watched = 4
+    assert sync.pending_changes(lib, synced) == [a]
+
+    sent = []
+    monkeypatch.setattr(sync, "mal_push", lambda tokens, x: sent.append(("mal", x.mal_id, tokens["access_token"])))
+    monkeypatch.setattr(sync, "anilist_push", lambda token, x: sent.append(("anilist", x.mal_id, token)))
+    monkeypatch.setattr(sync, "mal_refresh", lambda cid, t: {"access_token": "new", "refresh_token": "r",
+                                                             "expires_at": _time.time() + 3600})
+    res = sync.push_all([a], "cid", {"access_token": "old", "refresh_token": "r", "expires_at": 0}, "al-token")
+    assert sent == [("mal", 1, "new"), ("anilist", 1, "al-token")]
+    assert res["mal"] == [1] and res["anilist"] == [1] and res["mal_tokens"]["access_token"] == "new"
+
+    def expired(*_):
+        raise sync.AuthExpired("nope")
+    monkeypatch.setattr(sync, "anilist_push", expired)
+    res = sync.push_all([a], "cid", None, "bad")
+    assert res["expired"] == ["anilist"] and res["anilist"] == []
+
+
+def test_mal_signin_local_redirect(monkeypatch):
+    """The local callback server captures the code; the token exchange uses the PKCE verifier."""
+    import threading, urllib.parse, urllib.request as ur
+    from rinne import sync
+    seen = {}
+
+    def fake_browser(url):
+        q = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+        seen["challenge"] = q["code_challenge"][0]
+        cb = f"{q['redirect_uri'][0]}?code=abc&state={q['state'][0]}"
+        threading.Timer(0.3, lambda: ur.urlopen(cb.replace("localhost", "127.0.0.1"), timeout=5).read()).start()
+        return True
+
+    def fake_request(url, data=None, method="GET", token=""):
+        seen["exchange"] = data
+        return {"access_token": "AT", "refresh_token": "RT", "expires_in": 3600}
+
+    monkeypatch.setattr(sync, "_request", fake_request)
+    tokens = sync.mal_authorize("cid", timeout=10, open_browser=fake_browser)
+    assert tokens["access_token"] == "AT" and tokens["expires_at"] > 0
+    assert seen["exchange"]["code"] == "abc" and seen["exchange"]["code_verifier"] == seen["challenge"]

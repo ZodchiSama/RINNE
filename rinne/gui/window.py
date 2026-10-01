@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Callable
 from datetime import date
 from pathlib import Path
@@ -14,7 +15,8 @@ from PySide6.QtWidgets import (
 )
 
 from .. import (
-    DISPLAY_NAME, HOMEPAGE_URL, __version__, anilist, announcements, artwork, mal, models, scheduler, updates,
+    DISPLAY_NAME, HOMEPAGE_URL, __version__, anilist, announcements, artwork, mal, models, scheduler, sync,
+    updates,
 )
 from .profile import pick_title
 from ..logs import log
@@ -208,6 +210,7 @@ class MainWindow(DesktopMixin, QMainWindow):
         menu = QMenu(imp)
         menu.addAction("From MAL export file…", self.import_file)
         menu.addAction("From MAL username…", self.import_username)
+        menu.addAction("From AniList username…", self.import_anilist)
         menu.addSeparator()
         menu.addAction("Refresh all show details", lambda: self.run_enrich(force=True))
         imp.clicked.connect(lambda: menu.exec(imp.mapToGlobal(imp.rect().topRight())))
@@ -615,7 +618,135 @@ class MainWindow(DesktopMixin, QMainWindow):
         self._run(anilist.lookup, (mal_id,), done, with_progress=False, exclusive=False,
                   on_error=lambda msg: QMessageBox.warning(self, "Couldn't add the season", msg))
 
+    # ------------------------------------------------------------------ account sync
+
+    def _sync_targets(self) -> tuple[dict | None, str | None]:
+        s = self.state.settings
+        mal_tokens = s.mal_token if (s.mal_token and s.sync_mal) else None
+        al_token = s.anilist_token if (s.anilist_token and s.sync_anilist) else None
+        return mal_tokens, al_token
+
+    def schedule_sync(self) -> None:
+        if not hasattr(self, "_sync_timer"):
+            self._sync_timer = QTimer(self, singleShot=True, interval=4000, timeout=self.sync_now)
+        if any(self._sync_targets()):
+            self._sync_timer.start()
+
+    def sync_now(self, on_result=None) -> None:
+        """Push status / episodes / score changes to the connected accounts."""
+        mal_tokens, al_token = self._sync_targets()
+        if not (mal_tokens or al_token) or getattr(self, "_syncing", False):
+            return
+        lib, synced = self.state.library, self.state.synced
+        changes = {a.mal_id: a for svc in ("mal", "anilist")
+                   if (mal_tokens if svc == "mal" else al_token)
+                   for a in sync.pending_changes(lib, synced.get(svc, {}))}
+        if not changes:
+            if on_result:
+                on_result("Everything is already in sync.")
+            return
+        batch = [copy.copy(a) for a in changes.values()]
+        self._syncing = True
+
+        def done(res: dict) -> None:
+            self._syncing = False
+            s = self.state.settings
+            for svc in ("mal", "anilist"):
+                done_ids = set(res[svc])
+                if done_ids:
+                    target = self.state.synced.setdefault(svc, {})
+                    for a in batch:
+                        if a.mal_id in done_ids:
+                            target[a.mal_id] = sync.snapshot(a)
+            if res["mal_tokens"]:
+                s.mal_token = res["mal_tokens"]
+            for svc in res["expired"]:
+                name = "MyAnimeList" if svc == "mal" else "AniList"
+                if svc == "mal":
+                    s.mal_token, s.mal_user = {}, ""
+                else:
+                    s.anilist_token, s.anilist_user = "", ""
+                self.notify(f"Reconnect {name}", f"Rinne's sign-in to {name} expired. Connect again in "
+                            "Settings → Accounts to keep syncing.")
+            for err in res["errors"][:5]:
+                log.warning("Sync: %s", err)
+            self.save()
+            msg = f"Synced {len(batch)} change{'s' if len(batch) != 1 else ''}" + \
+                (f" · {len(res['errors'])} failed (see log)" if res["errors"] else "")
+            self.statusBar().showMessage(msg, 6000)
+            if on_result:
+                on_result(msg)
+            if self.stack.currentWidget() is self.settings_page:
+                self.settings_page.refresh()
+
+        def failed(msg: str) -> None:
+            self._syncing = False
+            if on_result:
+                on_result(f"Sync failed: {msg}")
+
+        self._run(sync.push_all, (batch, self.state.settings.mal_api_client_id(), mal_tokens, al_token),
+                  done, with_progress=False, exclusive=False, on_error=failed)
+
+    def connect_mal(self, on_result=None) -> None:
+        s = self.state.settings
+
+        def job(client_id):
+            tokens = sync.mal_authorize(client_id)
+            return tokens, sync.mal_username(tokens)
+
+        def done(result) -> None:
+            tokens, name = result
+            s.mal_token, s.mal_user, s.sync_mal = tokens, name, True
+            self.state.synced["mal"] = sync.baseline(self.state.library)
+            self.save()
+            self.statusBar().showMessage(f"Connected to MyAnimeList as {name}", 6000)
+            if on_result:
+                on_result(None)
+
+        def failed(msg: str) -> None:
+            if on_result:
+                on_result(msg)
+
+        self.statusBar().showMessage("Waiting for you to approve Rinne on MyAnimeList (in your browser)…")
+        self._run(job, (s.mal_api_client_id(),), done, with_progress=False, exclusive=False, on_error=failed)
+
+    def connect_anilist(self, on_result=None) -> None:
+        s = self.state.settings
+        try:
+            sync.anilist_open_signin()
+        except sync.SyncError as e:
+            QMessageBox.information(self, "AniList", str(e))
+            return
+        token, ok = QInputDialog.getText(
+            self, "Connect AniList", "Approve Rinne in your browser, then paste the code AniList shows here:")
+        if not ok or not token.strip():
+            return
+        token = token.strip()
+
+        def done(name: str) -> None:
+            s.anilist_token, s.anilist_user, s.sync_anilist = token, name, True
+            if not s.anilist_username:
+                s.anilist_username = name
+            self.state.synced["anilist"] = sync.baseline(self.state.library)
+            self.save()
+            self.statusBar().showMessage(f"Connected to AniList as {name}", 6000)
+            if on_result:
+                on_result(None)
+
+        self._run(sync.anilist_viewer, (token,), done, with_progress=False, exclusive=False,
+                  on_error=lambda msg: (on_result or (lambda m: QMessageBox.warning(self, "AniList", m)))(msg))
+
+    def disconnect_account(self, service: str) -> None:
+        s = self.state.settings
+        if service == "mal":
+            s.mal_token, s.mal_user = {}, ""
+        else:
+            s.anilist_token, s.anilist_user = "", ""
+        self.state.synced.pop(service, None)
+        self.save()
+
     def refresh(self) -> None:
+        self.schedule_sync()
         self._write_calendar()
         self._update_backdrop()
         self.schedule_presence()
@@ -726,7 +857,7 @@ class MainWindow(DesktopMixin, QMainWindow):
         if not self.state.settings.auto_replace:
             self.statusBar().showMessage(f"Finished {finished.name}!", 8000)
             return
-        cid = self.state.settings.mal_client_id
+        cid = self.state.settings.mal_api_client_id()
         self.statusBar().showMessage(f"Finished {finished.name} — finding what comes next…")
 
         def find(state, show):
@@ -877,9 +1008,31 @@ class MainWindow(DesktopMixin, QMainWindow):
             return
         self._finish_import(entries)
 
+    def import_anilist(self, username: str | None = None) -> None:
+        """Import a public AniList list by username (no account or key needed)."""
+        s = self.state.settings
+        if username is None:
+            name, ok = QInputDialog.getText(self, "Import from AniList", "AniList username:",
+                                            text=s.anilist_username)
+            if not ok or not name.strip():
+                return
+            username = name
+        s.anilist_username = username.strip()
+        self.save()
+
+        def done(result) -> None:
+            entries, skipped = result
+            self._finish_import(entries)
+            if skipped:
+                self.statusBar().showMessage(
+                    f"Imported {len(entries)} shows from AniList · {skipped} without a MyAnimeList "
+                    "entry couldn't be added", 10000)
+
+        self._run(anilist.fetch_user_list, (s.anilist_username,), done)
+
     def import_username(self) -> None:
         s = self.state.settings
-        if not s.mal_client_id:
+        if not s.mal_api_client_id():
             QMessageBox.information(
                 self, "Client ID needed",
                 "Importing by username uses the official MAL API, which needs a free Client ID "
@@ -891,7 +1044,7 @@ class MainWindow(DesktopMixin, QMainWindow):
         if not ok or not name.strip():
             return
         s.mal_username = name.strip()
-        self._run(mal.fetch_mal_list, (s.mal_username, s.mal_client_id), self._finish_import)
+        self._run(mal.fetch_mal_list, (s.mal_username, s.mal_api_client_id()), self._finish_import)
 
     def _finish_import(self, entries: list[Anime]) -> None:
         added, updated = mal.merge_import(self.state.library, entries)
@@ -909,7 +1062,7 @@ class MainWindow(DesktopMixin, QMainWindow):
             airing = [a for a in self.state.library.values()
                       if a.status == WATCHING and a.airing_status == "currently_airing"]
             if airing:
-                cid = self.state.settings.mal_client_id
+                cid = self.state.settings.mal_api_client_id()
 
                 def job(entries, progress, should_stop):
                     return mal.enrich(entries, cid, progress, should_stop, force=True)
@@ -925,7 +1078,7 @@ class MainWindow(DesktopMixin, QMainWindow):
         def job(entries, cid, progress, should_stop):
             return mal.enrich(entries, cid, progress, should_stop, force=force)
 
-        self._run(job, (wanted, self.state.settings.mal_client_id), self._enriched,
+        self._run(job, (wanted, self.state.settings.mal_api_client_id()), self._enriched,
                   cancellable=True)
 
     def _enriched(self, count: int) -> None:

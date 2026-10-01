@@ -71,7 +71,7 @@ class AniListError(Exception):
 _last_call = 0.0
 
 
-def query(q: str, variables: dict, retries: int = 3) -> dict:
+def query(q: str, variables: dict, retries: int = 3, token: str = "") -> dict:
     global _last_call
     body = json.dumps({"query": q, "variables": variables}).encode()
     for attempt in range(retries):
@@ -79,8 +79,10 @@ def query(q: str, variables: dict, retries: int = 3) -> dict:
         if gap < 0.7:  # stay well inside the rate limit
             time.sleep(0.7 - gap)
         _last_call = time.monotonic()
-        req = urllib.request.Request(API, data=body, headers={
-            "Content-Type": "application/json", "Accept": "application/json", "User-Agent": USER_AGENT})
+        headers = {"Content-Type": "application/json", "Accept": "application/json", "User-Agent": USER_AGENT}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        req = urllib.request.Request(API, data=body, headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
@@ -248,6 +250,52 @@ def lookup(mal_id: int) -> Anime | None:
     anime = Anime(mal_id=mal_id, title=(m.get("title") or {}).get("romaji") or f"#{mal_id}")
     apply_media(anime, m)
     return anime
+
+
+LIST_QUERY = """query ($name: String) { MediaListCollection(userName: $name, type: ANIME) {
+  lists { entries { status progress score(format: POINT_10) priority media { %s } } } } }""" % MEDIA_FIELDS
+
+_LIST_STATUS = {"CURRENT": "watching", "REPEATING": "watching", "COMPLETED": "completed",
+                "PAUSED": "on_hold", "DROPPED": "dropped", "PLANNING": "plan_to_watch"}
+
+
+def fetch_user_list(username: str, progress=None) -> tuple[list[Anime], int]:
+    """A public AniList list by username, with full show details.
+    Returns (entries, skipped) — entries without a MyAnimeList id can't be tracked and are skipped."""
+    from .mal import ImportError_
+    if progress:
+        progress(0, 0, f"Fetching {username}'s AniList list…")
+    try:
+        data = query(LIST_QUERY, {"name": username.strip()})
+    except AniListError as e:
+        msg = str(e)
+        if "Private" in msg:
+            raise ImportError_(f"{username}'s AniList list is private. Make it public in AniList's "
+                               "settings, or connect your AniList account in Rinne.") from e
+        if "not found" in msg.lower() or "404" in msg:
+            raise ImportError_(f"There's no AniList user called “{username}”.") from e
+        raise ImportError_(msg) from e
+    entries, skipped, seen = [], 0, set()
+    for lst in (data.get("MediaListCollection") or {}).get("lists") or []:
+        for e in lst.get("entries") or []:
+            m = e.get("media") or {}
+            if not m.get("idMal"):
+                skipped += 1
+                continue
+            if m["idMal"] in seen:  # custom lists repeat entries
+                continue
+            seen.add(m["idMal"])
+            a = Anime(mal_id=m["idMal"], title=(m.get("title") or {}).get("romaji") or f"#{m['idMal']}")
+            apply_media(a, m)
+            _write_cache("anilist", a.mal_id, m)
+            a.status = _LIST_STATUS.get(e.get("status") or "", "plan_to_watch")
+            a.episodes_watched = int(e.get("progress") or 0)
+            if a.status == "completed" and a.episodes_total:
+                a.episodes_watched = a.episodes_total
+            a.user_score = int(e.get("score") or 0)
+            a.priority = min(2, int(e.get("priority") or 0))
+            entries.append(a)
+    return entries, skipped
 
 
 UPCOMING_NODE = """id idMal type format status title { romaji english native } season seasonYear

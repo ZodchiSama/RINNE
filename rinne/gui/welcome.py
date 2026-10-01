@@ -208,8 +208,23 @@ class WelcomePage(QWidget):
         al.addWidget(button_row(f, h))
         self.body.addWidget(a)
 
+        c, cl = card(margins=18, spacing=8)
+        cl.addWidget(label("From AniList", "h2"))
+        cl.addWidget(label("Use your AniList list instead — just your username (the list must be public).",
+                           "small", wrap=True))
+        al_user = QLineEdit(self.win.state.settings.anilist_username)
+        al_user.setPlaceholderText("AniList username")
+        al_go = QPushButton("Import")
+        al_go.setObjectName("ghost")
+        al_go.clicked.connect(lambda: self._import_anilist(al_user.text()))
+        al_row = (vbox if theme.COMPACT else hbox)(spacing=8)
+        al_row.addWidget(al_user, 1)
+        al_row.addWidget(al_go)
+        cl.addLayout(al_row)
+        self.body.addWidget(c)
+
         b, bl = card(margins=18, spacing=8)
-        bl.addWidget(label("By username", "h2"))
+        bl.addWidget(label("By MyAnimeList username", "h2"))
         bl.addWidget(label("Uses the official MAL API, which needs a free Client ID from "
                            "<a href='https://myanimelist.net/apiconfig'>myanimelist.net/apiconfig</a> "
                            "(Create ID → app type “other”).", "small", wrap=True, rich=True))
@@ -231,6 +246,15 @@ class WelcomePage(QWidget):
             lbl.setOpenExternalLinks(True)
         self.body.addWidget(b)
         self._nav("Continue" if n else "Skip for now")
+
+    def _import_anilist(self, user: str) -> None:
+        if not user.strip():
+            self.import_note = "Enter your AniList username."
+            self.refresh()
+            return
+        self.import_note = f"Importing {user.strip()}'s AniList list…"
+        self.win.import_anilist(user.strip())
+        self.refresh()
 
     def _import_file(self) -> None:
         before = len(self.win.state.library)

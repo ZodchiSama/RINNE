@@ -813,6 +813,7 @@ class LibraryPage(QWidget):
         imenu = QMenu(self.import_btn)
         imenu.addAction("From MAL export file…", win.import_file)
         imenu.addAction("From MAL username…", win.import_username)
+        imenu.addAction("From AniList username…", win.import_anilist)
         imenu.addSeparator()
         imenu.addAction("Refresh all show details", lambda: win.run_enrich(force=True))
         self.import_btn.setMenu(imenu)

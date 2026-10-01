@@ -61,6 +61,8 @@ class State:
     announced: dict[int, str] = field(default_factory=dict)  # sequel mal_id -> last seen status
     history: list[dict] = field(default_factory=list)  # [{"d": iso date, "m": mal_id, "e": ep, "min"}]
     last_recap: str = ""  # ISO week of the last weekly recap, e.g. "2026-W40"
+    # What was last sent to each connected service: {"mal": {mal_id: [status, eps, score]}, "anilist": {...}}
+    synced: dict[str, dict[int, list]] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -75,6 +77,7 @@ class State:
             "announced": {str(k): v for k, v in self.announced.items()},
             "history": self.history,
             "last_recap": self.last_recap,
+            "synced": {svc: {str(k): v for k, v in m.items()} for svc, m in self.synced.items()},
         }
 
     @classmethod
@@ -87,7 +90,8 @@ class State:
                    bool(d.get("onboarded", False)), list(d.get("moves") or []),
                    {k: list(v) for k, v in (d.get("day_order") or {}).items()},
                    {int(k): v for k, v in (d.get("announced") or {}).items()},
-                   list(d.get("history") or []), d.get("last_recap", ""))
+                   list(d.get("history") or []), d.get("last_recap", ""),
+                   {svc: {int(k): v for k, v in m.items()} for svc, m in (d.get("synced") or {}).items()})
 
 
 def state_path() -> Path:

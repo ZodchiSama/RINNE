@@ -180,6 +180,18 @@ class Settings:
     allow_airing: bool = True
     mal_username: str = ""
     mal_client_id: str = ""
+    anilist_username: str = ""
+    # Account sync (tokens are stored locally only)
+    mal_token: dict = field(default_factory=dict)  # access_token, refresh_token, expires_at
+    mal_user: str = ""
+    sync_mal: bool = True
+    anilist_token: str = ""
+    anilist_user: str = ""
+    sync_anilist: bool = True
+
+    def mal_api_client_id(self) -> str:
+        from . import MAL_CLIENT_ID
+        return self.mal_client_id.strip() or MAL_CLIENT_ID
     zoom: float = 1.0
     title_language: str = ROMAJI
     theme: str = "midnight"
