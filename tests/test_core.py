@@ -806,3 +806,13 @@ def test_translation_template_is_up_to_date():
     result = subprocess.run([sys.executable, str(root / "tools" / "extract_strings.py"), "--check"],
                             capture_output=True, text=True)
     assert result.returncode == 0, result.stdout
+
+
+def test_update_check_knows_who_updates_packaged_copies(monkeypatch):
+    from rinne import updates
+    monkeypatch.delenv("FLATPAK_ID", raising=False)
+    monkeypatch.setattr(updates.Path, "exists", lambda self: False)
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    assert updates.managed_by() == ""  # AppImage / Windows exe: Rinne checks GitHub itself
+    monkeypatch.setenv("FLATPAK_ID", "io.github.zodchisama.rinne")
+    assert updates.managed_by() == "Flatpak"

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 
 
@@ -32,7 +33,7 @@ def main() -> int:
 
     app = QApplication(sys.argv)
     app.setApplicationName(DISPLAY_NAME)
-    app.setDesktopFileName(APP_NAME)
+    app.setDesktopFileName(os.environ.get("FLATPAK_ID") or APP_NAME)  # matches the .desktop file
     app.setStyle("Fusion")
     app.setWindowIcon(app_icon())
     app.setQuitOnLastWindowClosed(False)  # the tray can keep Rinne running

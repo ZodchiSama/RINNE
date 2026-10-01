@@ -1,0 +1,50 @@
+# Flatpak manifest for Flathub. Build and run locally with:
+#   flatpak-builder --user --install --force-clean build-dir io.github.zodchisama.rinne.yml
+#   flatpak run io.github.zodchisama.rinne
+# For the Flathub submission, switch the source below to the git tag (see README.md here).
+id: io.github.zodchisama.rinne
+runtime: org.kde.Platform
+runtime-version: '6.11'
+sdk: org.kde.Sdk
+base: io.qt.PySide.BaseApp
+base-version: '6.11'
+command: rinne
+cleanup-commands:
+  - /app/cleanup-BaseApp.sh
+finish-args:
+  - --share=network   # AniList, MyAnimeList, artwork; sign-in uses a localhost redirect
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --talk-name=org.kde.StatusNotifierWatcher   # tray icon
+  - --talk-name=org.freedesktop.Notifications   # new-episode alerts and the daily reminder
+  # Discord Rich Presence: the native and Flatpak Discord IPC sockets
+  - --filesystem=xdg-run/discord-ipc-0
+  - --filesystem=xdg-run/app/com.discordapp.Discord:create
+modules:
+  - name: rinne
+    buildsystem: simple
+    build-commands:
+      # Pure Python: copy the package and add a launcher (PySide6 comes from the BaseApp).
+      - install -d /app/share/rinne
+      - cp -r rinne /app/share/rinne/
+      - find /app/share/rinne -name __pycache__ -prune -exec rm -rf {} +
+      - python3 -m compileall -q /app/share/rinne
+      - install -Dm755 packaging/flatpak/rinne.sh /app/bin/rinne
+      - install -Dm644 packaging/linux/rinne.desktop /app/share/applications/${FLATPAK_ID}.desktop
+      - desktop-file-edit --set-icon=${FLATPAK_ID} /app/share/applications/${FLATPAK_ID}.desktop
+      - install -Dm644 packaging/linux/rinne.appdata.xml /app/share/metainfo/${FLATPAK_ID}.metainfo.xml
+      - sed -i "s|<launchable type=\"desktop-id\">rinne.desktop|<launchable type=\"desktop-id\">${FLATPAK_ID}.desktop|"
+        /app/share/metainfo/${FLATPAK_ID}.metainfo.xml
+      - for size in 16 24 32 48 64 128 256 512; do
+          install -Dm644 rinne/assets/icon-$size.png /app/share/icons/hicolor/${size}x${size}/apps/${FLATPAK_ID}.png;
+        done
+    sources:
+      # Local checkout, for testing. Flathub needs the tagged release instead:
+      #   - type: git
+      #     url: https://github.com/ZodchiSama/RINNE.git
+      #     tag: v1.0.0
+      #     commit: <full commit hash of the tag>
+      - type: dir
+        path: ../..

@@ -78,6 +78,30 @@ jobs:
           & $iscc /DAppVersion=${{ steps.version.outputs.version }} packaging\windows\rinne.iss
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
 
+      # Code signing through SignPath (free for open source). Skipped until the repository has
+      # the SIGNPATH_ORGANIZATION_ID variable and SIGNPATH_API_TOKEN secret (packaging/windows/SIGNING.md).
+      - name: Upload unsigned files for signing
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        id: unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rinne-Windows-unsigned
+          path: |
+            dist/Rinne-Setup-*.exe
+            dist/Rinne-Portable-*.exe
+
+      - name: Sign with SignPath
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: rinne
+          signing-policy-slug: release-signing
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: dist  # the signed files replace the unsigned ones
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:

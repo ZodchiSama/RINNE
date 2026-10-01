@@ -8,7 +8,7 @@ from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices, QPixmap
 from PySide6.QtWidgets import QGridLayout, QLabel
 
-from .. import DISPLAY_NAME, __version__
+from .. import DISPLAY_NAME, __version__, updates
 from ..models import Settings
 from ..logs import log_path
 from ..storage import data_dir
@@ -114,6 +114,9 @@ class AboutSection:
             def result(rel, error) -> None:
                 if error:
                     update_status.setText(f"Couldn't check: {error}")
+                elif rel and updates.managed_by():
+                    update_status.setText(f"Rinne {rel['version']} is available: update it with "
+                                          f"{updates.managed_by()}.")
                 elif rel:
                     update_status.setText(f"Rinne {rel['version']} is available — use the button in the sidebar.")
                 else:

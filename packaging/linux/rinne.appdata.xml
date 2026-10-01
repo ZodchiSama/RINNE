@@ -10,21 +10,59 @@
   </developer>
   <description>
     <p>
-      Rinne turns your MyAnimeList list into a 7-day watch plan. When a show ends, its next
-      season takes its place automatically — even if it isn't on your list yet — and Rinne
-      explains why.
+      Rinne turns your MyAnimeList or AniList list into a 7-day watch plan. When a show ends,
+      its next season takes its place automatically, even if it isn't on your list yet, and
+      Rinne explains why.
     </p>
     <ul>
-      <li>A weekly schedule built from the shows you're watching</li>
-      <li>Follows every series: sequels replace finished seasons</li>
-      <li>Show profiles with cast, voice actors and announced seasons</li>
+      <li>A weekly schedule built from the shows you're watching, with episode titles and thumbnails</li>
+      <li>Follows every series: sequels replace finished seasons, and new seasons are announced</li>
+      <li>Drag shows between days, pause or pin a show, and catch up on airing shows</li>
+      <li>Optional two-way sync of your progress with MyAnimeList and AniList</li>
+      <li>Stats, a weekly recap and a calendar file for your calendar app</li>
+      <li>Show profiles with cast, voice actors and where to watch</li>
       <li>Themes, a full-HD background slideshow and Discord Rich Presence</li>
     </ul>
   </description>
   <launchable type="desktop-id">rinne.desktop</launchable>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Your Week: the 7-day plan</caption>
+      <image>https://raw.githubusercontent.com/ZodchiSama/RINNE/main/docs/screenshots/week.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>A show's profile</caption>
+      <image>https://raw.githubusercontent.com/ZodchiSama/RINNE/main/docs/screenshots/profile.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Up Next: what replaces each show, and why</caption>
+      <image>https://raw.githubusercontent.com/ZodchiSama/RINNE/main/docs/screenshots/up-next.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Stats</caption>
+      <image>https://raw.githubusercontent.com/ZodchiSama/RINNE/main/docs/screenshots/stats.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>The Yotsuba theme</caption>
+      <image>https://raw.githubusercontent.com/ZodchiSama/RINNE/main/docs/screenshots/yotsuba.png</image>
+    </screenshot>
+  </screenshots>
   <url type="homepage">https://github.com/ZodchiSama/RINNE</url>
   <url type="bugtracker">https://github.com/ZodchiSama/RINNE/issues</url>
+  <url type="vcs-browser">https://github.com/ZodchiSama/RINNE</url>
+  <url type="translate">https://github.com/ZodchiSama/RINNE/blob/main/CONTRIBUTING.md#translating-rinne</url>
   <content_rating type="oars-1.1"/>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+  <branding>
+    <color type="primary" scheme_preference="light">#e9d5ff</color>
+    <color type="primary" scheme_preference="dark">#2e1065</color>
+  </branding>
   <categories>
     <category>AudioVideo</category>
     <category>Video</category>
@@ -34,8 +72,22 @@
     <keyword>myanimelist</keyword>
     <keyword>anilist</keyword>
     <keyword>schedule</keyword>
+    <keyword>watchlist</keyword>
   </keywords>
   <releases>
-    <release version="@VERSION@" date="@DATE@"/>
+    <release version="1.0.0" date="2026-10-01">
+      <description>
+        <p>The biggest update yet: account sync, AniList, planning controls, stats and more.</p>
+        <ul>
+          <li>Two-way sync with MyAnimeList and AniList, and importing from AniList</li>
+          <li>Episode titles and thumbnails, and where to watch each show</li>
+          <li>Pause, pin and pace shows, drag them between days, and catch up on airing shows</li>
+          <li>New seasons are announced, a calendar file, a Stats page and a weekly recap</li>
+          <li>In-app update check, a log file, and faster with large libraries</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.5.2" date="2026-09-30"/>
+    <release version="0.5.0" date="2026-09-27"/>
   </releases>
 </component>

@@ -27,10 +27,12 @@ class ServicesMixin:
         def done(rel) -> None:
             s.last_update_check = date.today().isoformat()
             self.save()
-            self.update_info = rel
+            manager = updates.managed_by()
+            self.update_info = None if manager else rel  # packaged copies update through their manager
             if rel:
                 log.info("Update available: %s", rel["version"])
-                self.statusBar().showMessage(f"Rinne {rel['version']} is available", 10000)
+                self.statusBar().showMessage(f"Rinne {rel['version']} is available"
+                                             + (f": update it with {manager}" if manager else ""), 10000)
             self._show_update_chip()
             if on_result:
                 on_result(rel, None)
@@ -44,6 +46,8 @@ class ServicesMixin:
 
     def _auto_update_check(self) -> None:
         s = self.state.settings
+        if updates.managed_by():
+            return  # Flatpak or the distro package manager handles updates
         if s.check_updates and s.last_update_check != date.today().isoformat():
             self.check_for_updates()
 

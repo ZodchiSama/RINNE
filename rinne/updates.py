@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import sys
 import urllib.request
+from pathlib import Path
 
 from . import USER_AGENT, __version__
 
@@ -29,6 +32,18 @@ def latest_release(timeout: float = 15) -> dict:
         data = json.loads(resp.read().decode("utf-8"))
     return {"version": (data.get("tag_name") or "").lstrip("v"), "url": data.get("html_url", ""),
             "name": data.get("name") or ""}
+
+
+def managed_by() -> str:
+    """Who updates this copy of Rinne, if not Rinne itself: "Flatpak", "your package manager"
+    (AUR and other distro packages), or "" for the AppImage, Windows builds and source installs."""
+    if os.environ.get("FLATPAK_ID") or Path("/.flatpak-info").exists():
+        return "Flatpak"
+    if getattr(sys, "frozen", False) or sys.platform == "win32":
+        return ""
+    if sys.prefix == sys.base_prefix and Path(__file__).resolve().is_relative_to("/usr"):
+        return "your package manager"
+    return ""
 
 
 def check() -> dict | None:

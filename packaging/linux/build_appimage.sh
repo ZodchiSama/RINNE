@@ -58,8 +58,7 @@ for size in 16 24 32 48 64 128 256 512; do
 done
 cp "$root/rinne/assets/icon-256.png" "$appdir/rinne.png"
 ln -sf rinne.png "$appdir/.DirIcon"
-sed -e "s/@VERSION@/$version/" -e "s/@DATE@/$(date -u +%F)/" "$root/packaging/linux/rinne.appdata.xml" \
-  > "$appdir/usr/share/metainfo/io.github.zodchisama.rinne.appdata.xml"
+cp "$root/packaging/linux/rinne.appdata.xml" "$appdir/usr/share/metainfo/io.github.zodchisama.rinne.appdata.xml"
 
 # 4) Pack (with update info so AppImage updaters can fetch new releases from GitHub)
 if [ ! -x "$tool" ]; then

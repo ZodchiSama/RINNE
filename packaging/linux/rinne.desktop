@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Rinne
+GenericName=Anime Planner
+Comment=Weekly anime schedule that follows each series
+Exec=rinne
+Icon=rinne
+Terminal=false
+Categories=AudioVideo;Video;
+Keywords=anime;mal;myanimelist;anilist;schedule;watchlist;
+StartupWMClass=rinne

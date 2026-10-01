@@ -1,0 +1,35 @@
+# Maintainer: Zodchi <zodchi.san at proton dot me>
+pkgname=rinne
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Weekly anime planner for MyAnimeList and AniList that follows each series"
+arch=('any')
+url="https://github.com/ZodchiSama/RINNE"
+license=('MIT')
+depends=('python' 'pyside6')
+makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
+checkdepends=('python-pytest')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')  # replaced by updpkgsums once the v$pkgver tag exists
+
+build() {
+  cd "RINNE-$pkgver"
+  python -m build --wheel --no-isolation
+}
+
+check() {
+  cd "RINNE-$pkgver"
+  QT_QPA_PLATFORM=offscreen python -m pytest -q
+}
+
+package() {
+  cd "RINNE-$pkgver"
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -Dm644 packaging/linux/rinne.desktop "$pkgdir/usr/share/applications/rinne.desktop"
+  install -Dm644 packaging/linux/rinne.appdata.xml \
+    "$pkgdir/usr/share/metainfo/io.github.zodchisama.rinne.metainfo.xml"
+  for size in 16 24 32 48 64 128 256 512; do
+    install -Dm644 "rinne/assets/icon-$size.png" "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/rinne.png"
+  done
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
