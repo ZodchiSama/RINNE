@@ -374,7 +374,10 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
             b.setIconSize(QSize(theme.px(22), theme.px(22)))
             b.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
             b.setCheckable(True)
-            b.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+            # Ignored: share the width equally instead of insisting on the full label width
+            # (wider fonts, e.g. on Windows, would otherwise stop the window going phone-narrow).
+            b.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+            b.setMinimumHeight(b.sizeHint().height())
             b.clicked.connect(lambda _=False, n=n: self.open_settings() if n == 4 else self._nav_to(n))
             lay.addWidget(b)
             self.bnav.append(b)

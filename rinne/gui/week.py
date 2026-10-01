@@ -12,7 +12,8 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QColor, QDrag, QFont, QPainter, QPen
 from PySide6.QtWidgets import (
-    QApplication, QFrame, QGraphicsOpacityEffect, QGridLayout, QPushButton, QScrollArea, QToolButton, QWidget,
+    QApplication, QFrame, QGraphicsOpacityEffect, QGridLayout, QPushButton, QScrollArea, QSizePolicy, QToolButton,
+    QWidget,
 )
 
 from .. import artwork, models, scheduler
@@ -500,6 +501,8 @@ def week_strip(state, start: date, today: date) -> QWidget:
         col.addWidget(name)
         col.addWidget(value)
         chip.setToolTip(f"{WEEKDAYS[on.weekday()]} {on.day} {on:%b}: {tip}")
+        chip.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)  # seven equal shares, never wider
+        chip.setMinimumHeight(chip.sizeHint().height())
         row.addWidget(chip, 1)
     return host
 
