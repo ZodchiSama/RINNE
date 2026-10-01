@@ -467,9 +467,10 @@ class MainWindow(DesktopMixin, QMainWindow):
         if self.state.settings.backdrop:
             self.fetch_artwork(shows)
 
-    def fetch_artwork(self, shows: list[Anime]) -> None:
-        """Look up HD artwork (once per session) for shows that haven't been checked."""
-        todo = [a for a in shows if not a.artwork_checked and a.mal_id not in self._art_requested]
+    def fetch_artwork(self, shows: list[Anime], refresh: bool = False) -> None:
+        """Look up HD artwork and episode details (once per session per show). With refresh,
+        already-checked shows are included too (the on-disk cache decides what's re-fetched)."""
+        todo = [a for a in shows if (refresh or not a.artwork_checked) and a.mal_id not in self._art_requested]
         if not todo:
             return
         self._art_requested.update(a.mal_id for a in todo)
@@ -485,6 +486,8 @@ class MainWindow(DesktopMixin, QMainWindow):
                 self._update_backdrop()
                 if self.stack.currentWidget() is self.profile_page:
                     self.profile_page.refresh()
+                elif self.stack.currentWidget() is self.week_page:
+                    self.week_page.refresh()  # episode titles and thumbnails
 
         self._run(artwork.fetch_many, (todo,), done, with_progress=False, exclusive=False,
                   on_error=lambda _msg: None)
@@ -810,6 +813,8 @@ class MainWindow(DesktopMixin, QMainWindow):
         self.run_enrich()
 
     def _startup_enrich(self) -> None:
+        # Episode titles/thumbnails for the shows being watched (airing ones refresh every 2 days).
+        self.fetch_artwork(scheduler.current_rotation(self.state.library), refresh=True)
         # Retry anything a previous session couldn't look up (and backfill new fields).
         if any(a.needs_enrichment for a in self.state.library.values()):
             self.run_enrich()

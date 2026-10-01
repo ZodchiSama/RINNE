@@ -367,6 +367,8 @@ def test_old_jikan_entries_get_refetched_once():
     old = show(1, relations={"sequel": [2]}, relation_titles={"2": "S2"})  # enriched, no AniList data
     assert old.needs_enrichment
     old.anilist_id = 5
+    from rinne.models import META_VERSION
+    old.meta_version = META_VERSION
     assert not old.needs_enrichment
 
 
@@ -559,3 +561,33 @@ def test_log_file_and_tail(monkeypatch, tmp_path):
     assert path.exists() and "hello from the test" in logs.tail(5)
     for h in list(logs.log.handlers):
         logs.log.removeHandler(h)
+
+
+def test_episode_titles_and_streaming(monkeypatch, tmp_path):
+    import io, json as _json
+    from rinne import anilist, artwork
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+    payload = {"images": [], "episodes": {
+        "9": {"title": {"en": "I'll Be Rooting for You", "ja": "応援するよ", "x-jat": "Ouen Suru yo", "pl": "x"},
+              "image": "http://tvdb/9.jpg", "airdate": "2024-11-22", "overview": "Taiki strives", "runtime": 24},
+        "special": {"title": {"en": "skip me"}}}}
+    monkeypatch.setattr(artwork.urllib.request, "urlopen", lambda req, timeout=0: io.BytesIO(_json.dumps(payload).encode()))
+    a = Anime(1, "Ao no Hako", anilist_id=7)
+    artwork.fetch(a.anilist_id)
+    eps = artwork.episodes(a)
+    assert list(eps) == ["9"] and eps["9"]["image"] == "http://tvdb/9.jpg"
+    assert artwork.episode_title(eps["9"], "english") == "I'll Be Rooting for You"
+    assert artwork.episode_title(eps["9"], "romaji") == "Ouen Suru yo"
+    assert artwork.episode_title(eps["9"], "native") == "応援するよ"
+    anilist.apply_media(a, {"externalLinks": [{"site": "Netflix", "url": "https://netflix.com/x", "type": "STREAMING"},
+                                              {"site": "Twitter", "url": "https://x.com/y", "type": "SOCIAL"}]})
+    assert a.streaming == [{"site": "Netflix", "url": "https://netflix.com/x"}]
+
+
+def test_older_entries_refetch_once_for_new_fields():
+    from rinne import anilist
+    from rinne.models import META_VERSION
+    a = show(1, anilist_id=5, title_native="x", meta_version=1)
+    assert a.needs_enrichment
+    anilist.apply_media(a, {"id": 5, "title": {"native": "x"}, "externalLinks": []})
+    assert a.meta_version == META_VERSION and not a.needs_enrichment

@@ -202,6 +202,9 @@ def stylesheet() -> str:
     QToolButton#bnav:checked {{ color: {SOFT_TEXT}; background: {ACCENT_SOFT}; }}
     QPushButton#updateChip {{ background: {GREEN_BG}; color: {SUCCESS}; border: 1px solid {SUCCESS};
                               border-radius: {px(9)}px; padding: {px(6)}px; font-weight: 700; }}
+    QPushButton#watch {{ background: {ACCENT_SOFT}; color: {SOFT_TEXT}; border: none;
+                         border-radius: {px(8)}px; padding: {px(5)}px {px(10)}px; font-size: {px(12)}px; }}
+    QPushButton#watch:hover {{ background: {ACCENT}; color: {ON_ACCENT}; }}
     #upNextCard {{ background: {surface_2}; border: 1px solid {BORDER}; border-radius: {px(12)}px; }}
     #upNextCard:hover {{ border: 1px solid {ACCENT}; }}
     #sideSection {{ color: {FAINT}; font-size: {px(11)}px; font-weight: 700;
@@ -217,6 +220,7 @@ def stylesheet() -> str:
     #bigTitle {{ font-weight: 800; font-size: {px(20)}px; }}
     #body {{ font-size: {px(14)}px; color: {BODY}; }}
     #vaName {{ font-weight: 700; font-size: {px(14)}px; color: {SOFT_TEXT if DARK else ACCENT}; }}
+    #epTitle {{ font-size: {px(12)}px; color: {TEXT}; font-weight: 600; }}
     #knownRole {{ font-size: {px(12)}px; color: {SUCCESS}; }}
 
     /* ---- buttons ---- */

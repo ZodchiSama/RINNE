@@ -16,7 +16,7 @@ from datetime import date, datetime
 
 from . import USER_AGENT
 from .models import (
-    CURRENTLY_AIRING, FINISHED_AIRING, NOT_YET_AIRED, Anime,
+    CURRENTLY_AIRING, FINISHED_AIRING, META_VERSION, NOT_YET_AIRED, Anime,
 )
 from .storage import cache_dir
 
@@ -27,6 +27,7 @@ MEDIA_FIELDS = """
   id idMal title { romaji english native } format episodes duration status averageScore genres
   tags { name rank isMediaSpoiler } startDate { year month day }
   nextAiringEpisode { episode airingAt } coverImage { extraLarge large color } bannerImage
+  externalLinks { site url type }
   relations { edges { relationType node { id idMal type format status title { romaji english native }
     coverImage { large } } } }
 """
@@ -184,6 +185,9 @@ def apply_media(anime: Anime, m: dict) -> None:
         titles[str(node["idMal"])] = (node.get("title") or {}).get("romaji") or ""
     anime.relations = rel
     anime.relation_titles = titles
+    anime.streaming = [{"site": x["site"], "url": x["url"]} for x in m.get("externalLinks") or []
+                       if x.get("type") == "STREAMING" and x.get("url")]
+    anime.meta_version = META_VERSION
     anime.enriched = True
 
 
@@ -202,6 +206,8 @@ def enrich(
     pending: list[Anime] = []
     for a in todo:
         cached = None if force else _read_cache("anilist", a.mal_id, _max_age(a))
+        if cached is not None and "externalLinks" not in cached:
+            cached = None  # cached before streaming links were fetched
         if cached:
             apply_media(a, cached)
         else:

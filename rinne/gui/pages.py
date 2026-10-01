@@ -14,12 +14,12 @@ from PySide6.QtWidgets import (
     QStyleOptionViewItem, QToolButton, QWidget,
 )
 
-from .. import scheduler
+from .. import artwork, models, scheduler
 from ..models import EPISODES, LIST_STATUSES, PLAN_TO_WATCH, STATUS_LABELS, WEEKDAYS, Anime
 from ..recommender import SERIES, rank
 from . import theme
 from .common import (
-    Clickable, ElidedLabel, FlowLayout, airing_text, button_row, page_margin, set_margins,
+    Clickable, ElidedLabel, FlowLayout, airing_text, button_row, page_margin, set_margins, watch_button,
     badge, card, clear, fmt_minutes, hbox, label, progress, progress_text,
     vbox,
 )
@@ -64,8 +64,9 @@ class ShowDayCard(QFrame):
         super().__init__(parent)
         self.setObjectName("episode")
         if not theme.COMPACT:
-            self.setFixedWidth(theme.px(262))
+            self.setFixedWidth(theme.px(300))
         mal_id = entries[0][1].mal_id
+        details = artwork.episodes(anime) if anime else {}
         title = anime.name if anime else f"#{mal_id}"
         total = anime.episodes_total if anime else 0
         all_done = all(it.done for _, it in entries)
@@ -78,7 +79,7 @@ class ShowDayCard(QFrame):
         if theme.COMPACT:
             col.addWidget(ElidedLabel(title, "cardTitle"))
         else:
-            col.addWidget(two_line_label(title, theme.px(262 - 46 - 24 - 20)))
+            col.addWidget(two_line_label(title, theme.px(300 - 46 - 24 - 20)))
         eps = [it.episode for _, it in entries]
         if len(eps) > 1:
             span = f"Episodes {eps[0]}–{eps[-1]}" if eps == list(range(eps[0], eps[-1] + 1)) \
@@ -87,13 +88,23 @@ class ShowDayCard(QFrame):
 
         for idx, it in entries:
             row_w = QWidget()
-            row = hbox(row_w, 6)
-            row.addWidget(label(f"Episode {it.episode}", "small"))
+            row = hbox(row_w, 8)
+            ep = details.get(str(it.episode)) or {}
+            ep_title = artwork.episode_title(ep, models.title_language) if ep else ""
+            if ep.get("image"):
+                row.addWidget(Cover(ep["image"], str(it.episode), 52, 30, 4))
+            text = vbox(spacing=0)
+            head = hbox(spacing=6)
+            head.addWidget(label(f"Episode {it.episode}", "small"))
             if total and it.episode == total:
-                row.addWidget(badge("Finale"))
+                head.addWidget(badge("Finale"))
             elif it.episode == 1:
-                row.addWidget(badge("New", "badgeGreen"))
-            row.addStretch()
+                head.addWidget(badge("New", "badgeGreen"))
+            head.addStretch()
+            text.addLayout(head)
+            if ep_title:
+                text.addWidget(ElidedLabel(ep_title, "epTitle"))
+            row.addLayout(text, 1)
             check = QToolButton()
             check.setObjectName("check")
             check.setCheckable(True)
@@ -103,7 +114,11 @@ class ShowDayCard(QFrame):
             check.setToolTip(("Mark as unwatched" if it.done else "Mark as watched") + f" — episode {it.episode}")
             check.clicked.connect(lambda _=False, i=idx: self.toggled.emit(i))
             row.addWidget(check)
-            tips = [f"{title} — episode {it.episode}"]
+            tips = [f"{title} — episode {it.episode}" + (f": {ep_title}" if ep_title else "")]
+            if ep.get("airdate"):
+                tips.append(f"Aired {ep['airdate']}")
+            if ep.get("overview"):
+                tips.append(ep["overview"][:220] + ("…" if len(ep["overview"]) > 220 else ""))
             if it.note:
                 tips.append(it.note)
             if missed and not it.done:
@@ -114,6 +129,9 @@ class ShowDayCard(QFrame):
                 fx.setOpacity(0.45)
                 row_w.setGraphicsEffect(fx)
             col.addWidget(row_w)
+        watch = watch_button(anime) if anime else None
+        if watch is not None and not all_done:
+            col.addWidget(watch, alignment=Qt.AlignLeft)
         col.addStretch()
         lay.addLayout(col, 1)
 

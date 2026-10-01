@@ -28,6 +28,9 @@ NOT_YET_AIRED = "not_yet_aired"
 WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 DEFAULT_EPISODE_MINUTES = 24
+# Bump when AniList data gains new fields, so existing entries are re-fetched once.
+# 2: official streaming links.
+META_VERSION = 2
 
 ROMAJI = "romaji"
 ENGLISH = "english"
@@ -66,6 +69,8 @@ class Anime:
     next_episode: int = 0  # next episode to air (AniList), 0 = none/unknown
     next_airing: str = ""  # local ISO datetime of next_episode
     enriched: bool = False
+    meta_version: int = 0  # which META_VERSION the AniList details were fetched with
+    streaming: list[dict] = field(default_factory=list)  # official streams [{"site", "url"}]
     # HD artwork from ani.zip / TheTVDB, fetched on demand (not part of META_FIELDS).
     fanart_url: str = ""  # 1920×1080 background
     logo_url: str = ""  # transparent title logo
@@ -103,7 +108,8 @@ class Anime:
     def needs_enrichment(self) -> bool:
         # Entries enriched before AniList support lack its data (titles, covers): refetch once.
         return (not self.enriched or (bool(self.relations) and not self.relation_titles)
-                or not (self.anilist_id or self.title_native))
+                or not (self.anilist_id or self.title_native)
+                or (bool(self.anilist_id) and self.meta_version < META_VERSION))
 
     @property
     def is_finished(self) -> bool:
@@ -148,7 +154,8 @@ class Anime:
 META_FIELDS = (
     "mean_score", "genres", "episode_minutes", "airing_status", "broadcast_day", "aired_from",
     "relations", "relation_titles", "image_url", "banner_url", "cover_color", "title_romaji",
-    "title_english", "title_native", "anilist_id", "next_episode", "next_airing", "enriched",
+    "title_english", "title_native", "anilist_id", "next_episode", "next_airing", "streaming",
+    "enriched", "meta_version",
 )
 
 EPISODES = "episodes"

@@ -31,6 +31,28 @@ def button_row(*widgets, spacing: float = 8, stretch_before: bool = False) -> QW
     return host
 
 
+def watch_button(anime) -> QWidget | None:
+    """'▶ Watch on <site>' for a show's official streams (a menu when there are several)."""
+    from PySide6.QtCore import QUrl
+    from PySide6.QtGui import QDesktopServices
+    from PySide6.QtWidgets import QMenu, QPushButton
+    links = getattr(anime, "streaming", None) or []
+    if not links:
+        return None
+    b = QPushButton(f"▶  Watch on {links[0]['site']}" if len(links) == 1 else "▶  Watch ▾")
+    b.setObjectName("watch")
+    b.setCursor(Qt.PointingHandCursor)
+    if len(links) == 1:
+        b.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(links[0]["url"])))
+    else:
+        menu = QMenu(b)
+        for link in links:
+            menu.addAction(link["site"], lambda u=link["url"]: QDesktopServices.openUrl(QUrl(u)))
+        b.setMenu(menu)
+    b.setToolTip("Open the official stream in your browser")
+    return b
+
+
 def page_margin() -> float:
     return 14 if theme.COMPACT else 28
 

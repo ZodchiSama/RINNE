@@ -9,14 +9,14 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QRectF, Qt, QUrl
 from PySide6.QtGui import QColor, QDesktopServices, QLinearGradient, QPainter, QPainterPath
-from PySide6.QtWidgets import QFrame, QMenu, QPushButton, QWidget
+from PySide6.QtWidgets import QFrame, QGraphicsOpacityEffect, QMenu, QPushButton, QWidget
 
-from .. import anilist, explain, models
+from .. import anilist, artwork, explain, models
 from ..models import CURRENTLY_AIRING, LIST_STATUSES, STATUS_LABELS, Anime
 from . import theme
 from .common import (
     Clickable, FlowLayout, badge, button_row, card, clear, hbox, label, page_margin, progress, set_margins,
-    vbox,
+    vbox, watch_button,
 )
 from .images import Cover, cache
 from .pages import scroll_page
@@ -205,6 +205,8 @@ class ProfilePage(QWidget):
             why.addWidget(label(f"•  {line}", "", wrap=True))
         self.body.addWidget(why_frame)
         self.body.addWidget(self._coming_up())
+        if eps := self._episodes(a):
+            self.body.addWidget(eps)
 
         if self.data is None and not self.error:
             self.body.addWidget(label("Loading details from AniList…", "muted"))
@@ -297,6 +299,8 @@ class ProfilePage(QWidget):
             prog.setObjectName("ghost")
             prog.clicked.connect(lambda: self.win.edit_progress(a))
             actions.addWidget(prog)
+        if watch := watch_button(a):
+            actions.addWidget(watch)
         mal_btn = QPushButton("MyAnimeList ↗")
         mal_btn.setObjectName("ghost")
         mal_btn.clicked.connect(lambda: self.win.open_mal(a))
@@ -368,6 +372,57 @@ class ProfilePage(QWidget):
                 lambda: QDesktopServices.openUrl(QUrl(f"https://myanimelist.net/anime/{mal_id}")))
             row_w.setToolTip("Open on MyAnimeList")
         return row_w
+
+    def _episodes(self, a: Anime) -> QFrame | None:
+        """Every episode with its screenshot, title and air date; watched ones dimmed."""
+        details = artwork.episodes(a)
+        if not details:
+            return None
+        nums = sorted(int(n) for n in details)
+        if len(nums) > 60:  # long-running shows: the stretch around your progress
+            start = max(1, a.episodes_watched - 2)
+            nums = [n for n in nums if start <= n < start + 36]
+        frame, lay = card(margins=18, spacing=12)
+        head = hbox()
+        head.addWidget(label("Episodes", "h2"))
+        head.addStretch()
+        head.addWidget(label(f"{a.episodes_watched} of {a.episodes_total or len(details)} watched", "faint"))
+        lay.addLayout(head)
+        flow = vbox(spacing=8) if theme.COMPACT else FlowLayout(spacing=12, uniform_rows=True)
+        for n in nums:
+            ep = details[str(n)]
+            box = QFrame()
+            box.setObjectName("episode")
+            if not theme.COMPACT:
+                box.setFixedWidth(theme.px(204))
+            col = (hbox if theme.COMPACT else vbox)(box, 8, 8)
+            col.addWidget(Cover(ep.get("image", ""), str(n), *((96, 54, 6) if theme.COMPACT else (188, 106, 8))))
+            text = vbox(spacing=2)
+            top = hbox(spacing=6)
+            top.addWidget(label(f"Episode {n}", "small"))
+            if n <= a.episodes_watched:
+                top.addWidget(badge("✓ Watched", "badgeGreen"))
+            elif n == a.episodes_watched + 1:
+                top.addWidget(badge("Up next"))
+            top.addStretch()
+            text.addLayout(top)
+            text.addWidget(label(artwork.episode_title(ep, models.title_language) or f"Episode {n}",
+                                 "epTitle", wrap=True))
+            if ep.get("airdate"):
+                text.addWidget(label(ep["airdate"], "faint"))
+            text.addStretch()
+            col.addLayout(text, 1)
+            if ep.get("overview"):
+                box.setToolTip(ep["overview"])
+            if n <= a.episodes_watched:
+                fx = QGraphicsOpacityEffect(box)
+                fx.setOpacity(0.55)
+                box.setGraphicsEffect(fx)
+            flow.addWidget(box)
+        host = QWidget()
+        host.setLayout(flow)
+        lay.addWidget(host)
+        return frame
 
     def _synopsis(self, d: dict) -> QFrame:
         frame, lay = card(margins=18, spacing=10)
