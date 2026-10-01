@@ -1,0 +1,258 @@
+"""The Stats page: your watching, by the numbers."""
+
+from __future__ import annotations
+
+import math
+from datetime import date
+from typing import TYPE_CHECKING
+
+from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtGui import QFontMetrics, QPainter, QPainterPath, QPen
+from PySide6.QtWidgets import QFrame, QGridLayout, QToolTip, QWidget
+
+from .. import stats as stats_mod
+from . import theme
+from .common import card, clear, fmt_minutes, hbox, label, page_margin, set_margins, vbox
+from .images import Cover
+from .pages import scroll_page
+
+if TYPE_CHECKING:
+    from .window import MainWindow
+
+
+def nice_max(value: int) -> int:
+    """Round an axis maximum up to 1, 2 or 5 × 10^k (at least 4)."""
+    if value <= 4:
+        return 4
+    mag = 10 ** int(math.floor(math.log10(value)))
+    for step in (1, 2, 5, 10):
+        if value <= step * mag:
+            return step * mag
+    return 10 * mag
+
+
+class BarChart(QWidget):
+    """A single-series bar chart: one hue, rounded data-ends on the baseline, quiet axes,
+    and the exact value in a tooltip on hover."""
+
+    def __init__(self, data: list[tuple[str, int, str]], parent=None):
+        super().__init__(parent)
+        self.data = data  # (axis label, value, tooltip)
+        self.hover = -1
+        self.setMouseTracking(True)
+        self.setMinimumHeight(theme.px(170))
+
+    def _geometry(self):
+        fm = QFontMetrics(self.font())
+        left, bottom, top = theme.px(30), fm.height() + theme.px(8), theme.px(8)
+        plot = QRectF(left, top, self.width() - left - theme.px(4), self.height() - top - bottom)
+        slot = plot.width() / max(1, len(self.data))
+        return plot, slot
+
+    def paintEvent(self, event) -> None:
+        if not self.data:
+            return
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        f = self.font()
+        f.setPixelSize(theme.px(11))
+        p.setFont(f)
+        fm = QFontMetrics(f)
+        plot, slot = self._geometry()
+        top_value = nice_max(max(v for _, v, _ in self.data))
+
+        # Recessive grid: baseline, middle and top, labelled on the left.
+        for frac in (0, 0.5, 1):
+            y = plot.bottom() - frac * plot.height()
+            p.setPen(QPen(theme.qcolor(theme.BORDER), 1))
+            p.drawLine(QPointF(plot.left(), y), QPointF(plot.right(), y))
+            p.setPen(theme.qcolor(theme.FAINT))
+            p.drawText(QRectF(0, y - fm.height() / 2, plot.left() - theme.px(6), fm.height()),
+                       Qt.AlignRight | Qt.AlignVCenter, str(round(top_value * frac)))
+
+        # Bars: thin, with a gap between them; 4px rounded tops anchored to the baseline.
+        bar_w = max(theme.px(3), min(slot - theme.px(2), slot * 0.62))
+        radius = min(theme.px(4), bar_w / 2)
+        for i, (_, value, _) in enumerate(self.data):
+            if value <= 0:
+                continue
+            h = max(radius, value / top_value * plot.height())
+            x = plot.left() + i * slot + (slot - bar_w) / 2
+            r = QRectF(x, plot.bottom() - h, bar_w, h)
+            path = QPainterPath()
+            path.moveTo(r.left(), r.bottom())
+            path.lineTo(r.left(), r.top() + radius)
+            path.quadTo(r.left(), r.top(), r.left() + radius, r.top())
+            path.lineTo(r.right() - radius, r.top())
+            path.quadTo(r.right(), r.top(), r.right(), r.top() + radius)
+            path.lineTo(r.right(), r.bottom())
+            path.closeSubpath()
+            p.fillPath(path, theme.qcolor(theme.ACCENT_HOVER if i == self.hover else theme.ACCENT))
+
+        # Axis labels: only as many as fit without colliding.
+        p.setPen(theme.qcolor(theme.MUTED))
+        widest = max(fm.horizontalAdvance(lbl) for lbl, _, _ in self.data) + theme.px(10)
+        every = max(1, math.ceil(widest / slot))
+        for i, (lbl, _, _) in enumerate(self.data):
+            if (len(self.data) - 1 - i) % every:
+                continue
+            cx = plot.left() + (i + 0.5) * slot
+            p.drawText(QRectF(cx - widest / 2, plot.bottom() + theme.px(4), widest, fm.height()),
+                       Qt.AlignCenter, lbl)
+
+    def mouseMoveEvent(self, event) -> None:
+        plot, slot = self._geometry()
+        x = event.position().x()
+        i = int((x - plot.left()) // slot) if plot.left() <= x <= plot.right() else -1
+        if i != self.hover:
+            self.hover = i if 0 <= i < len(self.data) else -1
+            self.update()
+        if self.hover >= 0:
+            QToolTip.showText(event.globalPosition().toPoint(), self.data[self.hover][2], self)
+        else:
+            QToolTip.hideText()
+
+    def leaveEvent(self, event) -> None:
+        self.hover = -1
+        self.update()
+
+
+class HBarList(QWidget):
+    """Ranked horizontal bars (label · bar · value), one hue."""
+
+    def __init__(self, rows: list[tuple[str, int]], unit: str, parent=None):
+        super().__init__(parent)
+        lay = QGridLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setHorizontalSpacing(theme.px(10))
+        lay.setVerticalSpacing(theme.px(8))
+        lay.setColumnStretch(1, 1)
+        top = max((v for _, v in rows), default=1) or 1
+        for r, (name, value) in enumerate(rows):
+            lay.addWidget(label(name, "small"), r, 0)
+            bar = _Bar(value / top)
+            bar.setToolTip(f"{name}: {value} {unit}")
+            lay.addWidget(bar, r, 1)
+            lay.addWidget(label(str(value), "faint"), r, 2, alignment=Qt.AlignRight)
+
+
+class _Bar(QWidget):
+    def __init__(self, fraction: float):
+        super().__init__()
+        self.fraction = fraction
+        self.setFixedHeight(theme.px(10))
+        self.setMinimumWidth(theme.px(60))
+
+    def paintEvent(self, event) -> None:
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        w = max(theme.px(4), self.width() * self.fraction)
+        path = QPainterPath()
+        path.addRoundedRect(QRectF(0, 0, w, self.height()), theme.px(4), theme.px(4))
+        p.fillPath(path, theme.qcolor(theme.ACCENT))
+
+
+class StatsPage(QWidget):
+    def __init__(self, win: MainWindow):
+        super().__init__()
+        self.win = win
+        outer = vbox(self)
+        self.area, inner = scroll_page()
+        outer.addWidget(self.area)
+        self.body = vbox(inner, 16, 28)
+
+    def _tile(self, value: str, caption: str, sub: str = "") -> QFrame:
+        frame, lay = card("stat", 14, 2)
+        lay.addWidget(label(value, "statValue"))
+        lay.addWidget(label(caption, "statLabel"))
+        if sub:
+            lay.addWidget(label(sub, "faint"))
+        return frame
+
+    def refresh(self) -> None:
+        scroll = self.area.verticalScrollBar().value()
+        clear(self.body)
+        set_margins(self.body, page_margin())
+        st = self.win.state
+        s = stats_mod.compute(st)
+        titles = vbox(spacing=2)
+        titles.addWidget(label("Stats", "h1"))
+        titles.addWidget(label("Your watching, by the numbers.", "muted"))
+        self.body.addLayout(titles)
+
+        days = s.total_minutes / 60 / 24
+        tiles = [
+            self._tile(str(s.week_episodes), "Episodes in the last 7 days", fmt_minutes(s.week_minutes)),
+            self._tile(f"{s.streak} day{'s' if s.streak != 1 else ''}", "Current streak",
+                       f"Best: {s.best_streak} day{'s' if s.best_streak != 1 else ''}"),
+            self._tile(f"{s.total_episodes:,}", "Episodes watched, all time"),
+            self._tile(f"{days:,.1f} days" if days >= 1 else fmt_minutes(s.total_minutes),
+                       "Time watched, all time", f"{s.total_minutes // 60:,} hours"),
+        ]
+        grid = QGridLayout()
+        grid.setSpacing(theme.px(10 if theme.COMPACT else 12))
+        for n, tile in enumerate(tiles):
+            grid.addWidget(tile, *((n // 2, n % 2) if theme.COMPACT else (0, n)))
+        self.body.addLayout(grid)
+
+        if not st.history:
+            frame, lay = card(margins=18)
+            lay.addWidget(label("Your history starts now", "cardTitle"))
+            lay.addWidget(label("Tick episodes in Your Week and the charts below fill in day by day. "
+                                "All-time totals already include everything on your list.", "muted", wrap=True))
+            self.body.addWidget(frame)
+
+        frame, lay = card(margins=18, spacing=10)
+        lay.addWidget(label("Episodes per week", "h2"))
+        lay.addWidget(BarChart([(f"{d:%d %b}", n, f"Week of {d:%d %b}: {n} episode{'s' if n != 1 else ''}")
+                                for d, n in s.weekly]))
+        self.body.addWidget(frame)
+
+        frame, lay = card(margins=18, spacing=10)
+        lay.addWidget(label("Last 30 days", "h2"))
+        lay.addWidget(BarChart([(f"{d.day}", n, f"{d:%a %d %b}: {n} episode{'s' if n != 1 else ''}")
+                                for d, n in s.daily]))
+        self.body.addWidget(frame)
+
+        row = (vbox if theme.COMPACT else hbox)(spacing=12)
+        gframe, gl = card(margins=18, spacing=10)
+        gl.addWidget(label("Top genres", "h2"))
+        gl.addWidget(label("By episodes watched across your list.", "faint"))
+        if s.genres:
+            gl.addWidget(HBarList(s.genres, "episodes"))
+        else:
+            gl.addWidget(label("Genres appear once show details have loaded.", "muted"))
+        gl.addStretch()
+        row.addWidget(gframe, 1)
+        lframe, ll = card(margins=18, spacing=10)
+        ll.addWidget(label("Your list", "h2"))
+        rate = s.completion_rate
+        for value, caption in [(s.watching, "Watching"), (s.completed, "Completed"), (s.dropped, "Dropped"),
+                               (f"{rate:.0%}" if rate is not None else "—", "Completion rate (completed vs dropped)")]:
+            line = hbox(spacing=8)
+            line.addWidget(label(str(value), "h2"))
+            line.addWidget(label(caption, "small"), 1)
+            ll.addLayout(line)
+        ll.addStretch()
+        row.addWidget(lframe, 1)
+        self.body.addLayout(row)
+
+        if s.recent:
+            frame, lay = card(margins=18, spacing=8)
+            lay.addWidget(label("Recently watched", "h2"))
+            for h in s.recent:
+                a = st.library.get(h["m"])
+                if a is None:
+                    continue
+                line = hbox(spacing=10)
+                line.addWidget(Cover(a.image_url, a.name, 28, 40, 4))
+                line.addWidget(label(f"{a.name} — episode {h['e']}", "", wrap=True), 1)
+                try:
+                    when = date.fromisoformat(h["d"])
+                    line.addWidget(label(f"{when:%a %d %b}", "faint"))
+                except ValueError:
+                    pass
+                lay.addLayout(line)
+            self.body.addWidget(frame)
+        self.body.addStretch()
+        self.area.verticalScrollBar().setValue(scroll)

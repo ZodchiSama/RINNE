@@ -196,6 +196,7 @@ class Settings:
     # Notifications
     notify_new_episodes: bool = True
     daily_reminder: bool = False
+    weekly_recap: bool = True  # Sunday evening summary of your week
     reminder_time: str = "19:00"
     # Discord Rich Presence
     discord_enabled: bool = True

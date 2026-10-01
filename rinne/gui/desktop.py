@@ -158,6 +158,15 @@ class DesktopMixin:
                                 + ", ".join(names[:4]) + ("…" if len(names) > 4 else ""))
                 self.state.last_reminder = date.today().isoformat()
                 changed = True
+        if s.weekly_recap and now.weekday() == 6 and now.hour >= 19:
+            week = f"{now.isocalendar().year}-W{now.isocalendar().week:02d}"
+            if self.state.last_recap != week:
+                from ..stats import compute, recap_text
+                stats = compute(self.state)
+                if stats.week_episodes:
+                    self.notify("Your week in anime", recap_text(stats))
+                self.state.last_recap = week
+                changed = True
         if changed:
             self.save()
         self.update_tray()

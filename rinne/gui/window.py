@@ -29,6 +29,7 @@ from .dialogs import ReplacementDialog
 from .pages import LibraryPage, UpNextPage, WeekPage
 from .profile import ProfilePage
 from .settings import SettingsPage, asset
+from .stats_page import StatsPage
 from .tour import Step, TourOverlay
 from .welcome import WelcomePage
 
@@ -103,8 +104,10 @@ class MainWindow(DesktopMixin, QMainWindow):
         self.lib_page = LibraryPage(self)
         self.profile_page = ProfilePage(self)
         self.settings_page = SettingsPage(self)
-        self.pages = [self.week_page, self.next_page, self.lib_page, self.profile_page,
-                      self.settings_page]
+        self.stats_page = StatsPage(self)
+        # Indexes 0–3 match the navigation buttons (Your Week, Up Next, Library, Stats).
+        self.pages = [self.week_page, self.next_page, self.lib_page, self.stats_page,
+                      self.profile_page, self.settings_page]
         for p in self.pages:
             self.stack.addWidget(p)
         self._back_to = 0
@@ -184,7 +187,7 @@ class MainWindow(DesktopMixin, QMainWindow):
 
         lay.addWidget(label("PLAN", "sideSection"))
         for n, (text, icon_name) in enumerate([("Your Week", "week"), ("Up Next", "next"),
-                                               ("Library", "library")]):
+                                               ("Library", "library"), ("Stats", "stats")]):
             if n == 2:
                 lay.addWidget(label("COLLECTION", "sideSection"))
             b = nav_button(text, icon_name)
@@ -365,8 +368,8 @@ class MainWindow(DesktopMixin, QMainWindow):
         lay = hbox(self.bottom_bar, 0)
         lay.setContentsMargins(theme.px(6), theme.px(4), theme.px(6), theme.px(6))
         self.bnav: list[QToolButton] = []
-        for n, (text, icon_name) in enumerate([("Week", "week"), ("Up Next", "next"),
-                                               ("Library", "library"), ("Settings", "settings")]):
+        for n, (text, icon_name) in enumerate([("Week", "week"), ("Up Next", "next"), ("Library", "library"),
+                                               ("Stats", "stats"), ("Settings", "settings")]):
             b = QToolButton()
             b.setObjectName("bnav")
             b.setText(text)
@@ -375,7 +378,7 @@ class MainWindow(DesktopMixin, QMainWindow):
             b.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
             b.setCheckable(True)
             b.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-            b.clicked.connect(lambda _=False, n=n: self.open_settings() if n == 3 else self._nav_to(n))
+            b.clicked.connect(lambda _=False, n=n: self.open_settings() if n == 4 else self._nav_to(n))
             lay.addWidget(b)
             self.bnav.append(b)
 
@@ -384,7 +387,7 @@ class MainWindow(DesktopMixin, QMainWindow):
             return
         current = self.stack.currentIndex()
         for n, b in enumerate(self.bnav):
-            b.setChecked(n == current if n < 3 else self.stack.currentWidget() is self.settings_page)
+            b.setChecked(n == current if n < 4 else self.stack.currentWidget() is self.settings_page)
 
     def _apply_compact(self) -> None:
         """Switch between the desktop layout and the phone layout."""
@@ -425,7 +428,7 @@ class MainWindow(DesktopMixin, QMainWindow):
         """The navigation button for page n in whichever layout is showing (for the tour)."""
         if theme.COMPACT:
             return self.bnav[n]
-        return self.settings_btn if n == 3 else self.nav.button(n)
+        return self.settings_btn if n == 4 else self.nav.button(n)
 
     def go_back(self) -> None:
         self._nav_to(self._back_to)
@@ -515,6 +518,7 @@ class MainWindow(DesktopMixin, QMainWindow):
             (("Ctrl+1",), lambda: self._nav_to(0)),
             (("Ctrl+2",), lambda: self._nav_to(1)),
             (("Ctrl+3",), lambda: self._nav_to(2)),
+            (("Ctrl+4",), lambda: self._nav_to(3)),
         ]:
             seen = set()
             for k in keys:
@@ -785,13 +789,15 @@ class MainWindow(DesktopMixin, QMainWindow):
                  lambda: self.nav_target(1)),
             Step("Library", "Your whole list as posters. Click any show for its profile: why it's on your "
                  "list, cast & voice actors, and new seasons coming up.", lambda: self.nav_target(2)),
+            Step("Stats", "Episodes per week and per day, streaks, top genres and all-time totals.",
+                 lambda: self.nav_target(3)),
             Step("Import", "Bring in or refresh your MyAnimeList list any time.",
                  lambda: getattr(self.lib_page, "import_btn", None) if theme.COMPACT else self.import_btn,
                  (lambda: self._nav_to(2)) if theme.COMPACT else None),
             Step("Up next today", "Today's next episode, always one click away.",
                  lambda: None if theme.COMPACT else self.up_next_host),
             Step("Settings", "Themes, the background slideshow, notifications, Discord and more. "
-                 "That's the tour — enjoy Rinne!", lambda: self.nav_target(3)),
+                 "That's the tour — enjoy Rinne!", lambda: self.nav_target(4)),
         ]
         self._tour = TourOverlay(self.centralWidget(), steps)
         self._tour.finished.connect(lambda: self._nav_to(0))

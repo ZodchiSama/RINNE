@@ -59,6 +59,8 @@ class State:
     moves: list[dict] = field(default_factory=list)
     day_order: dict[str, list[int]] = field(default_factory=dict)  # iso date -> mal_ids in order
     announced: dict[int, str] = field(default_factory=dict)  # sequel mal_id -> last seen status
+    history: list[dict] = field(default_factory=list)  # [{"d": iso date, "m": mal_id, "e": ep, "min"}]
+    last_recap: str = ""  # ISO week of the last weekly recap, e.g. "2026-W40"
 
     def to_dict(self) -> dict:
         return {
@@ -71,6 +73,8 @@ class State:
             "moves": self.moves,
             "day_order": self.day_order,
             "announced": {str(k): v for k, v in self.announced.items()},
+            "history": self.history,
+            "last_recap": self.last_recap,
         }
 
     @classmethod
@@ -82,7 +86,8 @@ class State:
         return cls(library, settings, week, notified, d.get("last_reminder", ""),
                    bool(d.get("onboarded", False)), list(d.get("moves") or []),
                    {k: list(v) for k, v in (d.get("day_order") or {}).items()},
-                   {int(k): v for k, v in (d.get("announced") or {}).items()})
+                   {int(k): v for k, v in (d.get("announced") or {}).items()},
+                   list(d.get("history") or []), d.get("last_recap", ""))
 
 
 def state_path() -> Path:

@@ -435,6 +435,8 @@ class SettingsPage(QWidget):
         self._switch("New episode aired",
                      "When a new episode of a show on your Watching list comes out.", "notify_new_episodes")
         self._switch("Daily reminder", "A summary of today's plan at a time you choose.", "daily_reminder")
+        self._switch("Weekly recap", "Sunday evening: how many episodes you watched, what you finished and "
+                     "your streak.", "weekly_recap")
         t = QTimeEdit(QTime.fromString(s.reminder_time, "HH:mm"))
         t.setDisplayFormat("HH:mm")
         t.timeChanged.connect(lambda v: self._set("reminder_time", v.toString("HH:mm")))
@@ -708,7 +710,7 @@ class SettingsPage(QWidget):
         grid.setHorizontalSpacing(theme.px(24))
         grid.setColumnStretch(1, 1)
         for n, (k, what) in enumerate([
-            ("Ctrl 1 / 2 / 3", "Your Week / Up Next / Library"), ("Ctrl ,", "Settings"),
+            ("Ctrl 1 / 2 / 3 / 4", "Your Week / Up Next / Library / Stats"), ("Ctrl ,", "Settings"),
             ("Ctrl R", "Replan from today"), ("Ctrl O", "Import MAL export file"),
             ("Ctrl I", "Import by MAL username"), ("Ctrl + / − / 0", "Zoom in / out / reset"),
             ("Ctrl Q", "Quit"),

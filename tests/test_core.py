@@ -6,7 +6,7 @@ import pytest
 
 from rinne import mal, recommender, scheduler
 from rinne.models import (
-    COMPLETED, CURRENTLY_AIRING, FINISHED_AIRING, NOT_YET_AIRED, ON_HOLD, PLAN_TO_WATCH, WATCHING,
+    COMPLETED, CURRENTLY_AIRING, DROPPED, FINISHED_AIRING, NOT_YET_AIRED, ON_HOLD, PLAN_TO_WATCH, WATCHING,
     Anime, Settings,
 )
 from rinne.storage import State, load_state, save_state
@@ -679,3 +679,24 @@ def test_announced_sequels(monkeypatch):
     assert [r["mal_id"] for r in res] == [2] and res[0]["after"] is lib[1]
     assert announcements.premiered(res, {2: "NOT_YET_RELEASED"}) == res
     assert announcements.premiered(res, {2: "RELEASING"}) == []
+
+
+def test_watch_history_and_stats():
+    from datetime import timedelta as td
+    from rinne import stats
+    a = show(1, status=WATCHING, episodes_total=24, genres=["Drama", "Sports"], episode_minutes=24)
+    b = show(2, status=COMPLETED, episodes_total=12, episodes_watched=12, genres=["Drama"], finished_on="2026-09-20")
+    st = make_state(a, b, show(3, status=DROPPED))
+    day = MONDAY  # 2026-09-21
+    for k, eps in enumerate([2, 1, 0, 3]):  # Mon, Tue, (Wed off), Thu
+        scheduler.set_progress(st, a, a.episodes_watched + eps, day + td(days=k))
+    assert len(st.history) == 6 and st.history[-1] == {"d": "2026-09-24", "m": 1, "e": 6, "min": 24}
+    scheduler.set_progress(st, a, 5, day + td(days=3))  # unticked one
+    assert len(st.history) == 5 and all(h["e"] <= 5 for h in st.history)
+    s = stats.compute(st, day + td(days=3))
+    assert s.week_episodes == 5 and s.week_minutes == 120
+    assert s.streak == 1 and s.best_streak == 2  # Thu only (Wed was off); Mon–Tue best
+    assert s.weekly[-1] == (MONDAY, 5) and len(s.weekly) == 12 and len(s.daily) == 30
+    assert s.genres[0] == ("Drama", 17) and s.completion_rate == 0.5
+    assert s.total_episodes == 17 and s.finished_this_week == ["Show 2"]
+    assert "5 episodes this week (2h 00m)" in stats.recap_text(s)

@@ -245,6 +245,8 @@ def set_progress(state: State, anime: Anime, watched: int, today: date | None = 
     today = today or date.today()
     event = ProgressEvent()
     watched = max(0, min(watched, anime.episodes_total) if anime.episodes_total else watched)
+    from .stats import record
+    record(state, anime, anime.episodes_watched, watched, today)
     anime.episodes_watched = watched
 
     if watched > 0 and anime.status in (PLAN_TO_WATCH, ON_HOLD):

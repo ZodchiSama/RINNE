@@ -61,6 +61,10 @@ def _draw(name: str, p: QPainter, s: float) -> None:
             (path.moveTo if i == 0 else path.lineTo)(pt(x, y))
         path.closeSubpath()
         p.drawPath(path)
+    elif name == "stats":  # bar chart
+        p.drawLine(pt(4, 20), pt(20, 20))
+        for x, top in ((6.5, 13), (11, 7), (15.5, 10)):
+            p.drawRoundedRect(rect(x, top, 3, 20 - top), 1 * s, 1 * s)
     elif name == "chevron":
         p.drawLine(pt(9, 6), pt(15, 12))
         p.drawLine(pt(15, 12), pt(9, 18))
