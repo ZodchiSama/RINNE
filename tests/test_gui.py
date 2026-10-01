@@ -181,3 +181,30 @@ def test_interface_uses_the_chosen_translation(win, app):
     win.settings_page.show_section("general")
     app.processEvents()
     assert "Sprache" in {lbl.text() for lbl in win.settings_page.findChildren(QLabel)}
+
+
+def test_finishing_today_celebrates_then_folds_the_day(win, app, monkeypatch):
+    import time
+
+    from rinne.gui import week as week_mod
+    monkeypatch.setattr(week_mod, "CELEBRATION_MS", 60)
+    monkeypatch.setattr(week_mod, "FOLD_MS", 40)
+    win._on_finished = lambda *a: None  # a finale opens a "what's next" dialog
+    win._go(0)
+    today = (date.today() - date.fromisoformat(win.state.week.week_start)).days
+    while not win.state.week.day_complete(today):
+        idx = next(n for n, it in enumerate(win.state.week.items) if it.day == today and not it.done)
+        before = [(it.mal_id, it.episode) for it in win.state.week.items if it.day == today]
+        win.toggle_item(idx)
+        app.processEvents()
+        after = [(it.mal_id, it.episode) for it in win.state.week.items if it.day == today]
+        assert sorted(before) == sorted(after)  # ticking doesn't reshuffle today's list
+    assert win.state.day_log[date.today().isoformat()] == "done"
+    assert win.week_page.findChildren(week_mod.Celebration)  # playing over today's row
+    end = time.time() + 2
+    while time.time() < end and not win.week_page.findChildren(week_mod.CompletedDay):
+        app.processEvents()
+        time.sleep(0.01)
+    assert win.week_page.findChildren(week_mod.CompletedDay)  # folded to one line
+    QApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+    assert not win.week_page.findChildren(week_mod.Celebration)

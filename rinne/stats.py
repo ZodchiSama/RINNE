@@ -27,7 +27,7 @@ class Stats:
     week_minutes: int = 0
     streak: int = 0  # consecutive days up to today (or yesterday) with at least one episode
     best_streak: int = 0
-    weekly: list[tuple[date, int]] = field(default_factory=list)  # Monday → episodes, last 12 weeks
+    weekly: list[tuple[date, int]] = field(default_factory=list)  # week's Sunday → episodes, last 12 weeks
     daily: list[tuple[date, int]] = field(default_factory=list)  # last 30 days
     genres: list[tuple[str, int]] = field(default_factory=list)  # top genres by episodes watched
     total_episodes: int = 0
@@ -37,6 +37,19 @@ class Stats:
     watching: int = 0
     finished_this_week: list[str] = field(default_factory=list)
     recent: list[dict] = field(default_factory=list)  # latest history entries, newest first
+    # Daily goals: a day is complete when everything planned for it is ticked, and failed if the
+    # week ended (00:00 Sunday) with something left.
+    days_done: int = 0
+    days_failed: int = 0
+    goal_streak: int = 0  # completed days in a row (days with nothing planned don't count)
+    best_goal_streak: int = 0
+    # Last 8 weeks, oldest first: (Sunday, 7 states) with states done / failed / open / none / future
+    goal_weeks: list[tuple[date, list[str]]] = field(default_factory=list)
+
+    @property
+    def goal_rate(self) -> float | None:
+        settled = self.days_done + self.days_failed
+        return self.days_done / settled if settled else None
 
     @property
     def completion_rate(self) -> float | None:
@@ -72,9 +85,9 @@ def compute(state: State, today: date | None = None) -> Stats:
         s.best_streak = max(s.best_streak, run)
         prev = d
 
-    monday = today - timedelta(days=today.weekday())
+    first = today - timedelta(days=(today.weekday() + 1) % 7)  # weeks start on Sunday
     for k in range(11, -1, -1):
-        start = monday - timedelta(weeks=k)
+        start = first - timedelta(weeks=k)
         s.weekly.append((start, sum(per_day.get(start + timedelta(days=i), 0) for i in range(7))))
     s.daily = [(today - timedelta(days=k), per_day.get(today - timedelta(days=k), 0)) for k in range(29, -1, -1)]
 
@@ -94,7 +107,35 @@ def compute(state: State, today: date | None = None) -> Stats:
             genre_eps[g] += a.episodes_watched
     s.genres = [(g, n) for g, n in genre_eps.most_common(8) if n]
     s.recent = list(reversed(state.history[-12:]))
+    _goals(s, state, today, first)
     return s
+
+
+def _goals(s: Stats, state: State, today: date, first: date) -> None:
+    log = state.day_log
+    s.days_done = sum(1 for v in log.values() if v == "done")
+    s.days_failed = sum(1 for v in log.values() if v == "failed")
+    run = 0
+    for iso in sorted(log):
+        run = run + 1 if log[iso] == "done" else 0
+        s.best_goal_streak = max(s.best_goal_streak, run)
+    s.goal_streak = run
+    week = state.week
+    week_start = date.fromisoformat(week.week_start) if week and week.calendar else None
+    for k in range(7, -1, -1):
+        start = first - timedelta(weeks=k)
+        states = []
+        for d in range(7):
+            on = start + timedelta(days=d)
+            if log.get(on.isoformat()) in ("done", "failed"):
+                states.append(log[on.isoformat()])
+            elif on > today:
+                states.append("future")
+            elif week_start == start and week.for_day(d):
+                states.append("open")  # this week, not finished yet: it can still be
+            else:
+                states.append("none")
+        s.goal_weeks.append((start, states))
 
 
 def recap_text(s: Stats) -> str:

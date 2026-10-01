@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from PySide6.QtCore import QEvent, QObject, QSize, Qt, QThread, QTimer, QUrl, Signal
@@ -139,6 +139,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         self._shortcuts()
         QApplication.instance().installEventFilter(self)
 
+        self._midnight = QTimer(self, singleShot=True, timeout=self._check_rollover)
         self._timer = QTimer(self, interval=15 * 60 * 1000, timeout=self._check_rollover)
         self._timer.start()
         self._check_rollover(refresh=False)
@@ -563,24 +564,48 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         self.refresh()
 
     def replan_fresh(self) -> None:
-        """Start a new 7-day plan today, dropping past days."""
+        """Plan the rest of the week again from today; earlier days are kept."""
         scheduler.fresh_plan(self.state)
         self.save()
         self.refresh()
-        self.statusBar().showMessage("New plan: 7 days starting today", 5000)
+        self.statusBar().showMessage("Replanned the rest of the week", 5000)
 
     def _check_rollover(self, refresh: bool = True) -> None:
+        """A new day can change the plan; a new week (Sunday 00:00) settles the old one."""
         if self.state.library and scheduler.plan_expired(self.state):
+            old = self.state.week
             scheduler.replan(self.state)
             self.save()
+            if old and old.calendar and refresh:
+                start = date.fromisoformat(old.week_start)
+                days = [self.state.day_log.get((start + timedelta(days=d)).isoformat()) for d in range(7)]
+                done, failed = days.count("done"), days.count("failed")
+                if done or failed:
+                    self.statusBar().showMessage(
+                        f"New week! Last week: {done} day{'s' if done != 1 else ''} complete, "
+                        f"{failed} failed", 15000)
             if refresh:
                 self.refresh()
+        self._schedule_midnight()
+
+    def _schedule_midnight(self) -> None:
+        """Check again just after midnight, so a new week starts right at Sunday 00:00."""
+        now = datetime.now()
+        midnight = datetime.combine(now.date() + timedelta(days=1), datetime.min.time())
+        self._midnight.start(int((midnight - now).total_seconds() * 1000) + 2000)
 
     # ------------------------------------------------------------------ actions
 
     def toggle_item(self, idx: int) -> None:
-        item = self.state.week.items[idx]
+        week = self.state.week
+        item = week.items[idx]
+        day, was_complete = item.day, week.day_complete(item.day)
         event = scheduler.toggle_item(self.state, item)
+        week = self.state.week
+        if not was_complete and week and week.day_complete(day):
+            on = date.fromisoformat(week.week_start) + timedelta(days=day)
+            self.week_page.celebrate = on.isoformat()
+            self.statusBar().showMessage(f"{on:%A} complete!", 5000)
         self.save()
         self.refresh()
         if event.finished:

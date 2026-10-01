@@ -63,6 +63,7 @@ class State:
     last_recap: str = ""  # ISO week of the last weekly recap, e.g. "2026-W40"
     # What was last sent to each connected service: {"mal": {mal_id: [status, eps, score]}, "anilist": {...}}
     synced: dict[str, dict[int, list]] = field(default_factory=dict)
+    day_log: dict[str, str] = field(default_factory=dict)  # ISO date → "done" | "failed"
 
     def to_dict(self) -> dict:
         return {
@@ -78,6 +79,7 @@ class State:
             "history": self.history,
             "last_recap": self.last_recap,
             "synced": {svc: {str(k): v for k, v in m.items()} for svc, m in self.synced.items()},
+            "day_log": self.day_log,
         }
 
     @classmethod
@@ -91,7 +93,8 @@ class State:
                    {k: list(v) for k, v in (d.get("day_order") or {}).items()},
                    {int(k): v for k, v in (d.get("announced") or {}).items()},
                    list(d.get("history") or []), d.get("last_recap", ""),
-                   {svc: {int(k): v for k, v in m.items()} for svc, m in (d.get("synced") or {}).items()})
+                   {svc: {int(k): v for k, v in m.items()} for svc, m in (d.get("synced") or {}).items()},
+                   dict(d.get("day_log") or {}))
 
 
 def state_path() -> Path:

@@ -27,8 +27,9 @@ from .recommender import Suggestion, pick_replacement
 from .storage import State
 
 
-def monday_of(d: date) -> date:
-    return d - timedelta(days=d.weekday())
+def week_start_of(d: date) -> date:
+    """The Sunday that starts d's week (weeks run Sunday–Saturday and restart at 00:00 Sunday)."""
+    return d - timedelta(days=(d.weekday() + 1) % 7)
 
 
 def _rotation_key(a: Anime) -> tuple:
@@ -70,10 +71,11 @@ PLAN_DAYS = 7
 
 
 def build_week(state: State, week_start: date, from_day: int = 0) -> WeekPlan:
-    """(Re)plan the 7 days starting at `week_start` (any weekday), from day offset `from_day`.
+    """(Re)plan the Sunday–Saturday week starting at `week_start`, from day offset `from_day`.
 
-    Items on earlier days, and items already checked off, are kept as history.
-    Progress is simulated on copies so the real library is untouched.
+    Items on earlier days, and items already checked off, are kept: an unfinished earlier day
+    waits to be finished, and its episodes aren't planned again. Progress is simulated on copies
+    so the real library is untouched.
     """
     settings = state.settings
     by_episodes = settings.plan_by == EPISODES
@@ -83,6 +85,12 @@ def build_week(state: State, week_start: date, from_day: int = 0) -> WeekPlan:
         kept = [i for i in state.week.items if i.day < from_day or i.done]
 
     sim = {k: copy.copy(a) for k, a in state.library.items()}
+    for it in kept:  # episodes still waiting on an unfinished earlier day are spoken for
+        a = sim.get(it.mal_id)
+        if a is not None and not it.done and it.episode > a.episodes_watched:
+            a.episodes_watched = it.episode
+            if a.is_finished:
+                a.status = COMPLETED
     rotation = current_rotation(sim)
     items: list[ScheduleItem] = []
 
@@ -183,7 +191,7 @@ def build_week(state: State, week_start: date, from_day: int = 0) -> WeekPlan:
                         break
                 rr += 1
 
-    return WeekPlan(iso, order_items(kept + items, state.library, week_start, state.day_order))
+    return WeekPlan(iso, order_items(kept + items, state.library, week_start, state.day_order), calendar=True)
 
 
 def episodes_left(anime: Anime | None) -> int:
@@ -346,7 +354,7 @@ def toggle_item(state: State, item: ScheduleItem, today: date | None = None) -> 
         event = set_progress(state, anime, max(anime.episodes_watched, item.episode), today)
     else:
         event = set_progress(state, anime, min(anime.episodes_watched, item.episode - 1), today)
-    replan(state, today)
+    replan(state, today, keep_today=True)  # today's list stays put while you work through it
     return event
 
 
@@ -354,26 +362,69 @@ def plan_start(state: State) -> date | None:
     return date.fromisoformat(state.week.week_start) if state.week else None
 
 
-def replan(state: State, today: date | None = None) -> None:
-    """Rebuild the plan from today onward. Earlier days of the current 7-day plan keep their
-    history; once the plan has run out, a new one starts today."""
+def mark_watched_items(state: State) -> None:
+    """Tick planned episodes you've already watched (on another day, in MAL/AniList, …)."""
+    if state.week:
+        for it in state.week.items:
+            a = state.library.get(it.mal_id)
+            if not it.done and a is not None and it.episode <= a.episodes_watched:
+                it.done = True
+
+
+def update_day_log(state: State) -> None:
+    """Record each day of this week that's complete (and forget it again if it's unticked)."""
+    week = state.week
+    if not week or not week.calendar:
+        return
+    start = date.fromisoformat(week.week_start)
+    for day in range(PLAN_DAYS):
+        iso = (start + timedelta(days=day)).isoformat()
+        if week.day_complete(day):
+            state.day_log[iso] = "done"
+        elif state.day_log.get(iso) == "done":
+            del state.day_log[iso]
+
+
+def roll_week(state: State, today: date | None = None) -> bool:
+    """If a new week has begun, settle the old one: every day that had episodes counts as
+    completed or, if anything was left unticked, failed. Returns True if a week ended."""
     today = today or date.today()
+    week = state.week
+    if not week or not week.calendar:
+        return False
+    start = date.fromisoformat(week.week_start)
+    if week_start_of(today) <= start:
+        return False
+    for day in range(PLAN_DAYS):
+        items = week.for_day(day)
+        if items:
+            iso = (start + timedelta(days=day)).isoformat()
+            state.day_log[iso] = "done" if all(i.done for i in items) else "failed"
+    return True
+
+
+def replan(state: State, today: date | None = None, keep_today: bool = False) -> None:
+    """Rebuild this week (Sunday–Saturday) from today onward. Earlier days keep their episodes,
+    finished or not. When a new week starts, the old one is settled and a fresh week planned.
+    `keep_today` leaves today's episodes as they are and replans only the days after it."""
+    today = today or date.today()
+    roll_week(state, today)
     prune_overrides(state, today)
-    start = plan_start(state)
-    if start is not None and start <= today < start + timedelta(days=PLAN_DAYS):
-        state.week = build_week(state, start, (today - start).days)
-    else:
-        fresh_plan(state, today)
+    mark_watched_items(state)
+    first = week_start_of(today)
+    if not (state.week and state.week.calendar and state.week.week_start == first.isoformat()):
+        state.week = None  # a new week, or a rolling plan from before 1.0
+        keep_today = False
+    state.week = build_week(state, first, (today - first).days + (1 if keep_today else 0))
+    update_day_log(state)
 
 
 def fresh_plan(state: State, today: date | None = None) -> None:
-    """Throw away the current plan (past days included) and plan 7 days starting today."""
-    today = today or date.today()
-    state.week = None
-    state.week = build_week(state, today, 0)
+    """Replan the rest of the week from today (earlier days are kept)."""
+    replan(state, today)
 
 
 def plan_expired(state: State, today: date | None = None) -> bool:
     today = today or date.today()
-    start = plan_start(state)
-    return start is None or not (start <= today < start + timedelta(days=PLAN_DAYS))
+    week = state.week
+    return week is None or not week.calendar or week.week_start != week_start_of(today).isoformat()

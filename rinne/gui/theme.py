@@ -263,6 +263,23 @@ def stylesheet() -> str:
     #day[today="true"] {{ border: 2px solid {ACCENT}; background: {today_bg}; }}
     #day[past="true"] {{ background: {sidebar}; }}
     #day[dropTarget="true"] {{ border: 2px dashed {ACCENT}; background: {ACCENT_CARD}; }}
+    #dayDone {{ background: {surface}; border: 1px solid {BORDER}; border-left: {px(4)}px solid {SUCCESS};
+                border-radius: {r}px; }}
+    #doneCheck {{ background: {SUCCESS}; color: {SURFACE}; border-radius: {px(15)}px;
+                  font-size: {px(15)}px; font-weight: 900; }}
+    QToolButton#linkButton {{ background: transparent; border: none; color: {MUTED}; font-size: {px(12)}px;
+                              text-decoration: underline; padding: 0; }}
+    QToolButton#linkButton:hover {{ color: {TEXT}; }}
+    #weekDay {{ background: {surface}; border: 1px solid {BORDER}; border-radius: {px(12)}px; }}
+    #weekDay[state="done"] {{ background: {GREEN_BG}; border-color: {SUCCESS}; }}
+    #weekDay[state="unfinished"] {{ background: {AMBER_BG}; border-color: {WARN}; }}
+    #weekDay[state="today"] {{ border: 2px solid {ACCENT}; background: {today_bg}; }}
+    #weekDay[state="off"] {{ background: transparent; }}
+    #weekDayName {{ color: {MUTED}; font-size: {px(11)}px; font-weight: 700; letter-spacing: 1px; }}
+    #weekDayMark {{ font-size: {px(16)}px; font-weight: 800; }}
+    #weekDay[state="done"] #weekDayMark {{ color: {SUCCESS}; }}
+    #weekDay[state="unfinished"] #weekDayMark {{ color: {WARN}; }}
+    #weekDay[state="off"] #weekDayMark, #weekDay[state="off"] #weekDayName {{ color: {FAINT}; }}
     #episode {{ background: {surface_2}; border-radius: {px(10)}px; border: 1px solid transparent; }}
     #episode:hover, #card[clickable="true"]:hover {{ border: 1px solid {ACCENT}; }}
     #episode[missed="true"] {{ border-left: {px(3)}px solid {DANGER}; }}

@@ -1,12 +1,16 @@
-"""Your Week: the 7-day plan, with a card per show each day."""
+"""Your Week: the Sunday–Saturday plan, with a card per show each day."""
 
 from __future__ import annotations
 
+import math
+import random
 from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QMimeData, QPoint, Qt, Signal
-from PySide6.QtGui import QDrag
+from PySide6.QtCore import (
+    QEasingCurve, QMimeData, QPoint, QPointF, QPropertyAnimation, QRectF, Qt, QVariantAnimation, Signal,
+)
+from PySide6.QtGui import QColor, QDrag, QFont, QPainter, QPen
 from PySide6.QtWidgets import (
     QApplication, QFrame, QGraphicsOpacityEffect, QGridLayout, QPushButton, QScrollArea, QToolButton, QWidget,
 )
@@ -24,6 +28,8 @@ from .images import Cover
 if TYPE_CHECKING:
     from .window import MainWindow
 
+CELEBRATION_MS = 1700  # check + confetti, before the finished day folds away
+FOLD_MS = 380
 
 
 class ShowDayCard(QFrame):
@@ -157,8 +163,10 @@ class DayRow(QFrame):
     moved = Signal(int, object, object)  # mal_id, from date, to date
     reordered = Signal(object, list)  # date, mal_ids in the new order
 
+    folded = Signal()  # a completed day was unfolded and wants to fold again
+
     def __init__(self, day: int, on: date, today: date, amount: int, by_episodes: bool,
-                 minutes: int, count: int, parent=None):
+                 minutes: int, count: int, parent=None, status: str = ""):
         super().__init__(parent)
         self.setObjectName("day")
         self.setProperty("today", on == today)
@@ -184,6 +192,7 @@ class DayRow(QFrame):
             head.addWidget(label(WEEKDAYS[on.weekday()], "h2"))
             if on == today:
                 head.addWidget(badge("Today"))
+            self._status_badge(head, status)
             head.addStretch()
             col.addLayout(head)
             sub = hbox(spacing=6)
@@ -206,6 +215,11 @@ class DayRow(QFrame):
             head.addWidget(badge("Today"))
         head.addStretch()
         side.addLayout(head)
+        status_line = hbox(spacing=6)
+        self._status_badge(status_line, status)
+        status_line.addStretch()
+        if status:
+            side.addLayout(status_line)
         side.addWidget(label(f"{on.day} {on:%B}", "faint"))
         amt = hbox(spacing=6)
         amt.addWidget(minus)
@@ -222,6 +236,20 @@ class DayRow(QFrame):
         self.cards = QWidget()
         self.flow = FlowLayout(self.cards, 10)
         row.addWidget(self.cards, 1)
+
+    def _status_badge(self, lay, status: str) -> None:
+        if status == "unfinished":
+            b = badge("Unfinished", "badgeAmber")
+            b.setToolTip("Still waiting to be finished. Days left unfinished when the week ends "
+                         "count as failed in Stats.")
+            lay.addWidget(b)
+        elif status == "complete":
+            lay.addWidget(badge("✓ Complete", "badgeGreen"))
+            fold = QToolButton(text="Fold")
+            fold.setObjectName("linkButton")
+            fold.setCursor(Qt.PointingHandCursor)
+            fold.clicked.connect(self.folded.emit)
+            lay.addWidget(fold)
 
     def add(self, w: QWidget) -> None:
         self.flow.addWidget(w)
@@ -317,6 +345,165 @@ def stat(value: str, caption: str) -> QFrame:
     return frame
 
 
+class CompletedDay(QFrame):
+    """A finished day, folded to one line. "Show" unfolds it, e.g. to untick a mistake."""
+
+    unfold = Signal()
+
+    def __init__(self, on: date, today: date, count: int, minutes: int, shows: int, parent=None):
+        super().__init__(parent)
+        self.setObjectName("dayDone")
+        row = hbox(self, 12, 12)
+        check = label("✓", "doneCheck")
+        check.setAlignment(Qt.AlignCenter)
+        check.setFixedSize(theme.px(30), theme.px(30))
+        row.addWidget(check)
+        when = "Today" if on == today else WEEKDAYS[on.weekday()]
+        title = label(f"{when} · {on.day} {on:%b}", "cardTitle")
+        detail = label(f"Day complete · {count} episode{'s' if count != 1 else ''} · {fmt_minutes(minutes)}"
+                       + (f" · {shows} shows" if shows > 1 else ""), "faint", wrap=True)
+        if theme.COMPACT:
+            col = vbox(spacing=0)
+            col.addWidget(title)
+            col.addWidget(detail)
+            row.addLayout(col, 1)
+        else:
+            row.addWidget(title)
+            row.addWidget(detail, 1)
+        show = QPushButton("Show")
+        show.setObjectName("ghost")
+        show.setCursor(Qt.PointingHandCursor)
+        show.clicked.connect(self.unfold.emit)
+        row.addWidget(show)
+
+
+class Celebration(QWidget):
+    """Plays over a day that was just completed: the day dims, a check pops in with a burst
+    of confetti, then `finished` fires so the page can fold the day away."""
+
+    finished = Signal()
+
+    def __init__(self, parent: QWidget, title: str, subtitle: str):
+        super().__init__(parent)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.title, self.subtitle = title, subtitle
+        self.t = 0.0
+        colors = [theme.SUCCESS, theme.ACCENT, theme.ACCENT_2, theme.WARN]
+        rnd = random.Random()
+        self.bits = [(rnd.uniform(0, 2 * math.pi), rnd.uniform(0.35, 1.0), rnd.choice(colors),
+                      rnd.uniform(3, 6.5), rnd.uniform(-6, 6)) for _ in range(46)]
+        self.anim = QVariantAnimation(self, startValue=0.0, endValue=1.0, duration=CELEBRATION_MS)
+        self.anim.valueChanged.connect(self._step)
+        self.anim.finished.connect(self.finished.emit)
+        self.setGeometry(parent.rect())
+        self.raise_()
+        self.show()
+        self.anim.start()
+
+    def _step(self, v) -> None:
+        self.t = float(v)
+        self.setGeometry(self.parentWidget().rect())
+        self.update()
+
+    def paintEvent(self, event) -> None:
+        t = self.t
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        r = QRectF(self.rect())
+        # Dim the day.
+        veil = QColor(theme.SURFACE)
+        veil.setAlphaF(0.9 * min(1.0, t / 0.18))
+        p.setPen(Qt.NoPen)
+        p.setBrush(veil)
+        p.drawRoundedRect(r.adjusted(1, 1, -1, -1), theme.px(14), theme.px(14))
+        cx, cy = r.center().x(), r.center().y() - theme.px(10)
+        # Confetti: shoots out from the check, then falls and fades.
+        if t > 0.08:
+            k = (t - 0.08) / 0.92
+            reach = min(r.width(), r.height() * 2.2) * 0.42
+            for angle, speed, color, size, spin in self.bits:
+                d = reach * speed * (1 - (1 - min(1.0, k * 1.6)) ** 3)
+                x = cx + math.cos(angle) * d
+                y = cy + math.sin(angle) * d * 0.62 + theme.px(70) * k * k
+                c = QColor(color)
+                c.setAlphaF(max(0.0, 1.0 - max(0.0, k - 0.55) / 0.45))
+                p.save()
+                p.translate(x, y)
+                p.rotate(spin * 60 * k)
+                p.setBrush(c)
+                p.drawRoundedRect(QRectF(-size, -size / 2.4, size * 2, size / 1.2), 1.5, 1.5)
+                p.restore()
+        # The check pops in with a little overshoot.
+        if t > 0.05:
+            k = min(1.0, (t - 0.05) / 0.3)
+            scale = 1 + 2.4 * (k - 1) ** 3 + 1.4 * (k - 1) ** 2  # ease-out-back
+            rad = theme.px(26) * scale
+            p.setBrush(QColor(theme.SUCCESS))
+            p.drawEllipse(QPointF(cx, cy), rad, rad)
+            pen = QPen(QColor(theme.SURFACE), max(2.5, rad / 6.5))
+            pen.setCapStyle(Qt.RoundCap)
+            pen.setJoinStyle(Qt.RoundJoin)
+            p.setPen(pen)
+            u = rad / 26
+            p.drawPolyline([QPointF(cx - 11 * u, cy + 1 * u), QPointF(cx - 3 * u, cy + 9 * u),
+                            QPointF(cx + 12 * u, cy - 8 * u)])
+            p.setPen(Qt.NoPen)
+        # Text fades in under the check.
+        if t > 0.2:
+            a = min(1.0, (t - 0.2) / 0.2)
+            f = QFont(self.font())
+            f.setPixelSize(theme.px(18))
+            f.setWeight(QFont.Bold)
+            p.setFont(f)
+            c = QColor(theme.TEXT)
+            c.setAlphaF(a)
+            p.setPen(c)
+            top = cy + theme.px(34)
+            p.drawText(QRectF(r.left(), top, r.width(), theme.px(26)), Qt.AlignCenter, self.title)
+            f.setPixelSize(theme.px(13))
+            f.setWeight(QFont.Normal)
+            p.setFont(f)
+            c = QColor(theme.MUTED)
+            c.setAlphaF(a)
+            p.setPen(c)
+            p.drawText(QRectF(r.left(), top + theme.px(26), r.width(), theme.px(20)), Qt.AlignCenter,
+                       self.subtitle)
+        p.end()
+
+
+def week_strip(state, start: date, today: date) -> QWidget:
+    """Sun–Sat at a glance: complete, unfinished (still waiting), today, upcoming, day off."""
+    host = QWidget()
+    row = hbox(host, 3 if theme.COMPACT else 6)
+    week = state.week
+    for day in range(scheduler.PLAN_DAYS):
+        on = start + timedelta(days=day)
+        items = week.for_day(day) if week else []
+        if week and week.day_complete(day):
+            kind, mark, tip = "done", "✓", "Complete"
+        elif on < today and items:
+            kind, mark, tip = "unfinished", "!", "Unfinished: still waiting"
+        elif on == today:
+            kind, mark, tip = "today", f"{sum(i.done for i in items)}/{len(items)}", "Today"
+        elif not items:
+            kind, mark, tip = "off", "–", "Nothing planned"
+        else:
+            kind, mark, tip = "upcoming", str(len(items)), f"{len(items)} planned"
+        chip = QFrame()
+        chip.setObjectName("weekDay")
+        chip.setProperty("state", kind)
+        col = vbox(chip, 0, 2 if theme.COMPACT else 6)
+        name = label(WEEKDAYS[on.weekday()][:2 if theme.COMPACT else 3], "weekDayName")
+        name.setAlignment(Qt.AlignCenter)
+        value = label(mark, "weekDayMark")
+        value.setAlignment(Qt.AlignCenter)
+        col.addWidget(name)
+        col.addWidget(value)
+        chip.setToolTip(f"{WEEKDAYS[on.weekday()]} {on.day} {on:%b}: {tip}")
+        row.addWidget(chip, 1)
+    return host
+
+
 class WeekPage(QWidget):
     def __init__(self, win: MainWindow):
         super().__init__()
@@ -325,6 +512,31 @@ class WeekPage(QWidget):
         self.area, inner = scroll_page()
         outer.addWidget(self.area)
         self.body = vbox(inner, 18, 28)
+        self.celebrate: str | None = None  # ISO date of a day just completed: play the animation
+        self._expanded: set[str] = set()  # completed days unfolded by hand
+
+    def _unfold(self, iso: str) -> None:
+        self._expanded.add(iso)
+        self.refresh()
+
+    def _fold(self, iso: str) -> None:
+        self._expanded.discard(iso)
+        self.refresh()
+
+    def _play_celebration(self, row: QWidget, title: str, subtitle: str) -> None:
+        """Check and confetti over the day, then fold it down to its one-line summary."""
+        def fold() -> None:
+            anim = QPropertyAnimation(row, b"maximumHeight", row)
+            anim.setDuration(FOLD_MS)
+            anim.setStartValue(row.height())
+            anim.setEndValue(theme.px(58))
+            anim.setEasingCurve(QEasingCurve.InOutCubic)
+            anim.valueChanged.connect(lambda _v: overlay.setGeometry(row.rect()))
+            anim.finished.connect(self.refresh)
+            anim.start()
+
+        overlay = Celebration(row, title, subtitle)
+        overlay.finished.connect(fold)
 
     def refresh(self) -> None:
         state, today = self.win.state, date.today()
@@ -348,7 +560,7 @@ class WeekPage(QWidget):
         settings_btn.clicked.connect(lambda: self.win.open_settings("schedule"))
         replan = QPushButton("Replan from today")
         replan.setObjectName("primary")
-        replan.setToolTip("Start a fresh 7-day plan today, ignoring past days (Ctrl R)")
+        replan.setToolTip("Plan the rest of this week again from today. Earlier days stay as they are (Ctrl R)")
         replan.clicked.connect(self.win.replan_fresh)
         self.replan_btn = replan
         if theme.COMPACT:  # buttons on their own (wrapping) row below the title
@@ -367,7 +579,7 @@ class WeekPage(QWidget):
             return sum(state.library[i.mal_id].minutes_per_episode for i in its if i.mal_id in state.library)
         todays = [i for i in items if i.day == (today - start).days] if start <= today <= end else []
         tiles = [stat(f"{sum(i.done for i in todays)} / {len(todays)}", "Watched today"),
-                 stat(f"{sum(i.done for i in items)} / {len(items)}", "Episodes this plan"),
+                 stat(f"{sum(i.done for i in items)} / {len(items)}", "Episodes this week"),
                  stat(fmt_minutes(mins(items)), "Planned watch time"),
                  stat(str(len(rotation)), "Shows watching")]
         stats = QGridLayout()
@@ -378,6 +590,8 @@ class WeekPage(QWidget):
             else:
                 stats.addWidget(tile, 0, n)
         self.body.addLayout(stats)
+        if week:
+            self.body.addWidget(week_strip(state, start, today))
 
         # Now watching (paused shows too, so they can be found and resumed).
         self.body.addWidget(label("Now watching", "h2"))
@@ -415,13 +629,26 @@ class WeekPage(QWidget):
             sched_head.addWidget(label(f"Planning by {unit} per day · use − / + on a day to adjust", "faint"))
         self.body.addLayout(sched_head)
         self.first_day = None
+        celebrate, self.celebrate = self.celebrate, None
         for day in range(scheduler.PLAN_DAYS):
             on = start + timedelta(days=day)
+            iso = on.isoformat()
             day_items = [(n, i) for n, i in enumerate(items) if i.day == day]
             if on < today and not day_items:
                 continue  # nothing happened that day; keep today near the top
+            complete = bool(week) and week.day_complete(day)
+            day_minutes = mins(i for _idx, i in day_items)
+            day_shows = len({i.mal_id for _idx, i in day_items})
+            if complete and iso not in self._expanded and iso != celebrate:
+                done = CompletedDay(on, today, len(day_items), day_minutes, day_shows)
+                done.unfold.connect(lambda iso=iso: self._unfold(iso))
+                self.body.addWidget(done)
+                continue
+            status = "complete" if complete else ("unfinished" if on < today else "")
             row = DayRow(on.weekday(), on, today, s.day_amount(on.weekday()), s.plan_by == EPISODES,
-                         mins(i for _idx, i in day_items), len(day_items))
+                         day_minutes, len(day_items), status=status)
+            if complete:
+                row.folded.connect(lambda iso=iso: self._fold(iso))
             row.amount_changed.connect(self.win.change_day_amount)
             if on >= today:
                 row.enable_drops(on)
@@ -442,7 +669,7 @@ class WeekPage(QWidget):
                 row.add(show_card)
             if on < today:
                 empty = "—"
-            elif s.day_amount(day) == 0:
+            elif s.day_amount(on.weekday()) == 0:
                 empty = "Day off — enjoy!"
             elif not rotation:
                 empty = "Nothing to watch — add a show to your Watching list"
@@ -452,6 +679,12 @@ class WeekPage(QWidget):
             self.body.addWidget(row)
             if self.first_day is None:
                 self.first_day = row
+            if iso == celebrate and complete:
+                week_done = all(week.day_complete(d) for d in range(scheduler.PLAN_DAYS) if week.for_day(d))
+                title = "Week complete!" if week_done else "Day complete!"
+                sub = (f"{len(day_items)} episode{'s' if len(day_items) != 1 else ''} · "
+                       f"{fmt_minutes(day_minutes)}")
+                self._play_celebration(row, title, sub)
         self.body.addStretch()
         self.area.verticalScrollBar().setValue(scroll)
 

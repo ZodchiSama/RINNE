@@ -158,7 +158,7 @@ class DesktopMixin:
                                 + ", ".join(names[:4]) + ("…" if len(names) > 4 else ""))
                 self.state.last_reminder = date.today().isoformat()
                 changed = True
-        if s.weekly_recap and now.weekday() == 6 and now.hour >= 19:
+        if s.weekly_recap and now.weekday() == 5 and now.hour >= 19:  # Saturday evening: the week's last day
             week = f"{now.isocalendar().year}-W{now.isocalendar().week:02d}"
             if self.state.last_recap != week:
                 from ..stats import compute, recap_text

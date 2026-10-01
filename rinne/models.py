@@ -248,7 +248,7 @@ class Settings:
 
 @dataclass
 class ScheduleItem:
-    day: int  # 0 = Monday
+    day: int  # days from the start of the week (0 = Sunday)
     mal_id: int
     episode: int
     done: bool = False
@@ -264,15 +264,23 @@ class ScheduleItem:
 
 @dataclass
 class WeekPlan:
-    week_start: str  # ISO date of the Monday
+    week_start: str  # ISO date of the Sunday the week starts on
     items: list[ScheduleItem] = field(default_factory=list)
+    calendar: bool = False  # a Sunday–Saturday week; plans from before 1.0 were rolling 7 days
 
     def for_day(self, day: int) -> list[ScheduleItem]:
         return [i for i in self.items if i.day == day]
 
+    def day_complete(self, day: int) -> bool:
+        """The day had episodes planned and every one is ticked."""
+        items = self.for_day(day)
+        return bool(items) and all(i.done for i in items)
+
     def to_dict(self) -> dict:
-        return {"week_start": self.week_start, "items": [i.to_dict() for i in self.items]}
+        return {"week_start": self.week_start, "items": [i.to_dict() for i in self.items],
+                "calendar": self.calendar}
 
     @classmethod
     def from_dict(cls, d: dict) -> WeekPlan:
-        return cls(d["week_start"], [ScheduleItem.from_dict(i) for i in d.get("items", [])])
+        return cls(d["week_start"], [ScheduleItem.from_dict(i) for i in d.get("items", [])],
+                   bool(d.get("calendar", False)))

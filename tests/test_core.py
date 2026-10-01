@@ -11,7 +11,7 @@ from rinne.models import (
 )
 from rinne.storage import State, load_state, save_state
 
-MONDAY = date(2026, 9, 21)
+WEEK_START = date(2026, 9, 20)  # a Sunday: weeks run Sunday–Saturday
 
 EXPORT = b"""<?xml version="1.0" encoding="UTF-8" ?>
 <myanimelist>
@@ -155,7 +155,7 @@ def test_taste_profile_and_exclusions():
 def test_only_watching_shows_are_scheduled():
     st = make_state(show(1, status=WATCHING), show(2, status=PLAN_TO_WATCH, priority=2),
                     daily_episodes=[3] * 7)
-    plan = scheduler.build_week(st, MONDAY)
+    plan = scheduler.build_week(st, WEEK_START)
     assert {i.mal_id for i in plan.items} == {1}
 
 
@@ -164,9 +164,9 @@ def test_episodes_per_day_mode_and_soft_cap():
         show(1, status=WATCHING, episodes_total=100), show(2, status=WATCHING, episodes_total=100),
         daily_episodes=[4, 0, 1, 1, 1, 6, 6], max_eps_per_show_per_day=2,
     )
-    plan = scheduler.build_week(st, MONDAY)
-    assert [len(plan.for_day(d)) for d in range(7)] == [4, 0, 1, 1, 1, 6, 6]
-    monday = [i.mal_id for i in plan.for_day(0)]
+    plan = scheduler.build_week(st, WEEK_START)
+    assert [len(plan.for_day(d)) for d in range(7)] == [6, 4, 0, 1, 1, 1, 6]  # Sun … Sat
+    monday = [i.mal_id for i in plan.for_day(1)]
     assert monday.count(1) == 2 and monday.count(2) == 2  # cap respected when possible
     assert st.library[1].episodes_watched == 0  # simulation doesn't touch real data
 
@@ -177,11 +177,12 @@ def test_minutes_mode_respects_budget():
         show(2, status=WATCHING, episode_minutes=45),
         plan_by="minutes", daily_minutes=[48, 48, 0, 70, 48, 96, 96],
     )
-    plan = scheduler.build_week(st, MONDAY)
-    assert not plan.for_day(2)
+    plan = scheduler.build_week(st, WEEK_START)
+    assert not plan.for_day(3)  # Wednesday (0 minutes); day 0 is Sunday
     for d in range(7):
         used = sum(st.library[i.mal_id].minutes_per_episode for i in plan.for_day(d))
-        assert used <= st.settings.daily_minutes[d] or len(plan.for_day(d)) == 1
+        weekday = (d + 6) % 7
+        assert used <= st.settings.daily_minutes[weekday] or len(plan.for_day(d)) == 1
     eps = [i.episode for i in plan.items if i.mal_id == 1]
     assert eps == list(range(3, 3 + len(eps)))
 
@@ -192,7 +193,7 @@ def test_finale_is_labelled_with_next_season_but_not_scheduled():
         show(2, relations={"prequel": [1]}, title="Season 2"),
         daily_episodes=[2] * 7,
     )
-    plan = scheduler.build_week(st, MONDAY)
+    plan = scheduler.build_week(st, WEEK_START)
     assert [(i.mal_id, i.episode) for i in plan.items] == [(1, 11), (1, 12)]
     assert plan.items[-1].note == "Finale — next up: Season 2"
 
@@ -201,18 +202,18 @@ def test_airing_show_paced_by_release():
     airing = show(1, status=WATCHING, episodes_total=12, episodes_watched=2,
                   airing_status=CURRENTLY_AIRING, aired_from="2026-09-03")  # a Thursday
     st = make_state(airing, daily_episodes=[3] * 7)
-    plan = scheduler.build_week(st, MONDAY)
+    plan = scheduler.build_week(st, WEEK_START)
     by_day = {i.episode: i.day for i in plan.items}
     # Eps 1-3 aired by Sep 17; ep 4 on Thursday Sep 24.
-    assert by_day == {3: 0, 4: 3}
+    assert by_day == {3: 0, 4: 4}  # Sunday, then Thursday
 
 
 def test_finishing_fetches_and_adds_unlisted_sequel():
     s1 = show(1, status=WATCHING, episodes_watched=11, relations={"sequel": [2]})
     st = make_state(s1, show(3, mean_score=9.9), daily_episodes=[2] * 7)
-    scheduler.replan(st, MONDAY)
+    scheduler.replan(st, WEEK_START)
     finale = st.week.items[0]
-    event = scheduler.toggle_item(st, finale, MONDAY)
+    event = scheduler.toggle_item(st, finale, WEEK_START)
     assert event.finished is s1 and s1.status == COMPLETED
 
     calls = []
@@ -221,15 +222,15 @@ def test_finishing_fetches_and_adds_unlisted_sequel():
         calls.append(mal_id)
         return show(mal_id, title="Season 2", episodes_total=12, relations={"prequel": [1]})
 
-    sug, fetched = scheduler.find_replacement(st, s1, fetch, MONDAY)
+    sug, fetched = scheduler.find_replacement(st, s1, fetch, WEEK_START)
     assert calls == [2] and sug.anime.title == "Season 2" and 2 not in st.library
-    applied = scheduler.apply_replacement(st, sug, fetched, MONDAY)
+    applied = scheduler.apply_replacement(st, sug, fetched, WEEK_START)
     s2 = st.library[2]
     assert s2.status == WATCHING and s2.added_by_app and applied.added == [s2]
-    scheduler.replan(st, MONDAY)
+    scheduler.replan(st, WEEK_START)
     assert any(i.mal_id == 2 for i in st.week.items)
     # Unchecking the finale reopens the first season.
-    scheduler.toggle_item(st, finale, MONDAY)
+    scheduler.toggle_item(st, finale, WEEK_START)
     assert s1.status == WATCHING and s1.episodes_watched == 11
 
 
@@ -242,7 +243,7 @@ def test_refetch_keeps_list_status():
         rel = {2: {"sequel": [3]}, 3: {"prequel": [2]}}[mal_id]
         return show(mal_id, relations=rel)  # fetched copies default to Plan to Watch
 
-    sug, fetched = scheduler.find_replacement(st, s1, fetch, MONDAY)
+    sug, fetched = scheduler.find_replacement(st, s1, fetch, WEEK_START)
     assert sug.anime.mal_id == 3 and fetched[2].status == COMPLETED
 
 
@@ -253,34 +254,76 @@ def test_show_being_replaced_counts_as_finished_prequel():
     assert top.anime is s2 and not any("first" in r for _, r in top.reasons)
 
 
-def test_plan_starts_today_and_uses_that_weekdays_amount():
+def test_week_runs_sunday_to_saturday_from_today():
     thursday = date(2026, 9, 24)
     st = make_state(show(1, status=WATCHING, episodes_total=50),
-                    daily_episodes=[1, 1, 1, 3, 1, 1, 1])  # Thursday = 3
+                    daily_episodes=[1, 1, 1, 3, 1, 1, 2])  # Thursday = 3, Sunday = 2
     scheduler.replan(st, thursday)
-    assert st.week.week_start == "2026-09-24"
-    assert [len(st.week.for_day(d)) for d in range(7)] == [3, 1, 1, 1, 1, 1, 1]
+    assert st.week.week_start == "2026-09-20" and st.week.calendar  # that week's Sunday
+    assert [len(st.week.for_day(d)) for d in range(7)] == [0, 0, 0, 0, 3, 1, 1]  # Sun … Sat
+    sunday = date(2026, 9, 27)
+    scheduler.replan(st, sunday)  # 00:00 Sunday starts a new week
+    assert st.week.week_start == sunday.isoformat() and len(st.week.for_day(0)) == 2
 
 
-def test_fresh_plan_discards_past_days():
+def test_unfinished_day_waits_and_its_episodes_are_not_planned_twice():
     st = make_state(show(1, status=WATCHING, episodes_total=50), daily_episodes=[2] * 7)
-    scheduler.replan(st, MONDAY)
-    scheduler.toggle_item(st, st.week.items[0], MONDAY)
-    wednesday = date(2026, 9, 23)
-    scheduler.replan(st, wednesday)  # keeps Monday's history
-    assert st.week.week_start == MONDAY.isoformat() and st.week.items[0].done
-    scheduler.fresh_plan(st, wednesday)
-    assert st.week.week_start == wednesday.isoformat()
-    assert not any(i.done for i in st.week.items) and st.week.items[0].episode == 2
+    scheduler.replan(st, WEEK_START)
+    scheduler.toggle_item(st, st.week.for_day(0)[0], WEEK_START)  # Monday: 1 of 2 watched
+    wednesday = WEEK_START + timedelta(days=2)
+    scheduler.replan(st, wednesday)
+    monday = st.week.for_day(0)
+    assert [(i.episode, i.done) for i in monday] == [(1, True), (2, False)]  # still waiting
+    assert st.week.for_day(1)  # Tuesday wasn't watched either; it waits too
+    eps = [i.episode for i in st.week.items]
+    assert len(eps) == len(set(eps))  # no episode planned twice
+    assert st.day_log == {}  # nothing fails until the week is over
+    scheduler.fresh_plan(st, wednesday)  # "Replan from today" keeps earlier days
+    assert [(i.episode, i.done) for i in st.week.for_day(0)] == [(1, True), (2, False)]
 
 
-def test_expired_plan_rolls_over():
+def test_completed_days_are_logged_and_unticking_forgets_them():
+    st = make_state(show(1, status=WATCHING, episodes_total=50), daily_episodes=[2] * 7)
+    scheduler.replan(st, WEEK_START)
+    for it in list(st.week.for_day(0)):
+        scheduler.toggle_item(st, next(i for i in st.week.for_day(0) if i.episode == it.episode), WEEK_START)
+    assert st.week.day_complete(0) and st.day_log == {WEEK_START.isoformat(): "done"}
+    scheduler.toggle_item(st, st.week.for_day(0)[1], WEEK_START)
+    assert st.day_log == {}
+
+
+def test_new_week_settles_the_old_one_on_sunday():
     st = make_state(show(1, status=WATCHING, episodes_total=50), daily_episodes=[1] * 7)
-    scheduler.replan(st, MONDAY)
-    later = date(2026, 9, 30)
-    assert scheduler.plan_expired(st, later)
-    scheduler.replan(st, later)
-    assert st.week.week_start == later.isoformat()
+    scheduler.replan(st, WEEK_START)
+    scheduler.toggle_item(st, st.week.for_day(0)[0], WEEK_START)  # only Monday done
+    saturday = WEEK_START + timedelta(days=6)
+    assert not scheduler.plan_expired(st, saturday)
+    next_monday = WEEK_START + timedelta(days=7)  # the next Sunday
+    assert scheduler.plan_expired(st, next_monday)
+    scheduler.replan(st, next_monday)
+    log = st.day_log
+    assert log[WEEK_START.isoformat()] == "done"
+    assert [log[(WEEK_START + timedelta(days=d)).isoformat()] for d in range(1, 7)] == ["failed"] * 6
+    assert st.week.week_start == next_monday.isoformat()
+    assert not any(i.done for i in st.week.items) and st.week.for_day(0)[0].episode == 2
+
+
+def test_rolling_plan_from_before_1_0_becomes_a_calendar_week_without_failures():
+    from rinne.models import ScheduleItem, WeekPlan
+    st = make_state(show(1, status=WATCHING, episodes_total=50), daily_episodes=[1] * 7)
+    wednesday = WEEK_START + timedelta(days=2)
+    st.week = WeekPlan((WEEK_START - timedelta(days=3)).isoformat(), [ScheduleItem(0, 1, 1)])  # old rolling plan
+    scheduler.replan(st, wednesday)
+    assert st.week.calendar and st.week.week_start == WEEK_START.isoformat()
+    assert st.day_log == {}
+
+
+def test_episodes_watched_elsewhere_are_ticked():
+    st = make_state(show(1, status=WATCHING, episodes_total=50), daily_episodes=[2] * 7)
+    scheduler.replan(st, WEEK_START)
+    st.library[1].episodes_watched = 2  # e.g. ticked on MAL
+    scheduler.replan(st, WEEK_START)
+    assert st.week.day_complete(0)
 
 
 def test_anilist_parsing_and_exact_airing():
@@ -326,8 +369,8 @@ def test_replacement_records_why():
     s1 = show(1, status=WATCHING, episodes_watched=12, relations={"sequel": [2]}, title="Season 1")
     s2 = show(2, relations={"prequel": [1]})
     st = make_state(s1, s2)
-    sug, fetched = scheduler.find_replacement(st, s1, None, MONDAY)
-    scheduler.apply_replacement(st, sug, fetched, MONDAY, finished=s1)
+    sug, fetched = scheduler.find_replacement(st, s1, None, WEEK_START)
+    scheduler.apply_replacement(st, sug, fetched, WEEK_START, finished=s1)
     assert s2.origin["replaced"] == "Season 1" and s2.origin["kind"] == "series"
     assert any("Next in the series" in r for r in s2.origin["reasons"])
 
@@ -335,7 +378,7 @@ def test_replacement_records_why():
 def test_state_roundtrip(tmp_path):
     st = make_state(show(1, status=WATCHING, relations={"sequel": [2]},
                         relation_titles={"2": "S2"}), zoom=1.3)
-    scheduler.replan(st, MONDAY)
+    scheduler.replan(st, WEEK_START)
     save_state(st, tmp_path / "s.json")
     back = load_state(tmp_path / "s.json")
     assert back.library[1].relation_titles == {"2": "S2"}
@@ -354,13 +397,13 @@ def test_explain_why_for_replacement_and_plan_to_watch():
     s2 = show(2, relations={"prequel": [1]}, title="Season 2")
     s3 = show(3, mean_score=8.5, title="Other")
     st = make_state(s1, s2, s3, daily_episodes=[2] * 7)
-    sug, fetched = scheduler.find_replacement(st, s1, None, MONDAY)
-    scheduler.apply_replacement(st, sug, fetched, MONDAY, finished=s1)
-    scheduler.replan(st, MONDAY)
-    lines = explain.why(st, s2, MONDAY)
+    sug, fetched = scheduler.find_replacement(st, s1, None, WEEK_START)
+    scheduler.apply_replacement(st, sug, fetched, WEEK_START, finished=s1)
+    scheduler.replan(st, WEEK_START)
+    lines = explain.why(st, s2, WEEK_START)
     assert lines[0].startswith("Took over from Season 1") and "next season" in lines[0]
     assert any("next is episode 1, today" in line for line in lines)
-    assert any("Ranked #1" in line for line in explain.why(st, s3, MONDAY))
+    assert any("Ranked #1" in line for line in explain.why(st, s3, WEEK_START))
 
 
 def test_old_jikan_entries_get_refetched_once():
@@ -522,7 +565,7 @@ def test_day_is_grouped_by_show_fewest_episodes_left_first():
         show(3, status=WATCHING, episodes_total=13, title="Short"),
         daily_episodes=[6] * 7, max_eps_per_show_per_day=2,
     )
-    plan = scheduler.build_week(st, MONDAY)
+    plan = scheduler.build_week(st, WEEK_START)
     monday = [(i.mal_id, i.episode) for i in plan.for_day(0)]
     # 2 left < 13 left < 24 left, each show's episodes together and in order
     assert monday == [(2, 11), (2, 12), (3, 1), (3, 2), (1, 1), (1, 2)]
@@ -534,10 +577,10 @@ def test_ordering_survives_ticking_and_replanning():
         show(2, status=WATCHING, episodes_total=12, episodes_watched=6, title="Half"),
         daily_episodes=[4] * 7, max_eps_per_show_per_day=2,
     )
-    scheduler.replan(st, MONDAY)
+    scheduler.replan(st, WEEK_START)
     first = st.week.for_day(0)[0]
     assert first.mal_id == 2  # 6 left beats 24 left
-    scheduler.toggle_item(st, first, MONDAY)
+    scheduler.toggle_item(st, first, WEEK_START)
     monday = [(i.mal_id, i.episode, i.done) for i in st.week.for_day(0)]
     assert monday[0] == (2, 7, True) and [m for m, _, _ in monday] == [2, 2, 1, 1]
 
@@ -595,7 +638,7 @@ def test_older_entries_refetch_once_for_new_fields():
 
 def test_paused_show_is_not_scheduled():
     st = make_state(show(1, status=WATCHING, paused=True), show(2, status=WATCHING), daily_episodes=[2] * 7)
-    plan = scheduler.build_week(st, MONDAY)
+    plan = scheduler.build_week(st, WEEK_START)
     assert {i.mal_id for i in plan.items} == {2}
     assert [a.mal_id for a in scheduler.current_rotation(st.library, include_paused=True)] == [1, 2] or \
         {a.mal_id for a in scheduler.current_rotation(st.library, include_paused=True)} == {1, 2}
@@ -604,14 +647,14 @@ def test_paused_show_is_not_scheduled():
 def test_pinned_show_gets_an_episode_every_day():
     st = make_state(*(show(i, status=WATCHING, episodes_total=50) for i in range(1, 5)),
                     show(9, status=WATCHING, episodes_total=50, pinned=True), daily_episodes=[1] * 7)
-    plan = scheduler.build_week(st, MONDAY)
+    plan = scheduler.build_week(st, WEEK_START)
     assert all([i.mal_id for i in plan.for_day(d)] == [9] for d in range(7))
 
 
 def test_per_show_pace():
     st = make_state(show(1, status=WATCHING, episodes_total=50, pace=1), show(2, status=WATCHING, episodes_total=50),
                     daily_episodes=[6] * 7, max_eps_per_show_per_day=2)
-    monday = [i.mal_id for i in scheduler.build_week(st, MONDAY).for_day(0)]
+    monday = [i.mal_id for i in scheduler.build_week(st, WEEK_START).for_day(0)]
     assert monday.count(1) == 1 and monday.count(2) == 5  # pace holds even when filling the day
 
 
@@ -620,34 +663,34 @@ def test_catch_up_prioritises_airing_show_you_are_behind_on():
                   airing_status=CURRENTLY_AIRING, aired_from="2026-08-01")  # ~8 episodes out
     st = make_state(show(2, status=WATCHING, episodes_total=50), show(3, status=WATCHING, episodes_total=50),
                     behind, daily_episodes=[3] * 7, max_eps_per_show_per_day=2)
-    monday = [i.mal_id for i in scheduler.build_week(st, MONDAY).for_day(0)]
+    monday = [i.mal_id for i in scheduler.build_week(st, WEEK_START).for_day(0)]
     assert monday.count(1) == 3  # first in line, cap + 1
     st.settings.catch_up_airing = False
-    assert [i.mal_id for i in scheduler.build_week(st, MONDAY).for_day(0)].count(1) <= 2
+    assert [i.mal_id for i in scheduler.build_week(st, WEEK_START).for_day(0)].count(1) <= 2
 
 
 def test_move_show_to_another_day_survives_replans():
     st = make_state(show(1, status=WATCHING, episodes_total=50, title="A"),
                     show(2, status=WATCHING, episodes_total=50, title="B"), daily_episodes=[2] * 7,
                     max_eps_per_show_per_day=1)
-    scheduler.replan(st, MONDAY)
-    tue = MONDAY + __import__("datetime").timedelta(days=1)
-    wed = MONDAY + __import__("datetime").timedelta(days=2)
-    scheduler.move_show(st, 1, tue, wed, MONDAY)
+    scheduler.replan(st, WEEK_START)
+    tue = WEEK_START + __import__("datetime").timedelta(days=1)
+    wed = WEEK_START + __import__("datetime").timedelta(days=2)
+    scheduler.move_show(st, 1, tue, wed, WEEK_START)
     assert [i.mal_id for i in st.week.for_day(1)] == [2, 2]  # B fills Tuesday
     assert [i.mal_id for i in st.week.for_day(2)].count(1) == 2  # A's Tuesday episode moved here
-    scheduler.replan(st, MONDAY)  # e.g. after ticking something
+    scheduler.replan(st, WEEK_START)  # e.g. after ticking something
     assert 1 not in [i.mal_id for i in st.week.for_day(1)]
 
 
 def test_manual_day_order_and_pruning():
     st = make_state(show(1, status=WATCHING, episodes_total=12, episodes_watched=10),  # fewest left
                     show(2, status=WATCHING, episodes_total=50), daily_episodes=[2] * 7, max_eps_per_show_per_day=1)
-    scheduler.replan(st, MONDAY)
+    scheduler.replan(st, WEEK_START)
     assert st.week.for_day(0)[0].mal_id == 1
-    scheduler.reorder_day(st, MONDAY, [2, 1], MONDAY)
+    scheduler.reorder_day(st, WEEK_START, [2, 1], WEEK_START)
     assert [i.mal_id for i in st.week.for_day(0)] == [2, 1]
-    later = MONDAY + __import__("datetime").timedelta(days=3)
+    later = WEEK_START + __import__("datetime").timedelta(days=3)
     scheduler.prune_overrides(st, later)
     assert st.day_order == {}
 
@@ -657,7 +700,7 @@ def test_calendar_export():
     st = make_state(show(1, status=WATCHING, title="Ao no Hako", episodes_total=50,
                          streaming=[{"site": "Netflix", "url": "https://n/x"}]),
                     daily_episodes=[2] * 7)
-    scheduler.replan(st, MONDAY)
+    scheduler.replan(st, WEEK_START)
     ics = calendar_export.build_ics(st)
     assert ics.startswith("BEGIN:VCALENDAR\r\n") and ics.endswith("END:VCALENDAR\r\n")
     assert ics.count("BEGIN:VEVENT") == 7 and "DTSTART;VALUE=DATE:20260921" in ics
@@ -687,7 +730,7 @@ def test_watch_history_and_stats():
     a = show(1, status=WATCHING, episodes_total=24, genres=["Drama", "Sports"], episode_minutes=24)
     b = show(2, status=COMPLETED, episodes_total=12, episodes_watched=12, genres=["Drama"], finished_on="2026-09-20")
     st = make_state(a, b, show(3, status=DROPPED))
-    day = MONDAY  # 2026-09-21
+    day = date(2026, 9, 21)  # a Monday
     for k, eps in enumerate([2, 1, 0, 3]):  # Mon, Tue, (Wed off), Thu
         scheduler.set_progress(st, a, a.episodes_watched + eps, day + td(days=k))
     assert len(st.history) == 6 and st.history[-1] == {"d": "2026-09-24", "m": 1, "e": 6, "min": 24}
@@ -696,7 +739,7 @@ def test_watch_history_and_stats():
     s = stats.compute(st, day + td(days=3))
     assert s.week_episodes == 5 and s.week_minutes == 120
     assert s.streak == 1 and s.best_streak == 2  # Thu only (Wed was off); Mon–Tue best
-    assert s.weekly[-1] == (MONDAY, 5) and len(s.weekly) == 12 and len(s.daily) == 30
+    assert s.weekly[-1] == (WEEK_START, 5) and len(s.weekly) == 12 and len(s.daily) == 30
     assert s.genres[0] == ("Drama", 17) and s.completion_rate == 0.5
     assert s.total_episodes == 17 and s.finished_this_week == ["Show 2"]
     assert "5 episodes this week (2h 00m)" in stats.recap_text(s)

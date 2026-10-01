@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import math
-from datetime import date
+from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QFontMetrics, QPainter, QPainterPath, QPen
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QFrame, QGridLayout, QToolTip, QWidget
 
 from .. import stats as stats_mod
@@ -118,6 +118,91 @@ class BarChart(QWidget):
         self.update()
 
 
+class GoalGrid(QWidget):
+    """Daily goals for the last weeks: one row per week (Sunday → Saturday), one cell per day.
+    Complete days get a ✓, failed ones an ✕, so the grid doesn't rely on colour alone."""
+
+    LABELS = {"done": "Complete", "failed": "Failed", "open": "Not finished yet",
+              "none": "Nothing planned", "future": "Coming up"}
+
+    def __init__(self, weeks: list[tuple[date, list[str]]], parent=None):
+        super().__init__(parent)
+        self.weeks = weeks
+        self.setMouseTracking(True)
+        self.hover: tuple[int, int] | None = None
+        self.setMinimumHeight(self._row_h() * (len(weeks) + 1))
+
+    def _row_h(self) -> int:
+        return theme.px(30)
+
+    def _cells(self):
+        left = theme.px(64)
+        size = min(theme.px(26), max(theme.px(14), (self.width() - left) // 7 - theme.px(6)))
+        gap = theme.px(6)
+        return left, size, gap
+
+    def _cell_rect(self, w: int, d: int) -> QRectF:
+        left, size, gap = self._cells()
+        top = self._row_h() * (w + 1) + (self._row_h() - size) / 2
+        return QRectF(left + d * (size + gap), top, size, size)
+
+    def paintEvent(self, event) -> None:
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        f = QFont(self.font())
+        f.setPixelSize(theme.px(11))
+        p.setFont(f)
+        p.setPen(QColor(theme.MUTED))
+        for d, name in enumerate(["S", "M", "T", "W", "T", "F", "S"]):
+            r = self._cell_rect(-1, d)
+            p.drawText(r, Qt.AlignCenter, name)
+        fill = {"done": theme.SUCCESS, "failed": theme.DANGER, "open": theme.AMBER_BG,
+                "none": theme.SURFACE_2, "future": None}
+        for w, (start, states) in enumerate(self.weeks):
+            p.setPen(QColor(theme.MUTED))
+            p.drawText(QRectF(0, self._row_h() * (w + 1), theme.px(58), self._row_h()),
+                       Qt.AlignVCenter | Qt.AlignLeft, f"{start:%d %b}")
+            for d, st in enumerate(states):
+                r = self._cell_rect(w, d)
+                if fill[st]:
+                    p.setPen(Qt.NoPen)
+                    p.setBrush(QColor(fill[st]))
+                else:
+                    p.setPen(QPen(QColor(theme.BORDER), 1, Qt.DashLine))
+                    p.setBrush(Qt.NoBrush)
+                if st == "open":
+                    p.setPen(QPen(QColor(theme.WARN), 1.2))
+                if self.hover == (w, d):
+                    p.setPen(QPen(QColor(theme.TEXT), 2))
+                p.drawRoundedRect(r, theme.px(6), theme.px(6))
+                mark = {"done": "✓", "failed": "✕", "open": "!"}.get(st)
+                if mark:
+                    p.setPen(QColor(theme.SURFACE if st in ("done", "failed") else theme.WARN))
+                    p.drawText(r, Qt.AlignCenter, mark)
+        p.end()
+
+    def mouseMoveEvent(self, event) -> None:
+        pos = event.position()
+        hit = None
+        for w in range(len(self.weeks)):
+            for d in range(7):
+                if self._cell_rect(w, d).contains(pos):
+                    hit = (w, d)
+        if hit != self.hover:
+            self.hover = hit
+            self.update()
+        if hit:
+            start, states = self.weeks[hit[0]]
+            on = start + timedelta(days=hit[1])
+            QToolTip.showText(event.globalPosition().toPoint(), f"{on:%a %d %b}: {self.LABELS[states[hit[1]]]}", self)
+        else:
+            QToolTip.hideText()
+
+    def leaveEvent(self, event) -> None:
+        self.hover = None
+        self.update()
+
+
 class HBarList(QWidget):
     """Ranked horizontal bars (label · bar · value), one hue."""
 
@@ -195,6 +280,29 @@ class StatsPage(QWidget):
         for n, tile in enumerate(tiles):
             grid.addWidget(tile, *((n // 2, n % 2) if theme.COMPACT else (0, n)))
         self.body.addLayout(grid)
+
+        frame, lay = card(margins=18, spacing=10)
+        lay.addWidget(label("Daily goals", "h2"))
+        lay.addWidget(label("A day is complete when you tick everything planned for it. Days still unfinished "
+                            "when the week restarts (00:00 Sunday) count as failed.", "faint", wrap=True))
+        goals = (vbox if theme.COMPACT else hbox)(spacing=18)
+        nums = vbox(spacing=8)
+        rate = s.goal_rate
+        for value, caption in [(s.days_done, "Days complete"), (s.days_failed, "Days failed"),
+                               (f"{rate:.0%}" if rate is not None else "—", "Success rate"),
+                               (f"{s.goal_streak}", f"Complete in a row (best {s.best_goal_streak})")]:
+            line = hbox(spacing=8)
+            line.addWidget(label(str(value), "h2"))
+            line.addWidget(label(caption, "small"), 1)
+            nums.addLayout(line)
+        nums.addStretch()
+        goals.addLayout(nums)
+        grid_col = vbox(spacing=6)
+        grid_col.addWidget(GoalGrid(s.goal_weeks))
+        grid_col.addWidget(label("✓ complete · ✕ failed · ! not finished yet · dashed: coming up", "faint", wrap=True))
+        goals.addLayout(grid_col, 1)
+        lay.addLayout(goals)
+        self.body.addWidget(frame)
 
         if not st.history:
             frame, lay = card(margins=18)
