@@ -32,14 +32,14 @@ class ServicesMixin:
             self.update_info = None if manager else rel  # packaged copies update through their manager
             if rel:
                 log.info("Update available: %s", rel["version"])
-                self.statusBar().showMessage(f"Rinne {rel['version']} is available"
-                                             + (f": update it with {manager}" if manager else ""), 10000)
+                self.statusBar().showMessage(_("Rinne {version} is available").format(version=rel['version'])
+                                             + (_(": update it with {manager}").format(manager=manager) if manager else ""), 10000)
             self._show_update_chip()
             if rel and not manager and s.update_alerted != rel["version"]:
                 s.update_alerted = rel["version"]  # one popup and one notification per release
                 self.save()
                 if s.notify_updates:
-                    self.notify(f"Rinne {rel['version']} is available", "Open Rinne to see what's new.")
+                    self.notify(_("Rinne {version} is available").format(version=rel['version']), _("Open Rinne to see what's new."))
                 if not manual:
                     from .dialogs import UpdateDialog
                     UpdateDialog(rel, self.open_update_page, self).exec()
@@ -65,8 +65,8 @@ class ServicesMixin:
         if hasattr(self, "update_btn"):
             self.update_btn.setVisible(bool(info))
             if info:
-                self.update_btn.setText(f"⬆  Update to {info['version']}")
-                self.update_btn.setToolTip("Open the download page")
+                self.update_btn.setText(_("⬆  Update to {version}").format(version=info['version']))
+                self.update_btn.setToolTip(_("Open the download page"))
 
     def open_update_page(self) -> None:
         info = getattr(self, "update_info", None)
@@ -84,9 +84,9 @@ class ServicesMixin:
                 if s.auto_add_sequels:
                     self.add_sequel(r["mal_id"], start=False, quiet=True)
                 if s.notify_premieres and self.state.announced.get(r["mal_id"]):  # skip first sighting
-                    self.notify("New season out now",
-                                f"{title} (after {r['after'].name}) has started airing."
-                                + (" Added to Plan to Watch." if s.auto_add_sequels else ""))
+                    self.notify(_("New season out now"),
+                                _("{title} (after {name}) has started airing.").format(title=title, name=r['after'].name)
+                                + (_(" Added to Plan to Watch.") if s.auto_add_sequels else ""))
             self.state.announced = {r["mal_id"]: r["node"]["status"] for r in results}
             self.save()
             if self.stack.currentWidget() is self.next_page:
@@ -114,10 +114,10 @@ class ServicesMixin:
                 self.save()
                 self.refresh()
             if not quiet:
-                self.statusBar().showMessage(f"Added {anime.name} to Plan to Watch", 6000)
+                self.statusBar().showMessage(_("Added {name} to Plan to Watch").format(name=anime.name), 6000)
 
         self._run(anilist.lookup, (mal_id,), done, with_progress=False, exclusive=False,
-                  on_error=lambda msg: QMessageBox.warning(self, "Couldn't add the season", msg))
+                  on_error=lambda msg: QMessageBox.warning(self, _("Couldn't add the season"), msg))
 
     # ------------------------------------------------------------------ account sync
 
@@ -167,8 +167,7 @@ class ServicesMixin:
                     s.mal_token, s.mal_user = {}, ""
                 else:
                     s.anilist_token, s.anilist_user = "", ""
-                self.notify(f"Reconnect {name}", f"Rinne's sign-in to {name} expired. Connect again in "
-                            "Settings → Accounts to keep syncing.")
+                self.notify(_("Reconnect {name}").format(name=name), _("Rinne's sign-in to {name} expired. Connect again in Settings → Accounts to keep syncing.").format(name=name))
             for err in res["errors"][:5]:
                 log.warning("Sync: %s", err)
             self.save()
@@ -200,7 +199,7 @@ class ServicesMixin:
             s.mal_token, s.mal_user, s.sync_mal = tokens, name, True
             self.state.synced["mal"] = sync.baseline(self.state.library)
             self.save()
-            self.statusBar().showMessage(f"Connected to MyAnimeList as {name}", 6000)
+            self.statusBar().showMessage(_("Connected to MyAnimeList as {name}").format(name=name), 6000)
             if on_result:
                 on_result(None)
             self.pull_account("mal")
@@ -209,7 +208,7 @@ class ServicesMixin:
             if on_result:
                 on_result(msg)
 
-        self.statusBar().showMessage("Waiting for you to approve Rinne on MyAnimeList (in your browser)…")
+        self.statusBar().showMessage(_("Waiting for you to approve Rinne on MyAnimeList (in your browser)…"))
         self._run(job, (s.mal_api_client_id(),), done, with_progress=False, exclusive=False, on_error=failed)
 
     def connect_anilist(self, on_result=None) -> None:
@@ -217,10 +216,10 @@ class ServicesMixin:
         try:
             sync.anilist_open_signin()
         except sync.SyncError as e:
-            QMessageBox.information(self, "AniList", str(e))
+            QMessageBox.information(self, _("AniList"), str(e))
             return
         token, ok = QInputDialog.getText(
-            self, "Connect AniList", "Approve Rinne in your browser, then paste the code AniList shows here:")
+            self, _("Connect AniList"), _("Approve Rinne in your browser, then paste the code AniList shows here:"))
         if not ok or not token.strip():
             return
         token = token.strip()
@@ -231,13 +230,13 @@ class ServicesMixin:
                 s.anilist_username = name
             self.state.synced["anilist"] = sync.baseline(self.state.library)
             self.save()
-            self.statusBar().showMessage(f"Connected to AniList as {name}", 6000)
+            self.statusBar().showMessage(_("Connected to AniList as {name}").format(name=name), 6000)
             if on_result:
                 on_result(None)
             self.pull_account("anilist")
 
         self._run(sync.anilist_viewer, (token,), done, with_progress=False, exclusive=False,
-                  on_error=lambda msg: (on_result or (lambda m: QMessageBox.warning(self, "AniList", m)))(msg))
+                  on_error=lambda msg: (on_result or (lambda m: QMessageBox.warning(self, _("AniList"), m)))(msg))
 
     def check_online(self) -> None:
         """Notice going offline (and coming back): every 2 minutes while offline, else every 15."""
@@ -247,11 +246,11 @@ class ServicesMixin:
                 self.offline_btn.setVisible(self.offline)
             if self.offline and not was_offline:
                 log.info("Offline")
-                self.toast.show_message("You're offline. Rinne shows your saved data and catches up "
-                                        "when you're back online.", ms=8000)
+                self.toast.show_message(_("You're offline. Rinne shows your saved data and catches up "
+                                        "when you're back online."), ms=8000)
             elif was_offline and ok:
                 log.info("Back online")
-                self.toast.show_message("Back online", ms=3000)
+                self.toast.show_message(_("Back online"), ms=3000)
                 self.pull_accounts()
                 self.schedule_sync()
                 if any(a.needs_enrichment for a in self.state.library.values()):
@@ -329,14 +328,14 @@ class ServicesMixin:
     # ------------------------------------------------------------------ import
 
     def import_file(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Open MAL export", "", "MAL export (*.xml *.xml.gz *.gz);;All files (*)")
+        path, _filter = QFileDialog.getOpenFileName(
+            self, _("Open MAL export"), "", "MAL export (*.xml *.xml.gz *.gz);;All files (*)")
         if not path:
             return
         try:
             entries = mal.parse_mal_export(path)
         except (mal.ImportError_, OSError) as e:
-            QMessageBox.warning(self, "Import failed", str(e))
+            QMessageBox.warning(self, _("Import failed"), str(e))
             return
         self._finish_import(entries)
 
@@ -344,7 +343,7 @@ class ServicesMixin:
         """Import a public AniList list by username (no account or key needed)."""
         s = self.state.settings
         if username is None:
-            name, ok = QInputDialog.getText(self, "Import from AniList", "AniList username:",
+            name, ok = QInputDialog.getText(self, _("Import from AniList"), _("AniList username:"),
                                             text=s.anilist_username)
             if not ok or not name.strip():
                 return
@@ -357,8 +356,7 @@ class ServicesMixin:
             self._finish_import(entries)
             if skipped:
                 self.statusBar().showMessage(
-                    f"Imported {len(entries)} shows from AniList · {skipped} without a MyAnimeList "
-                    "entry couldn't be added", 10000)
+                    _("Imported {n} shows from AniList · {skipped} without a MyAnimeList entry couldn't be added").format(n=len(entries), skipped=skipped), 10000)
 
         self._run(anilist.fetch_user_list, (s.anilist_username,), done)
 
@@ -366,13 +364,13 @@ class ServicesMixin:
         s = self.state.settings
         if not s.mal_api_client_id():
             QMessageBox.information(
-                self, "Client ID needed",
-                "Importing by username uses the official MAL API, which needs a free Client ID "
+                self, _("Client ID needed"),
+                _("Importing by username uses the official MAL API, which needs a free Client ID "
                 "(myanimelist.net/apiconfig → Create ID, app type “other”).<br><br>"
-                "Paste it in Settings, or use <b>From MAL export file</b> instead.")
+                "Paste it in Settings, or use <b>From MAL export file</b> instead."))
             self.open_settings("data")
             return
-        name, ok = QInputDialog.getText(self, "Import from MAL", "MAL username:", text=s.mal_username)
+        name, ok = QInputDialog.getText(self, _("Import from MAL"), _("MAL username:"), text=s.mal_username)
         if not ok or not name.strip():
             return
         s.mal_username = name.strip()
@@ -381,7 +379,7 @@ class ServicesMixin:
     def _finish_import(self, entries: list[Anime]) -> None:
         added, updated = mal.merge_import(self.state.library, entries)
         self.save()
-        self.statusBar().showMessage(f"Imported: {added} new, {updated} updated", 8000)
+        self.statusBar().showMessage(_("Imported: {added} new, {updated} updated").format(added=added, updated=updated), 8000)
         self.run_enrich()
         if models.title_language == models.RUSSIAN:
             self.fetch_russian_titles()
@@ -390,7 +388,7 @@ class ServicesMixin:
         """Import a public Shikimori list by nickname. Russian titles come with it."""
         s = self.state.settings
         if username is None:
-            name, ok = QInputDialog.getText(self, "Import from Shikimori", "Shikimori nickname:",
+            name, ok = QInputDialog.getText(self, _("Import from Shikimori"), _("Shikimori nickname:"),
                                             text=s.shikimori_username)
             if not ok or not name.strip():
                 return
@@ -401,8 +399,8 @@ class ServicesMixin:
         def done(entries) -> None:
             self._finish_import(entries)
             if s.title_language != models.RUSSIAN and QMessageBox.question(
-                    self, "Russian titles", "Show titles in Russian? You can change this any time in "
-                    "Settings → General → Titles.") == QMessageBox.Yes:
+                    self, _("Russian titles"), _("Show titles in Russian? You can change this any time in "
+                    "Settings → General → Titles.")) == QMessageBox.Yes:
                 self.set_title_language(models.RUSSIAN)
 
         self._run(shikimori.fetch_user_list, (s.shikimori_username,), done)
@@ -457,5 +455,5 @@ class ServicesMixin:
                   cancellable=True)
 
     def _enriched(self, count: int) -> None:
-        self.statusBar().showMessage(f"Updated details for {count} shows", 8000)
+        self.statusBar().showMessage(_("Updated details for {count} shows").format(count=count), 8000)
         self.replan()

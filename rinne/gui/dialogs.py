@@ -10,16 +10,17 @@ from ..recommender import SERIES, Suggestion
 from . import theme
 from .common import badge, label, vbox
 from .images import Cover
+from ..i18n import _
 
 
 class ReplacementDialog(QDialog):
     def __init__(self, finished: Anime, sug: Suggestion | None, added: list[Anime], parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Show finished")
+        self.setWindowTitle(_("Show finished"))
         self.setMinimumWidth(theme.fit_width(460))
         root = vbox(self, 16, 24)
         root.setSizeConstraint(QLayout.SetMinimumSize)
-        root.addWidget(label(f"You finished {finished.name}!", "h1", wrap=True))
+        root.addWidget(label(_("You finished {name}!").format(name=finished.name), "h1", wrap=True))
 
         row = QHBoxLayout()
         row.setSpacing(theme.px(18))
@@ -34,17 +35,17 @@ class ReplacementDialog(QDialog):
         root.addLayout(row)
 
         if sug:
-            root.addWidget(label(f"{sug.anime.name} is now on your Watching list and in this week's plan.",
+            root.addWidget(label(_("{name} is now on your Watching list and in this week's plan.").format(name=sug.anime.name),
                                  "muted", wrap=True))
-            for _, text in sug.reasons[:4]:
+            for _score, text in sug.reasons[:4]:
                 root.addWidget(label(f"•  {text}", "small", wrap=True))
             if any(a.mal_id == sug.anime.mal_id for a in added):
-                root.addWidget(badge("Added — it wasn't on your list", "badgeAmber"),
+                root.addWidget(badge(_("Added — it wasn't on your list"), "badgeAmber"),
                                alignment=Qt.AlignLeft)
         else:
-            root.addWidget(label("There's no next season and nothing on your Plan to Watch list "
-                                 "to take its place.", "muted", wrap=True))
-        ok = QPushButton("Nice")
+            root.addWidget(label(_("There's no next season and nothing on your Plan to Watch list "
+                                 "to take its place."), "muted", wrap=True))
+        ok = QPushButton(_("Nice"))
         ok.setObjectName("primary")
         ok.clicked.connect(self.accept)
         root.addWidget(ok, alignment=Qt.AlignRight)
@@ -88,22 +89,22 @@ class WhatsNewDialog(_FitHeight, QDialog):
         from ..changelog import CHANGELOG
         super().__init__(parent)
         version, title, notes = next((c for c in CHANGELOG if c[0] == __version__), CHANGELOG[0])
-        self.setWindowTitle("What's new in Rinne")
+        self.setWindowTitle(_("What's new in Rinne"))
         # A fixed width lets the wrapped notes take the height they need.
         self.setFixedWidth(theme.fit_width(520))
         root = vbox(self, 12, 26)
         head = QHBoxLayout()
         head.setSpacing(theme.px(10))
-        head.addWidget(badge(f"v{version}", "badgeGreen"))
-        head.addWidget(label("What's new", "faint"))
+        head.addWidget(badge(_("v{version}").format(version=version), "badgeGreen"))
+        head.addWidget(label(_("What's new"), "faint"))
         head.addStretch()
         root.addLayout(head)
         root.addWidget(label(title, "h1", wrap=True))
         for note in notes:
             root.addWidget(label(f"•  {note}", "", wrap=True))
         root.addSpacing(theme.px(4))
-        root.addWidget(label("You can read these notes again any time in Settings → About.", "faint", wrap=True))
-        ok = QPushButton("Got it")
+        root.addWidget(label(_("You can read these notes again any time in Settings → About."), "faint", wrap=True))
+        ok = QPushButton(_("Got it"))
         ok.setObjectName("primary")
         ok.setMinimumWidth(theme.px(120))
         ok.clicked.connect(self.accept)
@@ -116,12 +117,12 @@ class UpdateDialog(_FitHeight, QDialog):
     def __init__(self, release: dict, on_download, parent=None):
         from .. import __version__
         super().__init__(parent)
-        self.setWindowTitle("Update available")
+        self.setWindowTitle(_("Update available"))
         # A fixed width lets the wrapped notes take the height they need.
         self.setFixedWidth(theme.fit_width(540))
         root = vbox(self, 12, 26)
-        root.addWidget(label(f"Rinne {release['version']} is available", "h1", wrap=True))
-        root.addWidget(label(f"You have v{__version__}." + (f" {release['name']}" if release.get("name") else ""),
+        root.addWidget(label(_("Rinne {version} is available").format(version=release['version']), "h1", wrap=True))
+        root.addWidget(label(_("You have v{version}.").format(version=__version__) + (f" {release['name']}" if release.get("name") else ""),
                              "muted", wrap=True))
         notes = (release.get("notes") or "").strip()
         if notes:
@@ -136,12 +137,12 @@ class UpdateDialog(_FitHeight, QDialog):
             area.setMinimumHeight(theme.px(160))
             area.setMaximumHeight(theme.px(320))
             root.addWidget(area)
-        root.addWidget(label("The Update button in the sidebar and Settings → About also take you there.",
+        root.addWidget(label(_("The Update button in the sidebar and Settings → About also take you there."),
                              "faint", wrap=True))
-        later = QPushButton("Later")
+        later = QPushButton(_("Later"))
         later.setObjectName("ghost")
         later.clicked.connect(self.reject)
-        get = QPushButton("Download")
+        get = QPushButton(_("Download"))
         get.setObjectName("primary")
         get.clicked.connect(lambda: (on_download(), self.accept()))
         row = QHBoxLayout()

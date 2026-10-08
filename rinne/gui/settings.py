@@ -48,7 +48,7 @@ def theme_card(key: str, pal: dict, selected: bool, on_click, width: int = 190) 
     preview.setStyleSheet(
         f"background: {pal['BG']}; border-radius: {theme.px(8)}px; border: 1px solid {pal['BORDER']};")
     inner = vbox(preview, 6, 10)
-    top = QLabel("Your Week")
+    top = QLabel(_("Your Week"))
     top.setStyleSheet(f"color: {pal['H1']}; font-weight: 800; font-size: {theme.px(14)}px;"
                       "background: transparent; border: none;")
     inner.addWidget(top)
@@ -70,7 +70,7 @@ def theme_card(key: str, pal: dict, selected: bool, on_click, width: int = 190) 
     name_row.addWidget(label(pal["label"], "settingTitle"))
     name_row.addStretch()
     if selected:
-        name_row.addWidget(badge("Active"))
+        name_row.addWidget(badge(_("Active")))
     lay.addLayout(name_row)
     Clickable(frame).clicked.connect(on_click)
     return frame
@@ -322,7 +322,7 @@ class SettingsPage(DataSections, AboutSection, QWidget):
         self._group("Your week")
         mode_w = QWidget()
         ml = (vbox if theme.COMPACT else hbox)(mode_w, 8 if theme.COMPACT else 18)
-        by_eps, by_min = QRadioButton("Episodes per day"), QRadioButton("Minutes per day")
+        by_eps, by_min = QRadioButton(_("Episodes per day")), QRadioButton(_("Minutes per day"))
         (by_eps if s.plan_by == EPISODES else by_min).setChecked(True)
         grp = QButtonGroup(mode_w)
         grp.addButton(by_eps)
@@ -435,9 +435,9 @@ class SettingsPage(DataSections, AboutSection, QWidget):
         self.body.addWidget(self._button("Send a test notification", self.win.test_notification),
                             alignment=Qt.AlignLeft)
         if not self.win.close_keeps_running():
-            self.body.addWidget(label("Notifications only arrive while Rinne is running. Turn on "
+            self.body.addWidget(label(_("Notifications only arrive while Rinne is running. Turn on "
                                       "“Keep running in the tray when closed” in General to get "
-                                      "them with the window closed.", "faint", wrap=True))
+                                      "them with the window closed."), "faint", wrap=True))
 
     # ------------------------------------------------------------------ Discord
 
@@ -463,7 +463,7 @@ class SettingsPage(DataSections, AboutSection, QWidget):
 
         self._group("Advanced")
         app_id = QLineEdit(s.discord_app_id)
-        app_id.setPlaceholderText("Rinne (built in)")
+        app_id.setPlaceholderText(_("Rinne (built in)"))
         app_id.setMinimumWidth(theme.px(260))
         app_id.editingFinished.connect(lambda: self._set("discord_app_id", app_id.text().strip(), "discord"))
         self._row("Custom Application ID",

@@ -10,6 +10,7 @@ from PySide6.QtWidgets import QDialog, QFrame, QMessageBox, QPushButton, QToolBu
 
 from . import theme
 from .common import card, hbox, label, vbox
+from ..i18n import _
 
 if TYPE_CHECKING:
     from .window import MainWindow
@@ -44,27 +45,27 @@ class ConnectDialog(QDialog):
     def __init__(self, win: MainWindow):
         super().__init__(win)
         self.win = win
-        self.setWindowTitle("Connect your list")
+        self.setWindowTitle(_("Connect your list"))
         self.setModal(True)
         self.setMinimumWidth(theme.px(360 if theme.COMPACT else 620))
         lay = vbox(self, 14, 24)
-        lay.addWidget(label("Connect your list", "h1"))
-        lay.addWidget(label("Sign in once: Rinne brings in your whole list, private entries included, and "
-                            "keeps your account up to date as you watch.", "muted", wrap=True))
+        lay.addWidget(label(_("Connect your list"), "h1"))
+        lay.addWidget(label(_("Sign in once: Rinne brings in your whole list, private entries included, and "
+                            "keeps your account up to date as you watch."), "muted", wrap=True))
         row = (vbox if theme.COMPACT else hbox)(spacing=12)
         for key, name, how in SERVICES:
             frame, cl = card(margins=18, spacing=8)
             cl.addWidget(label(name, "h2"))
             user = connected_name(win, key)
             if user:
-                cl.addWidget(label(f"✓ Connected as {user}", "small"))
-                again = QPushButton("Bring in my list again")
+                cl.addWidget(label(_("✓ Connected as {user}").format(user=user), "small"))
+                again = QPushButton(_("Bring in my list again"))
                 again.setObjectName("ghost")
                 again.clicked.connect(lambda _=False, k=key: self._pull(k))
                 cl.addWidget(again)
             else:
                 cl.addWidget(label(how, "small", wrap=True))
-                go = QPushButton(f"Connect {name}")
+                go = QPushButton(_("Connect {name}").format(name=name))
                 go.setObjectName("primary")
                 go.setMinimumHeight(theme.px(40))
                 go.clicked.connect(lambda _=False, k=key: self._connect(k))
@@ -98,22 +99,22 @@ class ConnectDialog(QDialog):
 def _report(win: MainWindow):
     def result(msg) -> None:
         if msg:
-            QMessageBox.warning(win, "Couldn't connect", msg)
+            QMessageBox.warning(win, _("Couldn't connect"), msg)
     return result
 
 
 def confirm_manual(win: MainWindow) -> bool:
     """Before a manual import: say what connecting would give. True = import anyway."""
     box = QMessageBox(win)
-    box.setWindowTitle("Import without connecting?")
+    box.setWindowTitle(_("Import without connecting?"))
     box.setIcon(QMessageBox.Information)
     box.setTextFormat(Qt.RichText)
-    box.setText("<b>Importing works, but it's a one-off snapshot of your list.</b>")
-    box.setInformativeText("Without a connected account you'll miss out on:<ul>"
+    box.setText(_("<b>Importing works, but it's a one-off snapshot of your list.</b>"))
+    box.setInformativeText(_("Without a connected account you'll miss out on:<ul>")
                            + "".join(f"<li>{m}</li>" for m in MISSING_OUT)
-                           + "</ul>Connecting takes a few seconds and only touches your anime list.")
-    connect = box.addButton("Connect instead", QMessageBox.AcceptRole)
-    anyway = box.addButton("Import anyway", QMessageBox.DestructiveRole)
+                           + _("</ul>Connecting takes a few seconds and only touches your anime list."))
+    connect = box.addButton(_("Connect instead"), QMessageBox.AcceptRole)
+    anyway = box.addButton(_("Import anyway"), QMessageBox.DestructiveRole)
     box.addButton(QMessageBox.Cancel)
     box.setDefaultButton(connect)
     box.exec()
@@ -131,12 +132,12 @@ def import_manually(win: MainWindow, kind: str = "") -> None:
         return
     if not kind:
         box = QMessageBox(win)
-        box.setWindowTitle("Import your list")
-        box.setText("What do you want to import from?")
-        f = box.addButton("MAL export file…", QMessageBox.ActionRole)
-        m = box.addButton("MAL username…", QMessageBox.ActionRole)
-        a = box.addButton("AniList username…", QMessageBox.ActionRole)
-        sh = box.addButton("Shikimori nickname…", QMessageBox.ActionRole)
+        box.setWindowTitle(_("Import your list"))
+        box.setText(_("What do you want to import from?"))
+        f = box.addButton(_("MAL export file…"), QMessageBox.ActionRole)
+        m = box.addButton(_("MAL username…"), QMessageBox.ActionRole)
+        a = box.addButton(_("AniList username…"), QMessageBox.ActionRole)
+        sh = box.addButton(_("Shikimori nickname…"), QMessageBox.ActionRole)
         box.addButton(QMessageBox.Cancel)
         box.exec()
         kind = {f: "file", m: "mal", a: "anilist", sh: "shikimori"}.get(box.clickedButton(), "")

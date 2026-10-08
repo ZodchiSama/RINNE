@@ -39,11 +39,11 @@ class DesktopMixin:
             self._tray = QSystemTrayIcon(app_icon(), self)
             self._tray.setToolTip(DISPLAY_NAME)
             menu = QMenu()
-            menu.addAction(f"Open {DISPLAY_NAME}", self.show_window)
-            self._tray_next = menu.addAction("Nothing planned today")
+            menu.addAction(_("Open {DISPLAY_NAME}").format(DISPLAY_NAME=DISPLAY_NAME), self.show_window)
+            self._tray_next = menu.addAction(_("Nothing planned today"))
             self._tray_next.setEnabled(False)
             menu.addSeparator()
-            menu.addAction("Quit", self.quit_app)
+            menu.addAction(_("Quit"), self.quit_app)
             self._tray.setContextMenu(menu)
             self._tray.activated.connect(self._tray_activated)
             self._tray_menu = menu
@@ -69,7 +69,7 @@ class DesktopMixin:
         self._tray.setVisible(s.close_to_tray or s.start_minimized)
         nxt = self.next_up()
         if self._tray_next is not None:
-            self._tray_next.setText(f"Up next: {nxt[0].name} — ep {nxt[1]}" if nxt else "All caught up today")
+            self._tray_next.setText(_("Up next: {name} — ep {value}").format(name=nxt[0].name, value=nxt[1]) if nxt else _("All caught up today"))
 
     def should_start_hidden(self) -> bool:
         return self._tray is not None and self.state.settings.start_minimized
@@ -105,8 +105,8 @@ class DesktopMixin:
 
     def test_notification(self) -> None:
         nxt = self.next_up()
-        self.notify(DISPLAY_NAME, f"Notifications work! Up next: {nxt[0].name}, episode {nxt[1]}."
-                    if nxt else "Notifications work!")
+        self.notify(DISPLAY_NAME, _("Notifications work! Up next: {name}, episode {value}.").format(name=nxt[0].name, value=nxt[1])
+                    if nxt else _("Notifications work!"))
 
     def next_up(self):
         """(anime, episode) of today's first unwatched planned episode, or None."""
@@ -142,7 +142,7 @@ class DesktopMixin:
                 if aired_at <= now <= aired_at + timedelta(hours=12) and \
                         self.state.notified.get(a.mal_id, 0) < a.next_episode:
                     self.state.notified[a.mal_id] = a.next_episode
-                    self.notify(f"New episode: {a.name}", f"Episode {a.next_episode} is out.")
+                    self.notify(_("New episode: {name}").format(name=a.name), _("Episode {next_episode} is out.").format(next_episode=a.next_episode))
                     changed = True
         if s.daily_reminder and self.state.last_reminder != date.today().isoformat():
             hh, mm = (int(x) for x in (s.reminder_time or "19:00").split(":"))
@@ -179,7 +179,7 @@ class DesktopMixin:
                 from ..stats import compute, recap_text
                 stats = compute(self.state)
                 if stats.week_episodes:
-                    self.notify("Your week in anime", recap_text(stats))
+                    self.notify(_("Your week in anime"), recap_text(stats))
                 self.state.last_recap = week
                 changed = True
         if changed:

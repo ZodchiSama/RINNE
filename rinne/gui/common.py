@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 
 from ..models import CURRENTLY_AIRING, WEEKDAYS, Anime
 from . import theme
+from ..i18n import _
 
 
 def button_row(*widgets, spacing: float = 8, stretch_before: bool = False) -> QWidget:
@@ -41,7 +42,7 @@ def watch_button(anime) -> QWidget | None:
     links = getattr(anime, "streaming", None) or []
     if not links:
         return None
-    b = QPushButton(f"▶  Watch on {links[0]['site']}" if len(links) == 1 else "▶  Watch ▾")
+    b = QPushButton(_("▶  Watch on {site}").format(site=links[0]['site']) if len(links) == 1 else _("▶  Watch ▾"))
     b.setObjectName("watch")
     b.setCursor(Qt.PointingHandCursor)
     if len(links) == 1:
@@ -51,7 +52,7 @@ def watch_button(anime) -> QWidget | None:
         for link in links:
             menu.addAction(link["site"], lambda u=link["url"]: QDesktopServices.openUrl(QUrl(u)))
         b.setMenu(menu)
-    b.setToolTip("Open the official stream in your browser")
+    b.setToolTip(_("Open the official stream in your browser"))
     return b
 
 

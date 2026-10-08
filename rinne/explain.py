@@ -35,41 +35,39 @@ def why(state: State, anime: Anime, today: date | None = None) -> list[str]:
         if o.get("replaced"):
             how = ("it's the next season" if o.get("kind") == SERIES
                    else "it was the best pick from your Plan to Watch list")
-            out.append(f"Took over from {o['replaced']} on {_fmt_date(o.get('date', ''))} — {how}")
+            out.append(_("Took over from {replaced} on {value} — {how}").format(replaced=o['replaced'], value=_fmt_date(o.get('date', '')), how=how))
         elif o.get("kind") == "manual":
-            out.append(f"You started it from Up Next on {_fmt_date(o.get('date', ''))}")
+            out.append(_("You started it from Up Next on {value}").format(value=_fmt_date(o.get('date', ''))))
         elif anime.added_by_app:
-            out.append("Added by the app as the next season of a show you finished")
+            out.append(_("Added by the app as the next season of a show you finished"))
         else:
-            out.append("It's on your Watching list on MyAnimeList")
+            out.append(_("It's on your Watching list on MyAnimeList"))
         out.extend(r for r in o.get("reasons", []) if not r.startswith("Next in the series"))
         out.extend(_schedule_lines(state, anime, today))
         nxt = scheduler.preview_next(state, anime, today)
         if nxt is not None:
-            out.append(f"When it ends, {nxt.anime.name} takes over ({nxt.headline[:1].lower()}"
-                       f"{nxt.headline[1:]})")
+            out.append(_("When it ends, {name} takes over ({value}{value2})").format(name=nxt.anime.name, value=nxt.headline[:1].lower(), value2=nxt.headline[1:]))
     elif anime.status == PLAN_TO_WATCH:
-        out.append("It's on your Plan to Watch list — it isn't scheduled until it takes over from "
-                   "a finished show or you start it")
+        out.append(_("It's on your Plan to Watch list — it isn't scheduled until it takes over from "
+                   "a finished show or you start it"))
         rotation = scheduler.current_rotation(state.library)
         excluded = scheduler.excluded_airing(state.library, state.settings.allow_airing)
         ranked = rank(state.library, None, rotation, today, excluded)
         pos = next((n for n, s in enumerate(ranked, 1) if s.anime is anime), None)
         if anime.excluded:
-            out.append("You marked it “never suggest”")
+            out.append(_("You marked it “never suggest”"))
         elif pos is not None:
-            out.append(f"Ranked #{pos} of {len(ranked)} Plan to Watch picks")
+            out.append(_("Ranked #{pos} of {n} Plan to Watch picks").format(pos=pos, n=len(ranked)))
             out.extend(text for points, text in ranked[pos - 1].reasons if points > 0)
     elif anime.status == COMPLETED:
         when = f" on {_fmt_date(anime.finished_on)}" if anime.finished_on else ""
-        out.append(f"You completed it{when}")
+        out.append(_("You completed it{when}").format(when=when))
         if anime.user_score:
-            out.append(f"You scored it {anime.user_score}/10")
+            out.append(_("You scored it {user_score}/10").format(user_score=anime.user_score))
     elif anime.status == ON_HOLD:
-        out.append(f"On hold at episode {anime.episodes_watched} — the app resumes it if the "
-                   "season before it finishes")
+        out.append(_("On hold at episode {episodes_watched} — the app resumes it if the season before it finishes").format(episodes_watched=anime.episodes_watched))
     elif anime.status == DROPPED:
-        out.append("You dropped it, so it's never scheduled or suggested")
+        out.append(_("You dropped it, so it's never scheduled or suggested"))
     return out
 
 
@@ -89,10 +87,10 @@ def _schedule_lines(state: State, anime: Anime, today: date) -> list[str]:
                           "{n} episodes planned this week — next is episode {ep}, {when}",
                           len(mine), ep=first.episode, when=when))
         elif mine:
-            out.append("All of this week's planned episodes are watched")
+            out.append(_("All of this week's planned episodes are watched"))
         else:
-            out.append("Nothing planned this week — no new episodes available or no room in "
-                       "your days")
+            out.append(_("Nothing planned this week — no new episodes available or no room in "
+                       "your days"))
     if anime.episodes_total:
         left = anime.episodes_total - anime.episodes_watched
         if left > 0:
@@ -100,10 +98,9 @@ def _schedule_lines(state: State, anime: Anime, today: date) -> list[str]:
                           time=_hours(left * anime.minutes_per_episode)))
     if anime.airing_status == CURRENTLY_AIRING:
         if anime.next_episode and anime.next_airing:
-            out.append(f"Still airing — episode {anime.next_episode} airs "
-                       f"{_fmt_date(anime.next_airing)}, then weekly")
+            out.append(_("Still airing — episode {next_episode} airs {value}, then weekly").format(next_episode=anime.next_episode, value=_fmt_date(anime.next_airing)))
         else:
-            out.append("Still airing — scheduled as episodes come out")
+            out.append(_("Still airing — scheduled as episodes come out"))
     if anime.priority >= 2:
-        out.append("High priority on MAL, so it gets the first episodes each day")
+        out.append(_("High priority on MAL, so it gets the first episodes each day"))
     return out

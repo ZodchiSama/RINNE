@@ -108,7 +108,7 @@ class WelcomePage(QWidget):
     def _nav(self, next_text: str = "Continue", back: bool = True, skip_text: str = ""):
         row = hbox(spacing=10)
         if back:
-            b = QPushButton("Back")
+            b = QPushButton(_("Back"))
             b.setObjectName("ghost")
             b.clicked.connect(lambda: self.go(self.step - 1))
             row.addWidget(b)
@@ -142,10 +142,10 @@ class WelcomePage(QWidget):
         name = label(DISPLAY_NAME, "heroName")
         name.setAlignment(Qt.AlignCenter)
         self.body.addWidget(name)
-        sub = label("輪廻 — the cycle of rebirth", "heroSub")
+        sub = label(_("輪廻 — the cycle of rebirth"), "heroSub")
         sub.setAlignment(Qt.AlignCenter)
         self.body.addWidget(sub)
-        tag = label("Your weekly anime planner. When a show ends, its next season is reborn in its place.",
+        tag = label(_("Your weekly anime planner. When a show ends, its next season is reborn in its place."),
                     "muted", wrap=True)
         tag.setAlignment(Qt.AlignCenter)
         self.body.addWidget(tag)
@@ -171,30 +171,30 @@ class WelcomePage(QWidget):
         self.body.addLayout(feats)
         self.body.addSpacing(theme.px(10))
 
-        start = QPushButton("Get started")
+        start = QPushButton(_("Get started"))
         start.setObjectName("primary")
         start.setMinimumWidth(theme.px(220))
         start.setMinimumHeight(theme.px(44))
         start.clicked.connect(lambda: self.go(1))
         self.body.addWidget(start, alignment=Qt.AlignHCenter)
-        skip = QPushButton("Skip setup")
+        skip = QPushButton(_("Skip setup"))
         skip.setObjectName("link")
         skip.clicked.connect(lambda: self.win.finish_welcome(tour=False))
         self.body.addWidget(skip, alignment=Qt.AlignHCenter)
-        foot = label(f"v{__version__}  ·  by Zodchi", "faint")
+        foot = label(_("v{version}  ·  by Zodchi").format(version=__version__), "faint")
         foot.setAlignment(Qt.AlignCenter)
         self.body.addWidget(foot)
 
     def _step_1(self) -> None:
-        self._title("Connect your list", "Sign in to MyAnimeList or AniList: Rinne brings in your list and "
+        self._title(_("Connect your list"), _("Sign in to MyAnimeList or AniList: Rinne brings in your list and "
                     "keeps your account up to date as you tick episodes. You can do this later from "
-                    "Connect in the sidebar.")
+                    "Connect in the sidebar."))
         n = len(self.win.state.library)
         if n:
             ok, lay = card(margins=16, spacing=4)
             ok.setProperty("accent", True)
             watching = sum(a.status == "watching" for a in self.win.state.library.values())
-            lay.addWidget(label(f"✓  {n} shows in your library · {watching} watching", "cardTitle"))
+            lay.addWidget(label(_("✓  {n} shows in your library · {watching} watching").format(n=n, watching=watching), "cardTitle"))
             lay.addWidget(label(self.import_note or "Covers and details load in the background.", "small", wrap=True))
             self.body.addWidget(ok)
 
@@ -205,10 +205,10 @@ class WelcomePage(QWidget):
             cl.addWidget(label(name, "h2"))
             user = connected_name(self.win, key)
             if user:
-                cl.addWidget(label(f"✓ Connected as {user}", "small"))
+                cl.addWidget(label(_("✓ Connected as {user}").format(user=user), "small"))
             else:
                 cl.addWidget(label(how, "small", wrap=True))
-                go = QPushButton(f"Connect {name}")
+                go = QPushButton(_("Connect {name}").format(name=name))
                 go.setObjectName("primary")
                 go.setMinimumHeight(theme.px(42))
                 go.clicked.connect(lambda _=False, k=key: self._connect(k))
@@ -217,7 +217,7 @@ class WelcomePage(QWidget):
             row.addWidget(frame, 1)
         self.body.addLayout(row)
 
-        manual = QPushButton("Don't want to connect? Import a file or username instead")
+        manual = QPushButton(_("Don't want to connect? Import a file or username instead"))
         manual.setObjectName("link")
         manual.clicked.connect(self._manual)
         self.body.addWidget(manual, alignment=Qt.AlignLeft)
@@ -239,8 +239,8 @@ class WelcomePage(QWidget):
 
     def _step_2(self) -> None:
         s = self.win.state.settings
-        self._title("How much do you watch?", "Pick a pace. You can fine-tune every day later "
-                    "(Settings → Schedule, or − / + on each day).")
+        self._title(_("How much do you watch?"), _("Pick a pace. You can fine-tune every day later "
+                    "(Settings → Schedule, or − / + on each day)."))
         s.plan_by = EPISODES
         for title, days, options in [("Weekdays", range(0, 5), (1, 2, 3, 4, 6)),
                                      ("Weekends", range(5, 7), (0, 2, 4, 6, 8))]:
@@ -261,8 +261,7 @@ class WelcomePage(QWidget):
             lay.addWidget(button_row(*chips))
             self.body.addWidget(frame)
         weekly = sum(s.daily_episodes)
-        note = label(f"That's about {weekly} episodes a week "
-                     f"(~{round(weekly * 24 / 60)} hours).", "small")
+        note = label(_("That's about {weekly} episodes a week (~{value} hours).").format(weekly=weekly, value=round(weekly * 24 / 60)), "small")
         note.setAlignment(Qt.AlignCenter)
         self.body.addWidget(note)
         self._nav()
@@ -276,9 +275,9 @@ class WelcomePage(QWidget):
 
     def _step_3(self) -> None:
         s = self.win.state.settings
-        self._title("Make it yours", "Change any of this later in Settings.")
+        self._title(_("Make it yours"), _("Change any of this later in Settings."))
         themes, tl = card(margins=18, spacing=10)
-        tl.addWidget(label("Theme", "h2"))
+        tl.addWidget(label(_("Theme"), "h2"))
         flow = FlowLayout(spacing=10)
         for key, pal in theme.PALETTES.items():
             flow.addWidget(theme_card(key, pal, key == theme.current,
@@ -292,8 +291,8 @@ class WelcomePage(QWidget):
         opts, ol = card(margins=18, spacing=12)
         row = hbox(spacing=10)
         text = vbox(spacing=2)
-        text.addWidget(label("Titles", "settingTitle"))
-        text.addWidget(label("How show names are written.", "small"))
+        text.addWidget(label(_("Titles"), "settingTitle"))
+        text.addWidget(label(_("How show names are written."), "small"))
         row.addLayout(text, 1)
         seg_box = QFrame()
         seg_box.setObjectName("segBox")
@@ -332,13 +331,13 @@ class WelcomePage(QWidget):
 
     def _step_4(self) -> None:
         self.body.addWidget(Glow(120), alignment=Qt.AlignHCenter)
-        self._title("You're all set", "Want a 30-second tour of where everything is?")
+        self._title(_("You're all set"), _("Want a 30-second tour of where everything is?"))
         row = hbox(spacing=10)
         row.addStretch()
-        skip = QPushButton("Skip tour")
+        skip = QPushButton(_("Skip tour"))
         skip.setObjectName("ghost")
         skip.clicked.connect(lambda: self.win.finish_welcome(tour=False))
-        tour = QPushButton("Take the tour")
+        tour = QPushButton(_("Take the tour"))
         tour.setObjectName("primary")
         tour.setMinimumWidth(theme.px(180))
         tour.clicked.connect(lambda: self.win.finish_welcome(tour=True))
@@ -346,7 +345,7 @@ class WelcomePage(QWidget):
         row.addWidget(tour)
         row.addStretch()
         self.body.addLayout(row)
-        back = QPushButton("Back")
+        back = QPushButton(_("Back"))
         back.setObjectName("link")
         back.clicked.connect(lambda: self.go(self.step - 1))
         self.body.addWidget(back, alignment=Qt.AlignHCenter)

@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from .. import DISPLAY_NAME, __version__, artwork, i18n, mal, models, scheduler
-from ..i18n import _, _n
+from ..i18n import _, _n, strftime
 from ..logs import log
 from ..models import COMPLETED, WATCHING, Anime
 from ..storage import load_state, save_state
@@ -129,7 +129,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         self.busy.setMaximumWidth(theme.px(220))
         self.busy.setTextVisible(False)
         self.busy.hide()
-        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn = QPushButton(_("Cancel"))
         self.cancel_btn.setObjectName("ghost")
         self.cancel_btn.hide()
         self.cancel_btn.clicked.connect(self._cancel_worker)
@@ -192,7 +192,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         brand.addWidget(logo)
         names = vbox(spacing=0)
         names.addWidget(label(DISPLAY_NAME, "brand"))
-        names.addWidget(label("輪廻 · anime planner", "brandSub"))
+        names.addWidget(label(_("輪廻 · anime planner"), "brandSub"))
         brand.addLayout(names, 1)
         lay.addLayout(brand)
         lay.addSpacing(theme.px(16))
@@ -209,11 +209,11 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
             b.setCursor(Qt.PointingHandCursor)
             return b
 
-        lay.addWidget(label("PLAN", "sideSection"))
+        lay.addWidget(label(_("PLAN"), "sideSection"))
         for n, (text, icon_name) in enumerate([(_("Your Week"), "week"), (_("Up Next"), "next"),
                                                (_("Library"), "library"), (_("Stats"), "stats")]):
             if n == 2:
-                lay.addWidget(label("COLLECTION", "sideSection"))
+                lay.addWidget(label(_("COLLECTION"), "sideSection"))
             b = nav_button(text, icon_name)
             b.setCheckable(True)
             inner = hbox(b, 0)
@@ -230,7 +230,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
 
         imp = nav_button(_("Connect"), "import")
         imp.clicked.connect(self.open_connect)
-        imp.setToolTip("Connect MyAnimeList or AniList (or import your list by hand)")
+        imp.setToolTip(_("Connect MyAnimeList or AniList (or import your list by hand)"))
         self.import_btn = imp
         lay.addWidget(imp)
 
@@ -257,15 +257,15 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         self.update_btn.clicked.connect(self.open_update_page)
         self.update_btn.setVisible(bool(getattr(self, "update_info", None)))
         lay.addWidget(self.update_btn)
-        self.offline_btn = QPushButton("Offline · showing saved data")
+        self.offline_btn = QPushButton(_("Offline · showing saved data"))
         self.offline_btn.setObjectName("offlineChip")
         self.offline_btn.setCursor(Qt.PointingHandCursor)
-        self.offline_btn.setToolTip("No internet connection. Your plan and list work as usual; new details, "
-                                    "sync and updates resume when you're back online. Click to check again.")
+        self.offline_btn.setToolTip(_("No internet connection. Your plan and list work as usual; new details, "
+                                    "sync and updates resume when you're back online. Click to check again."))
         self.offline_btn.clicked.connect(self.check_online)
         self.offline_btn.setVisible(getattr(self, "offline", False))
         lay.addWidget(self.offline_btn)
-        foot = label(f"v{__version__}  ·  by <span style='color:{theme.ACCENT}; font-weight:700'>Zodchi</span>",
+        foot = label(_("v{version}  ·  by <span style='color:{ACCENT}; font-weight:700'>Zodchi</span>").format(version=__version__, ACCENT=theme.ACCENT),
                      "faint", rich=True)
         foot.setAlignment(Qt.AlignCenter)
         lay.addSpacing(theme.px(4))
@@ -296,20 +296,20 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
             anime, ep = nxt
             fl.addWidget(Cover(anime.image_url, anime.name, 36, 52, 6))
             col = vbox(spacing=1)
-            col.addWidget(label("UP NEXT TODAY", "sideSection"))
+            col.addWidget(label(_("UP NEXT TODAY"), "sideSection"))
             t = ElidedLabel(anime.name, "cardTitle")
             col.addWidget(t)
-            col.addWidget(label(f"Episode {ep}" + (f" of {anime.episodes_total}" if anime.episodes_total else ""),
+            col.addWidget(label(_("Episode {ep}").format(ep=ep) + (_(" of {episodes_total}").format(episodes_total=anime.episodes_total) if anime.episodes_total else ""),
                                 "small"))
             fl.addLayout(col, 1)
             frame.setCursor(Qt.PointingHandCursor)
             Clickable(frame).clicked.connect(lambda a=anime: self.open_profile(a))
-            frame.setToolTip(f"Open {anime.name}")
+            frame.setToolTip(_("Open {name}").format(name=anime.name))
         else:
             col = vbox(spacing=1)
-            col.addWidget(label("TODAY", "sideSection"))
-            col.addWidget(label("All caught up ✓" if items else
-                                ("Day off" if watching else "Nothing planned"), "cardTitle"))
+            col.addWidget(label(_("TODAY"), "sideSection"))
+            col.addWidget(label(_("All caught up ✓") if items else
+                                (_("Day off") if watching else _("Nothing planned")), "cardTitle"))
             col.addWidget(label(_n("{n} show in rotation", "{n} shows in rotation", watching), "small"))
             fl.addLayout(col, 1)
         self.up_next_lay.addWidget(frame)
@@ -570,7 +570,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         self.refresh_pages()
         if self.stack.currentWidget() is self.profile_page:
             self._clear_nav()
-        self.statusBar().showMessage(f"Zoom {round(z * 100)}%", 1500)
+        self.statusBar().showMessage(_("Zoom {value}%").format(value=round(z * 100)), 1500)
         self.save()
 
     # ------------------------------------------------------------------ state
@@ -606,7 +606,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         scheduler.fresh_plan(self.state)
         self.save()
         self.refresh()
-        self.statusBar().showMessage("Replanned the rest of the week", 5000)
+        self.statusBar().showMessage(_("Replanned the rest of the week"), 5000)
 
     def _check_rollover(self, refresh: bool = True) -> None:
         """A new day can change the plan; a new week (Sunday 00:00) settles the old one."""
@@ -648,15 +648,14 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         if not was_complete and week and week.day_complete(day):
             on = date.fromisoformat(week.week_start) + timedelta(days=day)
             self.week_page.celebrate = on.isoformat()
-            self.statusBar().showMessage(f"{on:%A} complete!", 5000)
+            self.statusBar().showMessage(_("{on} complete!").format(on=strftime(on, '%A')), 5000)
         self.save()
         self.refresh()
         if event.finished:
             self._on_finished(event.finished)  # a finale moves the series on; no undo for that
             return
         anime = self.state.library.get(mal_id)
-        self.toast.show_message(f"{anime.name if anime else 'Episode'} · episode {episode} "
-                                f"{'watched' if ticked else 'unticked'}", "Undo",
+        self.toast.show_message(_("{value} · episode {episode} {value2}").format(value=anime.name if anime else 'Episode', episode=episode, value2='watched' if ticked else 'unticked'), _("Undo"),
                                 lambda: self._untoggle(mal_id, episode))
 
     def _untoggle(self, mal_id: int, episode: int) -> None:
@@ -674,7 +673,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         self.save()
         self.refresh()
         a = self.state.library.get(mal_id)
-        self.statusBar().showMessage(f"Moved {a.name if a else 'show'} to {to_date:%A}", 5000)
+        self.statusBar().showMessage(_("Moved {value} to {to_date}").format(value=a.name if a else 'show', to_date=strftime(to_date, '%A')), 5000)
 
     def reorder_day(self, on, mal_ids: list) -> None:
         scheduler.reorder_day(self.state, on, mal_ids)
@@ -694,7 +693,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
 
     def edit_progress(self, anime: Anime) -> None:
         maximum = anime.episodes_total or 9999
-        n, ok = QInputDialog.getInt(self, "Episodes watched", anime.name,
+        n, ok = QInputDialog.getInt(self, _("Episodes watched"), anime.name,
                                     anime.episodes_watched, 0, maximum)
         if ok:
             self.apply_progress(anime, n)
@@ -724,7 +723,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         anime.started_on = date.today().isoformat()
         self.replan()
         self._nav_to(0)
-        self.statusBar().showMessage(f"Started {anime.name}", 5000)
+        self.statusBar().showMessage(_("Started {name}").format(name=anime.name), 5000)
 
     def toggle_excluded(self, anime: Anime) -> None:
         anime.excluded = not anime.excluded
@@ -735,10 +734,10 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
 
     def _on_finished(self, finished: Anime) -> None:
         if not self.state.settings.auto_replace:
-            self.statusBar().showMessage(f"Finished {finished.name}!", 8000)
+            self.statusBar().showMessage(_("Finished {name}!").format(name=finished.name), 8000)
             return
         cid = self.state.settings.mal_api_client_id()
-        self.statusBar().showMessage(f"Finished {finished.name} — finding what comes next…")
+        self.statusBar().showMessage(_("Finished {name} — finding what comes next…").format(name=finished.name))
 
         def find(state, show):
             return scheduler.find_replacement(state, show, lambda i: mal.lookup(i, cid))
@@ -789,32 +788,32 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
             self.shell.setCurrentWidget(self.main_view)
         week = lambda: self._nav_to(0)  # noqa: E731
         steps = [
-            Step(_("Your Week"), "Your plan for this week, Sunday to Saturday, built from the shows on your "
-                 "Watching list. A new week is planned at 00:00 every Sunday.", lambda: self.nav_target(0), week),
-            Step("Your week at a glance", "Each day of the week: ✓ when it's complete, ! when an earlier day is "
-                 "still unfinished. Unfinished days count as failed once the week restarts.",
+            Step(_("Your Week"), _("Your plan for this week, Sunday to Saturday, built from the shows on your "
+                 "Watching list. A new week is planned at 00:00 every Sunday."), lambda: self.nav_target(0), week),
+            Step(_("Your week at a glance"), _("Each day of the week: ✓ when it's complete, ! when an earlier day is "
+                 "still unfinished. Unfinished days count as failed once the week restarts."),
                  lambda: getattr(self.week_page, "strip", None), week),
-            Step("Tick as you watch", "Click the circle on an episode when you've watched it. Finish all of a "
+            Step(_("Tick as you watch"), _("Click the circle on an episode when you've watched it. Finish all of a "
                  "day's episodes and the day is checked off. Use − / + to watch more or less on a day, drag a "
-                 "show to another day, and click any card to open the show's profile.",
+                 "show to another day, and click any card to open the show's profile."),
                  lambda: getattr(self.week_page, "first_day", None), week),
-            Step("Replan from today", "Fell behind or changed your mind? Plan the rest of the week again from "
-                 "today. Earlier days stay as they are.", lambda: getattr(self.week_page, "replan_btn", None), week),
-            Step(_("Up Next"), "What takes over when each show ends. The next season always comes first — "
-                 "even if it isn't on your MAL list yet — otherwise the best pick from Plan to Watch.",
+            Step(_("Replan from today"), _("Fell behind or changed your mind? Plan the rest of the week again from "
+                 "today. Earlier days stay as they are."), lambda: getattr(self.week_page, "replan_btn", None), week),
+            Step(_("Up Next"), _("What takes over when each show ends. The next season always comes first — "
+                 "even if it isn't on your MAL list yet — otherwise the best pick from Plan to Watch."),
                  lambda: self.nav_target(1)),
-            Step(_("Library"), "Your whole list as posters. Click any show for its profile: why it's on your "
-                 "list, cast & voice actors, and new seasons coming up.", lambda: self.nav_target(2)),
-            Step(_("Stats"), "Your daily goals (days complete and failed), episodes per week and per day, "
-                 "streaks, top genres and all-time totals.", lambda: self.nav_target(3)),
-            Step(_("Connect"), "Connect MyAnimeList or AniList: your list comes in and your progress is "
-                 "saved there as you watch. You can also import a file or username by hand.",
+            Step(_("Library"), _("Your whole list as posters. Click any show for its profile: why it's on your "
+                 "list, cast & voice actors, and new seasons coming up."), lambda: self.nav_target(2)),
+            Step(_("Stats"), _("Your daily goals (days complete and failed), episodes per week and per day, "
+                 "streaks, top genres and all-time totals."), lambda: self.nav_target(3)),
+            Step(_("Connect"), _("Connect MyAnimeList or AniList: your list comes in and your progress is "
+                 "saved there as you watch. You can also import a file or username by hand."),
                  lambda: getattr(self.lib_page, "import_btn", None) if theme.COMPACT else self.import_btn,
                  (lambda: self._nav_to(2)) if theme.COMPACT else None),
-            Step("Up next today", "Today's next episode, always one click away.",
+            Step(_("Up next today"), _("Today's next episode, always one click away."),
                  lambda: None if theme.COMPACT else self.up_next_host),
-            Step(_("Settings"), "Themes, the background slideshow, notifications, Discord and more. "
-                 "That's the tour — enjoy Rinne!", lambda: self.nav_target(4)),
+            Step(_("Settings"), _("Themes, the background slideshow, notifications, Discord and more. "
+                 "That's the tour — enjoy Rinne!"), lambda: self.nav_target(4)),
         ]
         self._tour = TourOverlay(self.centralWidget(), steps)
         self._tour.finished.connect(lambda: self._nav_to(0))
@@ -856,14 +855,14 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         try:
             state = State.from_dict(json.loads(Path(path).read_text(encoding="utf-8")))
         except (OSError, ValueError, KeyError, TypeError) as e:
-            QMessageBox.warning(self, "Restore failed", f"That file isn't a valid backup: {e}")
+            QMessageBox.warning(self, _("Restore failed"), _("That file isn't a valid backup: {e}").format(e=e))
             return
         self.state = state
         models.title_language = state.settings.title_language
         self.save()
         self._restyle()
         self.replan()
-        self.statusBar().showMessage("Backup restored", 6000)
+        self.statusBar().showMessage(_("Backup restored"), 6000)
 
     def reset_settings(self) -> None:
         from ..models import Settings
@@ -922,7 +921,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         if isinstance(worker, Worker) and worker.on_error:
             worker.on_error(message)
         else:
-            QMessageBox.warning(self, "Something went wrong", message)
+            QMessageBox.warning(self, _("Something went wrong"), message)
 
     def _on_progress(self, n: int, total: int, text: str) -> None:
         self.busy.setRange(0, total)
@@ -956,7 +955,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
             event.ignore()
             if not getattr(self, "_told_tray", False):
                 self._told_tray = True
-                self.notify(DISPLAY_NAME, "Still running in the tray. Quit from the tray menu.")
+                self.notify(DISPLAY_NAME, _("Still running in the tray. Quit from the tray menu."))
             return
         self.shutdown_desktop()
         self._queue.clear()

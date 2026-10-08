@@ -14,6 +14,7 @@ from ..logs import log_path
 from ..storage import data_dir
 from . import theme
 from .common import asset, badge, button_row, card, hbox, label, vbox
+from ..i18n import _
 
 if TYPE_CHECKING:
     from .window import MainWindow
@@ -44,13 +45,13 @@ class AboutSection:
         info.addStretch()
         info.addWidget(label(DISPLAY_NAME, "h1"))
         row = hbox(spacing=8)
-        row.addWidget(badge(f"v{__version__}"))
+        row.addWidget(badge(_("v{version}").format(version=__version__)))
         row.addWidget(badge(CHANGELOG[0][1], "badgeGreen"))
-        row.addWidget(label(f"by {AUTHOR}", "credit"))
+        row.addWidget(label(_("by {AUTHOR}").format(AUTHOR=AUTHOR), "credit"))
         row.addStretch()
         info.addLayout(row)
-        info.addWidget(label("輪廻 — the cycle of rebirth. A weekly anime planner for Linux that follows "
-                             "each series: when a show ends, its next season is reborn in its place.",
+        info.addWidget(label(_("輪廻 — the cycle of rebirth. A weekly anime planner for Linux that follows "
+                             "each series: when a show ends, its next season is reborn in its place."),
                              "muted", wrap=True))
         about_buttons = [self._button("Send feedback",
                                       lambda: FeedbackDialog(self.win.state, "bug", self).exec(), primary=True)]
@@ -90,11 +91,11 @@ class AboutSection:
             grid.addWidget(label(k, "small"), n, 0)
             grid.addWidget(label(v, "", wrap=True), n, 1)
         n = grid.rowCount()
-        grid.addWidget(label("Data folder", "small"), n, 0)
+        grid.addWidget(label(_("Data folder"), "small"), n, 0)
         # A zero-width space after each "/" and "-" lets a long path wrap on narrow screens.
         grid.addWidget(label(str(data_dir()).replace("/", "/\u200b").replace("-", "-\u200b"), "", wrap=True), n, 1)
         if LICENSE:
-            grid.addWidget(label("License", "small"), n + 1, 0)
+            grid.addWidget(label(_("License"), "small"), n + 1, 0)
             grid.addWidget(label(LICENSE, ""), n + 1, 1)
         sl.addLayout(grid)
         copy_row = hbox(spacing=8)
@@ -103,24 +104,23 @@ class AboutSection:
         def copy_info() -> None:
             from PySide6.QtGui import QGuiApplication
             QGuiApplication.clipboard().setText(system_info_text(self.win.state))
-            copied.setText("Copied.")
+            copied.setText(_("Copied."))
 
         copy_row.addWidget(self._button("Copy system info", copy_info))
         update_status = label("", "small", wrap=True)
 
         def check_now() -> None:
-            update_status.setText("Checking…")
+            update_status.setText(_("Checking…"))
 
             def result(rel, error) -> None:
                 if error:
-                    update_status.setText(f"Couldn't check: {error}")
+                    update_status.setText(_("Couldn't check: {error}").format(error=error))
                 elif rel and updates.managed_by():
-                    update_status.setText(f"Rinne {rel['version']} is available: update it with "
-                                          f"{updates.managed_by()}.")
+                    update_status.setText(_("Rinne {version} is available: update it with {value}.").format(version=rel['version'], value=updates.managed_by()))
                 elif rel:
-                    update_status.setText(f"Rinne {rel['version']} is available — use the button in the sidebar.")
+                    update_status.setText(_("Rinne {version} is available — use the button in the sidebar.").format(version=rel['version']))
                 else:
-                    update_status.setText(f"You're up to date (v{__version__}).")
+                    update_status.setText(_("You're up to date (v{version}).").format(version=__version__))
 
             self.win.check_for_updates(manual=True, on_result=result)
 
@@ -140,7 +140,7 @@ class AboutSection:
         for version, title, notes in CHANGELOG[:3]:
             box, bl = card(margins=16, spacing=6)
             head = hbox(spacing=8)
-            head.addWidget(badge(f"v{version}", "badge" if version != __version__ else "badgeGreen"))
+            head.addWidget(badge(_("v{version}").format(version=version), "badge" if version != __version__ else "badgeGreen"))
             head.addWidget(label(title, "settingTitle"))
             head.addStretch()
             bl.addLayout(head)
@@ -187,7 +187,7 @@ class AboutSection:
             grid.addWidget(label(what, "small"), n, 1)
         kl.addLayout(grid)
         self.body.addWidget(keys)
-        foot = label(f"Made with ♥ by {AUTHOR}", "faint")
+        foot = label(_("Made with ♥ by {AUTHOR}").format(AUTHOR=AUTHOR), "faint")
         foot.setAlignment(Qt.AlignCenter)
         self.body.addWidget(foot)
 

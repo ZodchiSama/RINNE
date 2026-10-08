@@ -148,13 +148,13 @@ class LibraryPage(QWidget):
         self.sort = QComboBox()
         for text, key in SORTS:
             self.sort.addItem(f"Sort: {text}", key)
-        self.import_btn = QPushButton("Add your list")
+        self.import_btn = QPushButton(_("Add your list"))
         self.import_btn.setObjectName("ghost")
         imenu = QMenu(self.import_btn)
-        imenu.addAction("Connect MyAnimeList or AniList…", win.open_connect)
-        imenu.addAction("Import by hand (file or username)…", win.import_manually)
+        imenu.addAction(_("Connect MyAnimeList or AniList…"), win.open_connect)
+        imenu.addAction(_("Import by hand (file or username)…"), win.import_manually)
         imenu.addSeparator()
-        imenu.addAction("Refresh all show details", lambda: win.run_enrich(force=True))
+        imenu.addAction(_("Refresh all show details"), lambda: win.run_enrich(force=True))
         self.import_btn.setMenu(imenu)
         self._head_compact: bool | None = None
         root.addWidget(self.header)
@@ -227,7 +227,7 @@ class LibraryPage(QWidget):
             g.addWidget(self.sort, 2, 0)
             g.addWidget(self.import_btn, 2, 1)
             g.setColumnStretch(0, 1)
-            self.hint.setText("Tap a show for its profile — status and progress are there")
+            self.hint.setText(_("Tap a show for its profile — status and progress are there"))
         else:
             self.search.setMinimumWidth(theme.px(260))
             g.addWidget(self.titles, 0, 0)
@@ -235,7 +235,7 @@ class LibraryPage(QWidget):
             g.addWidget(self.sort, 0, 2)
             g.addWidget(self.import_btn, 0, 3)
             g.setColumnStretch(0, 1)
-            self.hint.setText("Click a show for its profile · right-click to change status or progress")
+            self.hint.setText(_("Click a show for its profile · right-click to change status or progress"))
         set_margins(self.root, page_margin())
 
     def _update_grid(self) -> None:
@@ -288,8 +288,7 @@ class LibraryPage(QWidget):
         counts = {s: 0 for s in LIST_STATUSES}
         for a in state.library.values():
             counts[a.status] = counts.get(a.status, 0) + 1
-        self.count.setText(f"{len(state.library)} shows · {counts['watching']} watching · "
-                           f"{counts['completed']} completed · {counts[PLAN_TO_WATCH]} plan to watch")
+        self.count.setText(_("{n} shows · {watching} watching · {completed} completed · {value} plan to watch").format(n=len(state.library), watching=counts['watching'], completed=counts['completed'], value=counts[PLAN_TO_WATCH]))
         self._update_grid()
 
     def _selected(self) -> Anime | None:
@@ -309,24 +308,24 @@ class LibraryPage(QWidget):
         self.view.setCurrentIndex(idx)
         anime = self._selected()
         menu = QMenu(self)
-        status_menu = menu.addMenu("Set status")
+        status_menu = menu.addMenu(_("Set status"))
         for s in LIST_STATUSES:
             act = status_menu.addAction(STATUS_LABELS[s])
             act.setCheckable(True)
             act.setChecked(anime.status == s)
             act.triggered.connect(lambda _=False, s=s: self.win.set_status(anime, s))
-        menu.addAction("Set episodes watched…", self._edit_progress)
+        menu.addAction(_("Set episodes watched…"), self._edit_progress)
         if anime.status == "watching":
-            menu.addAction("Resume" if anime.paused else "Pause",
+            menu.addAction(_("Resume") if anime.paused else _("Pause"),
                            lambda: self.win.set_show_option(anime, paused=not anime.paused))
-            menu.addAction("Unpin" if anime.pinned else "Pin (an episode every day)",
+            menu.addAction(_("Unpin") if anime.pinned else _("Pin (an episode every day)"),
                            lambda: self.win.set_show_option(anime, pinned=not anime.pinned))
         menu.addSeparator()
-        excl = menu.addAction("Never suggest this")
+        excl = menu.addAction(_("Never suggest this"))
         excl.setCheckable(True)
         excl.setChecked(anime.excluded)
         excl.triggered.connect(lambda: self.win.toggle_excluded(anime))
-        menu.addAction("Open on MyAnimeList", lambda: self.win.open_mal(anime))
+        menu.addAction(_("Open on MyAnimeList"), lambda: self.win.open_mal(anime))
         menu.exec(self.view.viewport().mapToGlobal(pos))
 
     def _edit_progress(self) -> None:

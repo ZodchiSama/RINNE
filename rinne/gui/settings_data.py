@@ -14,6 +14,7 @@ from ..models import Settings
 from ..storage import cache_dir, data_dir, state_path
 from . import theme
 from .common import folder_size, human_size, button_row, label
+from ..i18n import _
 
 if TYPE_CHECKING:
     from .window import MainWindow
@@ -57,11 +58,11 @@ class DataSections:
         if s.mal_token or s.anilist_token:
             self._group("Sync")
             self._row("Sync now", "Send any changes immediately instead of waiting a few seconds.",
-                      self._button("Sync now", lambda: (status_label.setText("Syncing…"),
+                      self._button("Sync now", lambda: (status_label.setText(_("Syncing…")),
                                                         self.win.sync_now(result))))
         self.body.addWidget(status_label)
-        self.body.addWidget(label("Sign-ins are stored only on this computer, in Rinne's data folder. Backups "
-                                  "you export include them — keep backup files private.", "faint", wrap=True))
+        self.body.addWidget(label(_("Sign-ins are stored only on this computer, in Rinne's data folder. Backups "
+                                  "you export include them — keep backup files private."), "faint", wrap=True))
 
     # ------------------------------------------------------------------ Library & Data
 
@@ -74,7 +75,7 @@ class DataSections:
         self._row("Username", "Used by “Import from MAL username”.", user)
         cid = QLineEdit(s.mal_client_id)
         cid.setEchoMode(QLineEdit.PasswordEchoOnEdit)
-        cid.setPlaceholderText("optional")
+        cid.setPlaceholderText(_("optional"))
         cid.setMinimumWidth(theme.px(240))
         cid.editingFinished.connect(lambda: self._set("mal_client_id", cid.text().strip()))
         self._row("API Client ID",
@@ -107,41 +108,41 @@ class DataSections:
 
     def _export_calendar(self) -> None:
         from ..calendar_export import write
-        path, _ = QFileDialog.getSaveFileName(self, "Export calendar", str(Path.home() / "rinne-plan.ics"),
+        path, _filter = QFileDialog.getSaveFileName(self, _("Export calendar"), str(Path.home() / "rinne-plan.ics"),
                                               "iCalendar file (*.ics)")
         if path:
             write(self.win.state, Path(path))
-            self.win.statusBar().showMessage(f"Calendar saved to {path}", 6000)
+            self.win.statusBar().showMessage(_("Calendar saved to {path}").format(path=path), 6000)
 
     def _open(self, path: Path) -> None:
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
 
     def _clear(self, paths, what: str) -> None:
-        if QMessageBox.question(self, "Clear cache", f"Clear the {what}?") != QMessageBox.Yes:
+        if QMessageBox.question(self, _("Clear cache"), _("Clear the {what}?").format(what=what)) != QMessageBox.Yes:
             return
         for p in paths if isinstance(paths, list) else [paths]:
             shutil.rmtree(p, ignore_errors=True)
         self.refresh()
 
     def _export(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(self, "Export backup", str(Path.home() / "rinne-backup.json"),
+        path, _filter = QFileDialog.getSaveFileName(self, _("Export backup"), str(Path.home() / "rinne-backup.json"),
                                               "Rinne backup (*.json)")
         if path:
             self.win.save()
             shutil.copyfile(state_path(), path)
-            self.win.statusBar().showMessage("Backup saved", 6000)
+            self.win.statusBar().showMessage(_("Backup saved"), 6000)
 
     def _restore(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Restore backup", str(Path.home()), "Rinne backup (*.json)")
+        path, _filter = QFileDialog.getOpenFileName(self, _("Restore backup"), str(Path.home()), "Rinne backup (*.json)")
         if not path:
             return
-        if QMessageBox.question(self, "Restore backup",
-                                "Replace your current library, plan and settings with this backup?") != QMessageBox.Yes:
+        if QMessageBox.question(self, _("Restore backup"),
+                                _("Replace your current library, plan and settings with this backup?")) != QMessageBox.Yes:
             return
         self.win.restore_backup(path)
 
     def _reset(self) -> None:
-        if QMessageBox.question(self, "Reset settings", "Reset all settings to their defaults?") == QMessageBox.Yes:
+        if QMessageBox.question(self, _("Reset settings"), _("Reset all settings to their defaults?")) == QMessageBox.Yes:
             self.win.reset_settings()
 
     # ------------------------------------------------------------------ About

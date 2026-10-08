@@ -11,6 +11,7 @@ from PySide6.QtWidgets import QFrame, QPushButton, QWidget
 
 from . import theme
 from .common import hbox, label, vbox
+from ..i18n import _
 
 
 @dataclass
@@ -42,11 +43,11 @@ class TourOverlay(QWidget):
         lay.addWidget(self.text)
         lay.addSpacing(theme.px(4))
         row = hbox(spacing=8)
-        self.skip = QPushButton("Skip tour")
+        self.skip = QPushButton(_("Skip tour"))
         self.skip.setObjectName("link")
-        self.back = QPushButton("Back")
+        self.back = QPushButton(_("Back"))
         self.back.setObjectName("ghost")
-        self.next = QPushButton("Next")
+        self.next = QPushButton(_("Next"))
         self.next.setObjectName("primary")
         row.addWidget(self.skip)
         row.addStretch()
@@ -82,11 +83,11 @@ class TourOverlay(QWidget):
         step = self.steps[self.index]
         if step.before:
             step.before()
-        self.counter.setText(f"STEP {self.index + 1} OF {len(self.steps)}")
+        self.counter.setText(_("STEP {value} OF {n}").format(value=self.index + 1, n=len(self.steps)))
         self.title.setText(step.title)
         self.text.setText(step.text)
         self.back.setVisible(self.index > 0)
-        self.next.setText("Finish" if self.index == len(self.steps) - 1 else "Next")
+        self.next.setText(_("Finish") if self.index == len(self.steps) - 1 else _("Next"))
         self._place()
         # A page switch rebuilds widgets; place again once Qt has laid them out.
         QTimer.singleShot(60, self._place)

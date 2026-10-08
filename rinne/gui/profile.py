@@ -198,7 +198,7 @@ class ProfilePage(QWidget):
         a = self.anime = self.win.state.library.get(self.anime.mal_id, self.anime)
         d = self.data or {}
 
-        back = QPushButton("←  Back")
+        back = QPushButton(_("←  Back"))
         back.setObjectName("ghost")
         back.clicked.connect(self.win.go_back)
         self.body.addWidget(back, alignment=Qt.AlignLeft)
@@ -206,7 +206,7 @@ class ProfilePage(QWidget):
 
         why_frame, why = card(margins=18, spacing=8)
         why_frame.setProperty("accent", True)
-        why.addWidget(label("Why it's on your list", "h2"))
+        why.addWidget(label(_("Why it's on your list"), "h2"))
         for line in explain.why(self.win.state, a):
             why.addWidget(label(f"•  {line}", "", wrap=True))
         self.body.addWidget(why_frame)
@@ -217,7 +217,7 @@ class ProfilePage(QWidget):
             self.body.addWidget(eps)
 
         if self.data is None and not self.error:
-            self.body.addWidget(label("Loading details from AniList…", "muted"))
+            self.body.addWidget(label(_("Loading details from AniList…"), "muted"))
         elif self.error:
             self.body.addWidget(label(self.error, "muted", wrap=True))
         if d:
@@ -268,7 +268,7 @@ class ProfilePage(QWidget):
         if a.mean_score:
             chips.addWidget(badge(f"★ {a.mean_score:.1f}", "badgeAmber"))
         if a.airing_status == CURRENTLY_AIRING:
-            chips.addWidget(badge("Airing", "badgeGreen"))
+            chips.addWidget(badge(_("Airing"), "badgeGreen"))
         rank = next((r for r in d.get("rankings") or [] if r.get("allTime")), None)
         if rank:
             chips.addWidget(badge(f"#{rank['rank']} {rank['context'].replace('all time', 'all-time')}", "badge"))
@@ -278,8 +278,7 @@ class ProfilePage(QWidget):
 
         status_row = hbox(spacing=10)
         color = theme.STATUS_COLORS.get(a.status, theme.MUTED)
-        st = label(f"<span style='color:{color}'>●</span>  {STATUS_LABELS.get(a.status, a.status)}"
-                   f"  ·  Ep {a.episodes_watched} / {a.episodes_total or '?'}", "", rich=True)
+        st = label(_("<span style='color:{color}'>●</span>  {value}  ·  Ep {episodes_watched} / {value2}").format(color=color, value=STATUS_LABELS.get(a.status, a.status), episodes_watched=a.episodes_watched, value2=a.episodes_total or '?'), "", rich=True)
         status_row.addWidget(st)
         bar = progress(a)
         if theme.COMPACT:
@@ -293,7 +292,7 @@ class ProfilePage(QWidget):
         actions = FlowLayout(spacing=8) if compact else hbox(spacing=8)  # buttons wrap on phones
         in_lib = a.mal_id in self.win.state.library
         if in_lib:
-            status_btn = QPushButton("Status ▾")
+            status_btn = QPushButton(_("Status ▾"))
             status_btn.setObjectName("primary")
             menu = QMenu(status_btn)
             for s in LIST_STATUSES:
@@ -303,18 +302,18 @@ class ProfilePage(QWidget):
                 act.triggered.connect(lambda _=False, s=s: self.win.set_status(a, s))
             status_btn.setMenu(menu)
             actions.addWidget(status_btn)
-            prog = QPushButton("Set progress")
+            prog = QPushButton(_("Set progress"))
             prog.setObjectName("ghost")
             prog.clicked.connect(lambda: self.win.edit_progress(a))
             actions.addWidget(prog)
         if watch := watch_button(a):
             actions.addWidget(watch)
-        mal_btn = QPushButton("MyAnimeList ↗")
+        mal_btn = QPushButton(_("MyAnimeList ↗"))
         mal_btn.setObjectName("ghost")
         mal_btn.clicked.connect(lambda: self.win.open_mal(a))
         actions.addWidget(mal_btn)
         if d.get("siteUrl"):
-            al = QPushButton("AniList ↗")
+            al = QPushButton(_("AniList ↗"))
             al.setObjectName("ghost")
             al.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(d["siteUrl"])))
             actions.addWidget(al)
@@ -331,15 +330,15 @@ class ProfilePage(QWidget):
     def _coming_up(self) -> QFrame:
         frame, lay = card(margins=18, spacing=12)
         head = hbox()
-        head.addWidget(label("Coming up", "h2"))
+        head.addWidget(label(_("Coming up"), "h2"))
         head.addStretch()
-        head.addWidget(label("New seasons, films and spin-offs in this franchise", "faint"))
+        head.addWidget(label(_("New seasons, films and spin-offs in this franchise"), "faint"))
         lay.addLayout(head)
         if self.upcoming is None:
-            lay.addWidget(label("Checking for announced seasons…", "muted"))
+            lay.addWidget(label(_("Checking for announced seasons…"), "muted"))
             return frame
         if not self.upcoming:
-            lay.addWidget(label("Nothing new announced for this franchise yet.", "muted"))
+            lay.addWidget(label(_("Nothing new announced for this franchise yet."), "muted"))
             return frame
         for entry in self.upcoming:
             lay.addWidget(self._upcoming_row(entry))
@@ -356,9 +355,9 @@ class ProfilePage(QWidget):
         row.addWidget(Cover((node.get("coverImage") or {}).get("large", ""), title, 58, 82, 8))
         col = vbox(spacing=4)
         rel = entry["relation"]
-        tags = [badge("This show" if rel == "SELF" else RELATION_LABELS.get(rel, rel.title()), "badge"),
-                badge("Airing now", "badgeGreen") if node.get("status") == "RELEASING"
-                else badge("Announced", "badgeAmber")]
+        tags = [badge(_("This show") if rel == "SELF" else RELATION_LABELS.get(rel, rel.title()), "badge"),
+                badge(_("Airing now"), "badgeGreen") if node.get("status") == "RELEASING"
+                else badge(_("Announced"), "badgeAmber")]
         if node.get("format"):
             tags.append(badge(node["format"].replace("_", " "), "chipLabel"))
         col.addWidget(button_row(*tags, spacing=6))
@@ -374,18 +373,18 @@ class ProfilePage(QWidget):
         row.addLayout(col, 1)
         if in_lib:
             Clickable(row_w).clicked.connect(lambda: self.win.open_profile(in_lib))
-            row_w.setToolTip("Open its profile")
+            row_w.setToolTip(_("Open its profile"))
         elif mal_id:
             Clickable(row_w).clicked.connect(
                 lambda: QDesktopServices.openUrl(QUrl(f"https://myanimelist.net/anime/{mal_id}")))
-            row_w.setToolTip("Open on MyAnimeList")
+            row_w.setToolTip(_("Open on MyAnimeList"))
         return row_w
 
     def _plan_controls(self, a: Anime) -> QFrame:
         """Pause, pin and pace for this show."""
         from PySide6.QtWidgets import QComboBox
         frame, lay = card(margins=18, spacing=10)
-        lay.addWidget(label("Your plan for this show", "h2"))
+        lay.addWidget(label(_("Your plan for this show"), "h2"))
         for attr, title, desc in [
             ("paused", "Pause", "Keep it on your Watching list but leave it out of the plan for now."),
             ("pinned", "Pin", "Give it an episode every day, before your other shows."),
@@ -401,8 +400,8 @@ class ProfilePage(QWidget):
             lay.addLayout(row)
         row = hbox(spacing=10)
         text = vbox(spacing=2)
-        text.addWidget(label("Pace", "settingTitle"))
-        text.addWidget(label("Episodes of this show per day. Automatic shares the day with your other shows.",
+        text.addWidget(label(_("Pace"), "settingTitle"))
+        text.addWidget(label(_("Episodes of this show per day. Automatic shares the day with your other shows."),
                              "small", wrap=True))
         row.addLayout(text, 1)
         pace = QComboBox()
@@ -426,9 +425,9 @@ class ProfilePage(QWidget):
             nums = [n for n in nums if start <= n < start + 36]
         frame, lay = card(margins=18, spacing=12)
         head = hbox()
-        head.addWidget(label("Episodes", "h2"))
+        head.addWidget(label(_("Episodes"), "h2"))
         head.addStretch()
-        head.addWidget(label(f"{a.episodes_watched} of {a.episodes_total or len(details)} watched", "faint"))
+        head.addWidget(label(_("{episodes_watched} of {value} watched").format(episodes_watched=a.episodes_watched, value=a.episodes_total or len(details)), "faint"))
         lay.addLayout(head)
         flow = vbox(spacing=8) if theme.COMPACT else FlowLayout(spacing=12, uniform_rows=True)
         for n in nums:
@@ -441,11 +440,11 @@ class ProfilePage(QWidget):
             col.addWidget(Cover(ep.get("image", ""), str(n), *((96, 54, 6) if theme.COMPACT else (188, 106, 8))))
             text = vbox(spacing=2)
             top = hbox(spacing=6)
-            top.addWidget(label(f"Episode {n}", "small"))
+            top.addWidget(label(_("Episode {n}").format(n=n), "small"))
             if n <= a.episodes_watched:
-                top.addWidget(badge("✓ Watched", "badgeGreen"))
+                top.addWidget(badge(_("✓ Watched"), "badgeGreen"))
             elif n == a.episodes_watched + 1:
-                top.addWidget(badge("Up next"))
+                top.addWidget(badge(_("Up next")))
             top.addStretch()
             text.addLayout(top)
             text.addWidget(label(artwork.episode_title(ep, models.title_language) or f"Episode {n}",
@@ -468,7 +467,7 @@ class ProfilePage(QWidget):
 
     def _synopsis(self, d: dict) -> QFrame:
         frame, lay = card(margins=18, spacing=10)
-        lay.addWidget(label("Synopsis", "h2"))
+        lay.addWidget(label(_("Synopsis"), "h2"))
         lay.addWidget(label(clean_description(d.get("description") or ""), "body", wrap=True, rich=True))
         tags = list(d.get("genres") or []) + [t["name"] for t in d.get("tags") or []
                                               if t.get("rank", 0) >= 70 and not t.get("isMediaSpoiler")][:8]
@@ -488,9 +487,9 @@ class ProfilePage(QWidget):
             return None
         frame, lay = card(margins=18, spacing=12)
         head = hbox()
-        head.addWidget(label("Cast & voice actors", "h2"))
+        head.addWidget(label(_("Cast & voice actors"), "h2"))
         head.addStretch()
-        head.addWidget(label("Japanese cast · ★ = fans on AniList", "faint"))
+        head.addWidget(label(_("Japanese cast · ★ = fans on AniList"), "faint"))
         lay.addLayout(head)
         top_fans = max((e["voiceActors"][0].get("favourites") or 0) for e in edges)
         # Phones: one full-width card per row; desktop: a grid of equal-height cards.
@@ -517,7 +516,7 @@ class ProfilePage(QWidget):
         who = vbox(spacing=4)
         who.addWidget(label(char["name"]["full"], "cardTitle", wrap=True))
         main = e.get("role") == "MAIN"
-        who.addWidget(badge("Main character" if main else "Supporting", "badge" if main else "chipLabel"),
+        who.addWidget(badge(_("Main character") if main else _("Supporting"), "badge" if main else "chipLabel"),
                       alignment=Qt.AlignLeft)
         who.addStretch()
         top.addLayout(who, 1)
@@ -533,10 +532,10 @@ class ProfilePage(QWidget):
         name_row.addWidget(label(va["name"]["full"], "vaName", wrap=True), 1)
         fans = va.get("favourites") or 0
         if fans >= 5000 or (fans and fans == top_fans and fans >= 1500):
-            name_row.addWidget(badge("Big name", "badgeAmber"), alignment=Qt.AlignTop)
+            name_row.addWidget(badge(_("Big name"), "badgeAmber"), alignment=Qt.AlignTop)
         lay.addLayout(name_row)
         native = va["name"].get("native")
-        lay.addWidget(label(f"{native}  ·  ★ {_fans(fans)} fans" if native else f"★ {_fans(fans)} fans",
+        lay.addWidget(label(_("{native}  ·  ★ {value} fans").format(native=native, value=_fans(fans)) if native else _("★ {value} fans").format(value=_fans(fans)),
                             "small", wrap=True))
 
         # Other roles, highlighting ones from shows on your list.
@@ -551,9 +550,9 @@ class ProfilePage(QWidget):
             entry = lib.get(node.get("idMal"))
             (known if entry and entry.status in ("completed", "watching") else other).append(role)
         if known:
-            lay.addWidget(label("You know them as " + "; ".join(known[:2]), "knownRole", wrap=True))
+            lay.addWidget(label(_("You know them as ") + "; ".join(known[:2]), "knownRole", wrap=True))
         if other:
-            lay.addWidget(label("Also " + "; ".join(other[:2]), "small", wrap=True))
+            lay.addWidget(label(_("Also ") + "; ".join(other[:2]), "small", wrap=True))
         lay.addStretch()
         return frame
 
@@ -565,7 +564,7 @@ class ProfilePage(QWidget):
         edges.sort(key=lambda e: RELATION_ORDER.index(e["relationType"])
                    if e["relationType"] in RELATION_ORDER else 99)
         frame, lay = card(margins=18, spacing=12)
-        lay.addWidget(label("Related", "h2"))
+        lay.addWidget(label(_("Related"), "h2"))
         flow = FlowLayout(spacing=12)
         for e in edges[:12]:
             node = e["node"]
@@ -583,7 +582,7 @@ class ProfilePage(QWidget):
         if not nodes:
             return None
         frame, lay = card(margins=18, spacing=12)
-        lay.addWidget(label("If you like this", "h2"))
+        lay.addWidget(label(_("If you like this"), "h2"))
         flow = FlowLayout(spacing=12)
         for m in nodes:
             score = f"★ {m['averageScore'] / 10:.1f}" if m.get("averageScore") else ""
@@ -607,16 +606,16 @@ class ProfilePage(QWidget):
         lay.addWidget(t)
         if entry:
             color = theme.STATUS_COLORS.get(entry.status, theme.MUTED)
-            lay.addWidget(label(f"<span style='color:{color}'>●</span> {html.escape(STATUS_LABELS.get(entry.status, ''))}",
+            lay.addWidget(label(_("<span style='color:{color}'>●</span> {value}").format(color=color, value=html.escape(STATUS_LABELS.get(entry.status, ''))),
                                 "small", rich=True))
             click = Clickable(w)
             click.clicked.connect(lambda e=entry: self.win.open_profile(e))
-            w.setToolTip("Open its profile")
+            w.setToolTip(_("Open its profile"))
         elif mal_id:
-            lay.addWidget(label("Not on your list", "faint"))
+            lay.addWidget(label(_("Not on your list"), "faint"))
             click = Clickable(w)
             click.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(f"https://myanimelist.net/anime/{mal_id}")))
-            w.setToolTip("Open on MyAnimeList")
+            w.setToolTip(_("Open on MyAnimeList"))
         lay.addStretch()
         return w
 
@@ -625,7 +624,7 @@ class ProfilePage(QWidget):
         if not edges:
             return None
         frame, lay = card(margins=18, spacing=10)
-        lay.addWidget(label("Staff", "h2"))
+        lay.addWidget(label(_("Staff"), "h2"))
         flow = vbox(spacing=8) if theme.COMPACT else FlowLayout(spacing=10)
         for e in edges[:8]:
             box, bl = card("episode", 8, 10, horizontal=True)

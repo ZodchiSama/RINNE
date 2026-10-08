@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 from .. import CONTACT_EMAIL, DISPLAY_NAME, ISSUES_URL, __version__
 from . import theme
 from .common import hbox, label, vbox
+from ..i18n import _
 
 
 def system_info(state=None) -> list[tuple[str, str]]:
@@ -51,12 +52,12 @@ class FeedbackDialog(QDialog):
     def __init__(self, state, kind: str = "bug", parent=None):
         super().__init__(parent)
         self.state = state
-        self.setWindowTitle(f"Send feedback — {DISPLAY_NAME}")
+        self.setWindowTitle(_("Send feedback — {DISPLAY_NAME}").format(DISPLAY_NAME=DISPLAY_NAME))
         self.setMinimumWidth(theme.fit_width(560))
         root = vbox(self, 12, 22)
-        root.addWidget(label("Send feedback", "h1"))
-        root.addWidget(label("Found a bug or have an idea? Write it here — Rinne formats it into a report "
-                             "you can send in one click.", "muted", wrap=True))
+        root.addWidget(label(_("Send feedback"), "h1"))
+        root.addWidget(label(_("Found a bug or have an idea? Write it here — Rinne formats it into a report "
+                             "you can send in one click."), "muted", wrap=True))
 
         seg_box = QFrame()
         seg_box.setObjectName("segBox")
@@ -73,16 +74,16 @@ class FeedbackDialog(QDialog):
         root.addWidget(seg_box, alignment=Qt.AlignLeft)
 
         self.summary = QLineEdit()
-        self.summary.setPlaceholderText("Short summary")
+        self.summary.setPlaceholderText(_("Short summary"))
         root.addWidget(self.summary)
         self.details = QPlainTextEdit()
-        self.details.setPlaceholderText("What happened? What did you expect? Steps to reproduce help a lot.")
+        self.details.setPlaceholderText(_("What happened? What did you expect? Steps to reproduce help a lot."))
         self.details.setMinimumHeight(theme.px(160))
         root.addWidget(self.details)
-        self.include = QCheckBox("Include system info (version, OS, Qt — no personal data)")
+        self.include = QCheckBox(_("Include system info (version, OS, Qt — no personal data)"))
         self.include.setChecked(True)
         root.addWidget(self.include)
-        self.include_log = QCheckBox("Include the recent log (helps find crashes; contains no account details)")
+        self.include_log = QCheckBox(_("Include the recent log (helps find crashes; contains no account details)"))
         self.include_log.setChecked(kind == "bug")
         root.addWidget(self.include_log)
 
@@ -90,21 +91,21 @@ class FeedbackDialog(QDialog):
         root.addWidget(self.status)
         row = hbox(spacing=8)
         row.addStretch()
-        copy = QPushButton("Copy report")
+        copy = QPushButton(_("Copy report"))
         copy.setObjectName("ghost")
         copy.clicked.connect(self.copy)
         row.addWidget(copy)
         if CONTACT_EMAIL:
-            mail = QPushButton("Email it")
+            mail = QPushButton(_("Email it"))
             mail.setObjectName("ghost")
             mail.clicked.connect(self.email)
             row.addWidget(mail)
         if ISSUES_URL:
-            send = QPushButton("Open issue tracker")
+            send = QPushButton(_("Open issue tracker"))
             send.setObjectName("primary")
             send.clicked.connect(self.open_issue)
             row.addWidget(send)
-        close = QPushButton("Close")
+        close = QPushButton(_("Close"))
         close.setObjectName("ghost")
         close.clicked.connect(self.reject)
         row.addWidget(close)
@@ -131,7 +132,7 @@ class FeedbackDialog(QDialog):
 
     def copy(self) -> None:
         QGuiApplication.clipboard().setText(f"{self.title()}\n\n{self.body()}")
-        self.status.setText("Copied to the clipboard.")
+        self.status.setText(_("Copied to the clipboard."))
 
     def email(self) -> None:
         q = urllib.parse.urlencode({"subject": self.title(), "body": self.body()}, quote_via=urllib.parse.quote)
@@ -144,5 +145,5 @@ class FeedbackDialog(QDialog):
         if "github.com" in url and not url.endswith("/new"):
             url += "/new"
         QDesktopServices.openUrl(QUrl(f"{url}{sep}{q}"))
-        self.status.setText("Opened in your browser — review and submit it there.")
+        self.status.setText(_("Opened in your browser — review and submit it there."))
 

@@ -78,11 +78,11 @@ class ShowDayCard(QFrame):
                 row.addWidget(Cover(ep["image"], str(it.episode), 52, 30, 4))
             text = vbox(spacing=0)
             head = hbox(spacing=6)
-            head.addWidget(label(f"Episode {it.episode}", "small"))
+            head.addWidget(label(_("Episode {episode}").format(episode=it.episode), "small"))
             if total and it.episode == total:
-                head.addWidget(badge("Finale"))
+                head.addWidget(badge(_("Finale")))
             elif it.episode == 1:
-                head.addWidget(badge("New", "badgeGreen"))
+                head.addWidget(badge(_("New"), "badgeGreen"))
             head.addStretch()
             text.addLayout(head)
             if ep_title:
@@ -94,7 +94,7 @@ class ShowDayCard(QFrame):
             check.setChecked(it.done)
             check.setText("✓" if it.done else "")
             check.setCursor(Qt.PointingHandCursor)
-            check.setToolTip(("Mark as unwatched" if it.done else "Mark as watched") + f" — episode {it.episode}")
+            check.setToolTip((_("Mark as unwatched") if it.done else _("Mark as watched")) + _(" — episode {episode}").format(episode=it.episode))
             check.clicked.connect(lambda _=False, i=idx: self.toggled.emit(i))
             row.addWidget(check)
             tips = [f"{title} — episode {it.episode}" + (f": {ep_title}" if ep_title else "")]
@@ -186,7 +186,7 @@ class DayRow(QFrame):
             b.setToolTip(tip)
             b.clicked.connect(lambda _=False, d=d: self.amount_changed.emit(day, d))
         unit = ("episode" if amount == 1 else "episodes") if by_episodes else "min"
-        value = label("Day off" if amount == 0 else f"{amount} {unit}", "small")
+        value = label(_("Day off") if amount == 0 else f"{amount} {unit}", "small")
         value.setAlignment(Qt.AlignCenter)
         summary = f"{count} ep · {fmt_minutes(minutes)}" if count else ""
 
@@ -196,7 +196,7 @@ class DayRow(QFrame):
             head = hbox(spacing=8)
             head.addWidget(label(WEEKDAYS[on.weekday()], "h2"))
             if on == today:
-                head.addWidget(badge("Today"))
+                head.addWidget(badge(_("Today")))
             self._status_badge(head, status)
             head.addStretch()
             col.addLayout(head)
@@ -217,7 +217,7 @@ class DayRow(QFrame):
         head = hbox(spacing=8)
         head.addWidget(label(WEEKDAYS[on.weekday()], "h2"))
         if on == today:
-            head.addWidget(badge("Today"))
+            head.addWidget(badge(_("Today")))
         head.addStretch()
         side.addLayout(head)
         status_line = hbox(spacing=6)
@@ -244,12 +244,12 @@ class DayRow(QFrame):
 
     def _status_badge(self, lay, status: str) -> None:
         if status == "unfinished":
-            b = badge("Unfinished", "badgeAmber")
-            b.setToolTip("Still waiting to be finished. Days left unfinished when the week ends "
-                         "count as failed in Stats.")
+            b = badge(_("Unfinished"), "badgeAmber")
+            b.setToolTip(_("Still waiting to be finished. Days left unfinished when the week ends "
+                         "count as failed in Stats."))
             lay.addWidget(b)
         elif status == "complete":
-            lay.addWidget(badge("✓ Complete", "badgeGreen"))
+            lay.addWidget(badge(_("✓ Complete"), "badgeGreen"))
             fold = QToolButton(text="Fold")
             fold.setObjectName("linkButton")
             fold.setCursor(Qt.PointingHandCursor)
@@ -323,11 +323,11 @@ class WatchingCard(QFrame):
         if air := airing_text(anime):
             meta.addWidget(badge(air, "badgeAmber"))
         lay.addLayout(meta)
-        flags = [badge("Paused", "chipLabel")] if anime.paused else []
+        flags = [badge(_("Paused"), "chipLabel")] if anime.paused else []
         if anime.pinned:
-            flags.append(badge("📌 Pinned"))
+            flags.append(badge(_("📌 Pinned")))
         if anime.pace:
-            flags.append(badge(f"{anime.pace}/day", "chipLabel"))
+            flags.append(badge(_("{pace}/day").format(pace=anime.pace), "chipLabel"))
         if flags:
             lay.addWidget(button_row(*flags, spacing=4))
         if anime.paused:
@@ -376,7 +376,7 @@ class CompletedDay(QFrame):
         else:
             row.addWidget(title)
             row.addWidget(detail, 1)
-        show = QPushButton("Show")
+        show = QPushButton(_("Show"))
         show.setObjectName("ghost")
         show.setCursor(Qt.PointingHandCursor)
         show.clicked.connect(self.unfold.emit)
@@ -563,12 +563,12 @@ class WeekPage(QWidget):
         titles.addWidget(label(f"{start:%d %b} – {end:%d %b %Y}", "muted"))
         head.addLayout(titles)
         head.addStretch()
-        settings_btn = QPushButton("Customize days")
+        settings_btn = QPushButton(_("Customize days"))
         settings_btn.setObjectName("ghost")
         settings_btn.clicked.connect(lambda: self.win.open_settings("schedule"))
-        replan = QPushButton("Replan from today")
+        replan = QPushButton(_("Replan from today"))
         replan.setObjectName("primary")
-        replan.setToolTip("Plan the rest of this week again from today. Earlier days stay as they are (Ctrl R)")
+        replan.setToolTip(_("Plan the rest of this week again from today. Earlier days stay as they are (Ctrl R)"))
         replan.clicked.connect(self.win.replan_fresh)
         self.replan_btn = replan
         if theme.COMPACT:  # buttons on their own (wrapping) row below the title
@@ -586,10 +586,10 @@ class WeekPage(QWidget):
         def mins(its):
             return sum(state.library[i.mal_id].minutes_per_episode for i in its if i.mal_id in state.library)
         todays = [i for i in items if i.day == (today - start).days] if start <= today <= end else []
-        tiles = [stat(f"{sum(i.done for i in todays)} / {len(todays)}", "Watched today"),
-                 stat(f"{sum(i.done for i in items)} / {len(items)}", "Episodes this week"),
-                 stat(fmt_minutes(mins(items)), "Planned watch time"),
-                 stat(str(len(rotation)), "Shows watching")]
+        tiles = [stat(f"{sum(i.done for i in todays)} / {len(todays)}", _("Watched today")),
+                 stat(f"{sum(i.done for i in items)} / {len(items)}", _("Episodes this week")),
+                 stat(fmt_minutes(mins(items)), _("Planned watch time")),
+                 stat(str(len(rotation)), _("Shows watching"))]
         stats = QGridLayout()
         stats.setSpacing(theme.px(10 if theme.COMPACT else 12))
         for n, tile in enumerate(tiles):
@@ -603,7 +603,7 @@ class WeekPage(QWidget):
             self.body.addWidget(self.strip)
 
         # Now watching (paused shows too, so they can be found and resumed).
-        self.body.addWidget(label("Now watching", "h2"))
+        self.body.addWidget(label(_("Now watching"), "h2"))
         watching_all = scheduler.current_rotation(state.library, include_paused=True)
         if watching_all:
             strip_area = QScrollArea()
@@ -623,20 +623,20 @@ class WeekPage(QWidget):
             self.body.addWidget(strip_area)
         else:
             frame, lay = card(margins=22)
-            lay.addWidget(label("Your Watching list is empty", "cardTitle"))
-            lay.addWidget(label("Only shows on your Watching list are scheduled. Connect your MyAnimeList "
+            lay.addWidget(label(_("Your Watching list is empty"), "cardTitle"))
+            lay.addWidget(label(_("Only shows on your Watching list are scheduled. Connect your MyAnimeList "
                                 "or AniList account (Connect in the sidebar), "
-                                "or open Library, right-click a show and set it to Watching.",
+                                "or open Library, right-click a show and set it to Watching."),
                                 "muted", wrap=True))
             self.body.addWidget(frame)
 
         # Days.
         sched_head = hbox()
-        sched_head.addWidget(label("Schedule", "h2"))
+        sched_head.addWidget(label(_("Schedule"), "h2"))
         sched_head.addStretch()
         unit = "episodes" if s.plan_by == EPISODES else "minutes"
         if not theme.COMPACT:  # too long for a phone header; the − / + are self-explanatory there
-            sched_head.addWidget(label(f"Planning by {unit} per day · use − / + on a day to adjust", "faint"))
+            sched_head.addWidget(label(_("Planning by {unit} per day · use − / + on a day to adjust").format(unit=unit), "faint"))
         self.body.addLayout(sched_head)
         self.first_day = None
         celebrate, self.celebrate = self.celebrate, None

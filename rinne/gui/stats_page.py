@@ -263,17 +263,17 @@ class StatsPage(QWidget):
         s = stats_mod.compute(st)
         titles = vbox(spacing=2)
         titles.addWidget(label(_("Stats"), "h1"))
-        titles.addWidget(label("Your watching, by the numbers.", "muted"))
+        titles.addWidget(label(_("Your watching, by the numbers."), "muted"))
         self.body.addLayout(titles)
 
         days = s.total_minutes / 60 / 24
         tiles = [
-            self._tile(str(s.week_episodes), "Episodes in the last 7 days", fmt_minutes(s.week_minutes)),
+            self._tile(str(s.week_episodes), _("Episodes in the last 7 days"), fmt_minutes(s.week_minutes)),
             self._tile(_n("{n} day", "{n} days", s.streak), _("Current streak"),
                        _n("Best: {n} day", "Best: {n} days", s.best_streak)),
-            self._tile(f"{s.total_episodes:,}", "Episodes watched, all time"),
+            self._tile(f"{s.total_episodes:,}", _("Episodes watched, all time")),
             self._tile(f"{days:,.1f} days" if days >= 1 else fmt_minutes(s.total_minutes),
-                       "Time watched, all time", f"{s.total_minutes // 60:,} hours"),
+                       _("Time watched, all time"), _("{value:,} hours").format(value=s.total_minutes // 60)),
         ]
         grid = QGridLayout()
         grid.setSpacing(theme.px(10 if theme.COMPACT else 12))
@@ -282,9 +282,9 @@ class StatsPage(QWidget):
         self.body.addLayout(grid)
 
         frame, lay = card(margins=18, spacing=10)
-        lay.addWidget(label("Daily goals", "h2"))
-        lay.addWidget(label("A day is complete when you tick everything planned for it. Days still unfinished "
-                            "when the week restarts (00:00 Sunday) count as failed.", "faint", wrap=True))
+        lay.addWidget(label(_("Daily goals"), "h2"))
+        lay.addWidget(label(_("A day is complete when you tick everything planned for it. Days still unfinished "
+                            "when the week restarts (00:00 Sunday) count as failed."), "faint", wrap=True))
         goals = (vbox if theme.COMPACT else hbox)(spacing=18)
         nums = vbox(spacing=8)
         rate = s.goal_rate
@@ -299,20 +299,20 @@ class StatsPage(QWidget):
         goals.addLayout(nums)
         grid_col = vbox(spacing=6)
         grid_col.addWidget(GoalGrid(s.goal_weeks))
-        grid_col.addWidget(label("✓ complete · ✕ failed · ! not finished yet · dashed: coming up", "faint", wrap=True))
+        grid_col.addWidget(label(_("✓ complete · ✕ failed · ! not finished yet · dashed: coming up"), "faint", wrap=True))
         goals.addLayout(grid_col, 1)
         lay.addLayout(goals)
         self.body.addWidget(frame)
 
         if not st.history:
             frame, lay = card(margins=18)
-            lay.addWidget(label("Your history starts now", "cardTitle"))
-            lay.addWidget(label("Tick episodes in Your Week and the charts below fill in day by day. "
-                                "All-time totals already include everything on your list.", "muted", wrap=True))
+            lay.addWidget(label(_("Your history starts now"), "cardTitle"))
+            lay.addWidget(label(_("Tick episodes in Your Week and the charts below fill in day by day. "
+                                "All-time totals already include everything on your list."), "muted", wrap=True))
             self.body.addWidget(frame)
 
         frame, lay = card(margins=18, spacing=10)
-        lay.addWidget(label("Episodes per week", "h2"))
+        lay.addWidget(label(_("Episodes per week"), "h2"))
         lay.addWidget(BarChart([(strftime(d, "%d %b"), n,
                                  _n("Week of {date}: {n} episode", "Week of {date}: {n} episodes", n,
                                     date=strftime(d, "%d %b")))
@@ -320,7 +320,7 @@ class StatsPage(QWidget):
         self.body.addWidget(frame)
 
         frame, lay = card(margins=18, spacing=10)
-        lay.addWidget(label("Last 30 days", "h2"))
+        lay.addWidget(label(_("Last 30 days"), "h2"))
         lay.addWidget(BarChart([(f"{d.day}", n, _n("{date}: {n} episode", "{date}: {n} episodes", n,
                                                     date=strftime(d, "%a %d %b")))
                                 for d, n in s.daily]))
@@ -328,16 +328,16 @@ class StatsPage(QWidget):
 
         row = (vbox if theme.COMPACT else hbox)(spacing=12)
         gframe, gl = card(margins=18, spacing=10)
-        gl.addWidget(label("Top genres", "h2"))
-        gl.addWidget(label("By episodes watched across your list.", "faint"))
+        gl.addWidget(label(_("Top genres"), "h2"))
+        gl.addWidget(label(_("By episodes watched across your list."), "faint"))
         if s.genres:
             gl.addWidget(HBarList(s.genres, "episodes"))
         else:
-            gl.addWidget(label("Genres appear once show details have loaded.", "muted"))
+            gl.addWidget(label(_("Genres appear once show details have loaded."), "muted"))
         gl.addStretch()
         row.addWidget(gframe, 1)
         lframe, ll = card(margins=18, spacing=10)
-        ll.addWidget(label("Your list", "h2"))
+        ll.addWidget(label(_("Your list"), "h2"))
         rate = s.completion_rate
         for value, caption in [(s.watching, "Watching"), (s.completed, "Completed"), (s.dropped, "Dropped"),
                                (f"{rate:.0%}" if rate is not None else "—", "Completion rate (completed vs dropped)")]:
@@ -351,14 +351,14 @@ class StatsPage(QWidget):
 
         if s.recent:
             frame, lay = card(margins=18, spacing=8)
-            lay.addWidget(label("Recently watched", "h2"))
+            lay.addWidget(label(_("Recently watched"), "h2"))
             for h in s.recent:
                 a = st.library.get(h["m"])
                 if a is None:
                     continue
                 line = hbox(spacing=10)
                 line.addWidget(Cover(a.image_url, a.name, 28, 40, 4))
-                line.addWidget(label(f"{a.name} — episode {h['e']}", "", wrap=True), 1)
+                line.addWidget(label(_("{name} — episode {e}").format(name=a.name, e=h['e']), "", wrap=True), 1)
                 try:
                     when = date.fromisoformat(h["d"])
                     line.addWidget(label(f"{when:%a %d %b}", "faint"))

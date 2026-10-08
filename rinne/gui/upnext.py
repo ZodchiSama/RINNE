@@ -39,35 +39,35 @@ class UpNextPage(QWidget):
         set_margins(self.body, page_margin())
         titles = vbox(spacing=2)
         titles.addWidget(label(_("Up Next"), "h1"))
-        titles.addWidget(label("What takes over when each show finishes. The next season always "
-                               "comes first — even if it isn't on your MAL list yet.", "muted", wrap=True))
+        titles.addWidget(label(_("What takes over when each show finishes. The next season always "
+                               "comes first — even if it isn't on your MAL list yet."), "muted", wrap=True))
         self.body.addLayout(titles)
 
         news = getattr(self.win, "announcements", None) or []
         if news:
-            self.body.addWidget(label("New seasons", "h2"))
-            self.body.addWidget(label("Sequels of shows you've watched that are airing or announced — and not on "
-                                      "your list yet.", "muted", wrap=True))
+            self.body.addWidget(label(_("New seasons"), "h2"))
+            self.body.addWidget(label(_("Sequels of shows you've watched that are airing or announced — and not on "
+                                      "your list yet."), "muted", wrap=True))
             for entry in news[:8]:
                 self.body.addWidget(self._announcement(entry))
             self.body.addSpacing(theme.px(8))
 
         rotation = scheduler.current_rotation(state.library)
-        self.body.addWidget(label("When a show finishes", "h2"))
+        self.body.addWidget(label(_("When a show finishes"), "h2"))
         if not rotation:
-            self.body.addWidget(label("Nothing on your Watching list yet.", "muted"))
+            self.body.addWidget(label(_("Nothing on your Watching list yet."), "muted"))
         for a in sorted(rotation, key=lambda a: (a.episodes_total - a.episodes_watched)
                         if a.episodes_total else 10**6):
             self.body.addWidget(self._succession(a, scheduler.preview_next(state, a)))
 
         self.body.addSpacing(theme.px(8))
-        self.body.addWidget(label("Plan to Watch picks", "h2"))
-        self.body.addWidget(label("Used when a series has no next season. Ranked by your taste, MAL "
-                                  "score, priority and variety.", "muted", wrap=True))
+        self.body.addWidget(label(_("Plan to Watch picks"), "h2"))
+        self.body.addWidget(label(_("Used when a series has no next season. Ranked by your taste, MAL "
+                                  "score, priority and variety."), "muted", wrap=True))
         excluded = scheduler.excluded_airing(state.library, state.settings.allow_airing)
         picks = rank(state.library, None, rotation, exclude=excluded)[:12]
         if not picks:
-            self.body.addWidget(label("Your Plan to Watch list is empty.", "muted"))
+            self.body.addWidget(label(_("Your Plan to Watch list is empty."), "muted"))
         for n, sug in enumerate(picks, 1):
             self.body.addWidget(self._pick_row(n, sug))
         self.body.addStretch()
@@ -81,10 +81,10 @@ class UpNextPage(QWidget):
             outer.addLayout(lay)
         frame.setProperty("clickable", True)
         Clickable(frame).clicked.connect(lambda: self.win.open_profile(current))
-        frame.setToolTip(f"Open {current.name}")
+        frame.setToolTip(_("Open {name}").format(name=current.name))
         lay.addWidget(Cover(current.image_url, current.name, 70, 100, 8))
         left = vbox(spacing=4)
-        left.addWidget(label("WHEN THIS FINISHES", "faint"))
+        left.addWidget(label(_("WHEN THIS FINISHES"), "faint"))
         t = label(current.name, "cardTitle", wrap=True)
         left.addWidget(t)
         if current.episodes_total:
@@ -107,8 +107,8 @@ class UpNextPage(QWidget):
             lay.addWidget(label("→", "arrow"), alignment=Qt.AlignVCenter)
 
         if sug is None:
-            lay.addWidget(label("Nothing to follow it — no next season and your Plan to Watch "
-                                "list is empty.", "muted", wrap=True), 1)
+            lay.addWidget(label(_("Nothing to follow it — no next season and your Plan to Watch "
+                                "list is empty."), "muted", wrap=True), 1)
             return frame
         nxt = sug.anime
         image = nxt.image_url
@@ -139,19 +139,19 @@ class UpNextPage(QWidget):
         lay.addWidget(Cover((node.get("coverImage") or {}).get("large", ""), title, 58, 82, 8), alignment=Qt.AlignTop)
         col = vbox(spacing=4)
         airing = node.get("status") == "RELEASING"
-        tags = [badge("Airing now", "badgeGreen") if airing else badge("Announced", "badgeAmber")]
+        tags = [badge(_("Airing now"), "badgeGreen") if airing else badge(_("Announced"), "badgeAmber")]
         if node.get("format"):
             tags.append(badge(node["format"].replace("_", " "), "chipLabel"))
         col.addWidget(button_row(*tags, spacing=6))
         col.addWidget(label(title, "cardTitle", wrap=True))
         col.addWidget(label(when_text(node), "small", wrap=True))
-        col.addWidget(label(f"Follows {entry['after'].name}", "faint", wrap=True))
-        add = QPushButton("Add to Plan to Watch")
+        col.addWidget(label(_("Follows {name}").format(name=entry['after'].name), "faint", wrap=True))
+        add = QPushButton(_("Add to Plan to Watch"))
         add.setObjectName("ghost")
         add.clicked.connect(lambda: self.win.add_sequel(entry["mal_id"]))
         buttons = [add]
         if airing:
-            start = QPushButton("Start watching")
+            start = QPushButton(_("Start watching"))
             start.setObjectName("primary")
             start.clicked.connect(lambda: self.win.add_sequel(entry["mal_id"], start=True))
             buttons.append(start)
@@ -178,7 +178,7 @@ class UpNextPage(QWidget):
                       1 if theme.COMPACT else 0)
         if a.mean_score:
             top.addWidget(badge(f"★ {a.mean_score:.2f}", "badgeAmber"))
-        top.addWidget(label(f"{a.episodes_total or '?'} eps", "faint"))
+        top.addWidget(label(_("{value} eps").format(value=a.episodes_total or '?'), "faint"))
         top.addStretch()
         mid.addLayout(top)
         good = [t for p, t in sug.reasons if p > 0][:3]
@@ -188,10 +188,10 @@ class UpNextPage(QWidget):
             text += ("  ·  " if text else "") + "  ·  ".join(f"<span style='color:{theme.DANGER}'>{t}</span>" for t in bad)
         mid.addWidget(label(text, "small", wrap=True, rich=True))
         lay.addLayout(mid, 1)
-        start = QPushButton("Start watching")
+        start = QPushButton(_("Start watching"))
         start.setObjectName("primary")
         start.clicked.connect(lambda: self.win.start_show(a))
-        never = QPushButton("Never suggest")
+        never = QPushButton(_("Never suggest"))
         never.setObjectName("ghost")
         never.clicked.connect(lambda: self.win.toggle_excluded(a))
         if theme.COMPACT:  # buttons under the text on phones, wrapping if needed
