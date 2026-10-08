@@ -70,4 +70,4 @@ Write whole sentences rather than joining pieces, so translators can reorder wor
 ## Releases
 
 Pushing a `v*` tag builds the Windows installer, the portable exe and the AppImage on GitHub
-Actions and attaches them to the release. Packaging for the AUR and Flathub lives in `packaging/`.
+Actions and attaches them to the release (`packaging/` has the build scripts).

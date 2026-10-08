@@ -11,7 +11,7 @@ CHANGELOG: list[tuple[str, str, list[str]]] = [
         "Stats page and a weekly recap",
         "Calendar file (.ics) of your plan for Google Calendar, Thunderbird and others",
         "Update check, a log file for bug reports, and much faster with big libraries",
-        "Packages for the AUR and Flathub; translations can now be added",
+        "Translations can now be added",
     ]),
     ("0.5.2", "Tidier days & Windows", [
         "Each day's episodes are stacked by show: one card per show, its episodes listed in order",

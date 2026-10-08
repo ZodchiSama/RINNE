@@ -56,10 +56,6 @@ chmod +x Rinne-*-x86_64.AppImage
 It runs on most distributions from 2022 onwards. Gear Lever or AppImageLauncher can add it to your
 app menu and keep it updated.
 
-**Arch Linux (AUR)**, coming soon: `yay -S rinne`
-
-**Flathub**, coming soon: `flatpak install flathub io.github.zodchisama.rinne`
-
 **From source:**
 
 ```sh
@@ -71,7 +67,6 @@ cd RINNE
 Rinne checks GitHub for new versions once a day. When one is out it shows the release notes once,
 sends a notification, and keeps an **Update** button in the sidebar (Settings → General). After
 updating, a one-time *What's new* window lists the changes, and they stay in Settings → About.
-AUR and Flatpak copies update through your package manager instead.
 
 ## Getting your list in
 
@@ -194,8 +189,7 @@ packaging/linux/build_appimage.sh       # AppImage in dist/
 ```
 
 Pushing a `v*` tag builds the Windows installer, the portable exe and the AppImage on GitHub
-Actions. Packaging for the AUR and Flathub is in [`packaging/`](packaging/). See
-[CONTRIBUTING.md](CONTRIBUTING.md) for the code layout.
+Actions. See [CONTRIBUTING.md](CONTRIBUTING.md) for the code layout.
 
 ## Feedback
 
