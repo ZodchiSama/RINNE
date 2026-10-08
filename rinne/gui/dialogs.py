@@ -99,9 +99,9 @@ class WhatsNewDialog(_FitHeight, QDialog):
         head.addWidget(label(_("What's new"), "faint"))
         head.addStretch()
         root.addLayout(head)
-        root.addWidget(label(title, "h1", wrap=True))
+        root.addWidget(label(_(title), "h1", wrap=True))
         for note in notes:
-            root.addWidget(label(f"•  {note}", "", wrap=True))
+            root.addWidget(label(f"•  {_(note)}", "", wrap=True))
         root.addSpacing(theme.px(4))
         root.addWidget(label(_("You can read these notes again any time in Settings → About."), "faint", wrap=True))
         ok = QPushButton(_("Got it"))

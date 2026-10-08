@@ -24,8 +24,11 @@ By **Zodchi** · [MIT License](LICENSE)
   and give each weekday its own amount of episodes or minutes.
 - **Airing shows** are scheduled as episodes come out, and you catch up if you fall behind.
 - **New seasons** of shows you've watched are announced, and can be added automatically.
-- **Connect MyAnimeList or AniList:** your list comes in, private entries too, and ticked
-  episodes, status changes and scores are sent back for you.
+- **Connect MyAnimeList or AniList:** your list comes in, private entries too, and stays in sync
+  both ways: ticked episodes, status changes and scores are sent for you, and changes you make
+  there come back to Rinne.
+- **English or Russian**, with show titles in Russian too (from Shikimori), and lists importable
+  from Shikimori.
 - **Show profiles** with synopsis, cast and voice actors, related entries, upcoming seasons and
   where to watch.
 - **Stats** and a weekly recap, plus a **calendar file** for Google Calendar, Thunderbird and
@@ -94,13 +97,15 @@ Re-importing is safe: progress you tracked in Rinne is never rolled back by an o
 
 Once you're connected (from **Connect** in the sidebar or **Settings → Accounts**), the episodes
 you tick, status changes and scores are sent a few seconds later, and only for shows that
-changed. Sign-ins are stored only on your computer. Turn sending off per service at any time,
+changed. Changes you make on MyAnimeList or AniList themselves come back to Rinne on startup and
+every few hours, and planned episodes you watched elsewhere are ticked for you. Sign-ins are stored only on your computer. Turn sending off per service at any time,
 press **Sync now**, or bring your list in again from the Connect window.
 
 ## Using Rinne
 
 - **Your Week:** the week runs Sunday to Saturday, with a strip showing each day at a glance and
-  one card per show listing its episodes. Tick an episode when you've watched it. When a day is
+  one card per show listing its episodes. Tick an episode when you've watched it (a mis-click
+  can be undone from the message that appears). When a day is
   done it folds into a one-line summary (**Show** opens it again). Earlier days you didn't
   finish stay open, marked *Unfinished*. **Drag** a show onto another day to move it, or within
   a day to reorder. Use **−** / **+** to change a day's amount. **Replan from today** (Ctrl R)
@@ -172,8 +177,9 @@ A pop-up shows what comes next and why. Automatic replacement can be turned off 
 
 ## Translations
 
-Rinne ships in English. The interface is ready for translations, which are a single JSON file
-each. See [CONTRIBUTING.md](CONTRIBUTING.md#translating-rinne) for how to add a language.
+Rinne's interface is available in **English** and **Russian** (Settings → General → Interface
+language). Show titles can also be shown in Russian, from Shikimori. Each language is a single JSON
+file; see [CONTRIBUTING.md](CONTRIBUTING.md#translating-rinne) to add yours.
 
 ## Limitations
 

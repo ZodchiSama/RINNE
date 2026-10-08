@@ -75,6 +75,17 @@
     <keyword>watchlist</keyword>
   </keywords>
   <releases>
+    <release version="1.1.0" date="2026-10-08">
+      <description>
+        <p>Two-way sync and Russian.</p>
+        <ul>
+          <li>Changes made on MyAnimeList or AniList come back to Rinne too</li>
+          <li>Russian interface, and show titles in Russian from Shikimori</li>
+          <li>Import a list from Shikimori</li>
+          <li>Undo for ticked episodes, and an offline notice</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.0.0" date="2026-10-01">
       <description>
         <p>The biggest update yet: account sync, AniList, planning controls, stats and more.</p>

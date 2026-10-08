@@ -1,6 +1,17 @@
-"""Release notes shown on the About page (newest first)."""
+"""Release notes shown in What's new and on the About page (newest first).
+Notes wrapped in N_ are translated when shown."""
+
+from .i18n import N_
 
 CHANGELOG: list[tuple[str, str, list[str]]] = [
+    ("1.1.0", N_("Two-way sync and Russian"), [
+        N_("Changes you make on MyAnimeList or AniList come back to Rinne too, on startup and every few hours"),
+        N_("Russian interface, and show titles in Russian (from Shikimori)"),
+        N_("Import a list from Shikimori"),
+        N_("Undo for ticked episodes"),
+        N_("An offline notice; Rinne catches up when you're back online"),
+        N_("Fixes: only the current page is highlighted in the sidebar; narrow windows on Windows"),
+    ]),
     ("1.0.0", "Rinne 1.0", [
         "Connect MyAnimeList or AniList: your list comes in and stays in sync as you tick episodes",
         "Weekly goals: weeks run Sunday to Saturday; finish a day to see it celebrated, and Stats keeps "

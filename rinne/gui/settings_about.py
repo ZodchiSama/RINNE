@@ -46,7 +46,7 @@ class AboutSection:
         info.addWidget(label(DISPLAY_NAME, "h1"))
         row = hbox(spacing=8)
         row.addWidget(badge(_("v{version}").format(version=__version__)))
-        row.addWidget(badge(CHANGELOG[0][1], "badgeGreen"))
+        row.addWidget(badge(_(CHANGELOG[0][1]), "badgeGreen"))
         row.addWidget(label(_("by {AUTHOR}").format(AUTHOR=AUTHOR), "credit"))
         row.addStretch()
         info.addLayout(row)
@@ -141,11 +141,11 @@ class AboutSection:
             box, bl = card(margins=16, spacing=6)
             head = hbox(spacing=8)
             head.addWidget(badge(_("v{version}").format(version=version), "badge" if version != __version__ else "badgeGreen"))
-            head.addWidget(label(title, "settingTitle"))
+            head.addWidget(label(_(title), "settingTitle"))
             head.addStretch()
             bl.addLayout(head)
             for note in notes:
-                bl.addWidget(label(f"•  {note}", "small", wrap=True))
+                bl.addWidget(label(f"•  {_(note)}", "small", wrap=True))
             self.body.addWidget(box)
 
         # --- Privacy
