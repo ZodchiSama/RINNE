@@ -322,6 +322,11 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         import_manually(self, kind)
 
     def _go(self, n: int) -> None:
+        # Opening a profile or Settings turns exclusivity off to clear the highlight (an exclusive
+        # group can't have nothing checked); turn it back on so only this page is highlighted.
+        if self.nav.button(n) is not None:
+            self.nav.setExclusive(True)
+            self.nav.button(n).setChecked(True)
         self.stack.setCurrentIndex(n)
         self.settings_btn.setChecked(False)
         self._sync_bottom_bar()
@@ -528,8 +533,6 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
                 QShortcut(seq, self, activated=fn, context=Qt.ApplicationShortcut)
 
     def _nav_to(self, n: int) -> None:
-        self.nav.setExclusive(True)
-        self.nav.button(n).setChecked(True)
         self._go(n)
 
     def eventFilter(self, obj, event) -> bool:

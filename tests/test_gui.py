@@ -267,3 +267,19 @@ def test_update_popup_and_notification_once_per_release(win, app, monkeypatch):
             app.processEvents()
             time.sleep(0.01)
     assert popups == [1] and notes == ["Rinne 9.0.0 is available"]
+
+
+def test_only_the_current_page_is_highlighted_in_the_sidebar(win, app):
+    """After a profile or Settings (which clear the highlight), clicking pages must move it."""
+    win.open_profile(win.state.library[1])
+    app.processEvents()
+    for n in (1, 2, 3, 0):
+        win.nav.button(n).click()  # a real click, like the mouse
+        app.processEvents()
+        assert [b.isChecked() for b in win.nav.buttons()] == [i == n for i in range(4)]
+    win.open_settings()
+    app.processEvents()
+    win.nav.button(2).click()
+    app.processEvents()
+    assert [b.isChecked() for b in win.nav.buttons()] == [False, False, True, False]
+    assert not win.settings_btn.isChecked()
