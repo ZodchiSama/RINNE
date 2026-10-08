@@ -154,6 +154,9 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         QTimer.singleShot(300, self._startup_enrich)
         QTimer.singleShot(5000, self._auto_update_check)
         QTimer.singleShot(8000, self.check_announcements)
+        QTimer.singleShot(6000, self.pull_accounts)
+        self._pull_timer = QTimer(self, interval=3 * 60 * 60 * 1000, timeout=self.pull_accounts)
+        self._pull_timer.start()
         QTimer.singleShot(1200, self._maybe_whats_new)
 
     def _maybe_whats_new(self) -> None:

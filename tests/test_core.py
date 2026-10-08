@@ -922,3 +922,15 @@ def test_russian_titles_are_cached_and_used_when_chosen(tmp_path, monkeypatch):
     old = {1: show(1, "Cowboy Bebop")}
     mal.merge_import(old, [show(1, "Cowboy Bebop", title_ru="Ковбой Бибоп")])
     assert old[1].title_ru == "Ковбой Бибоп"
+
+
+def test_after_pull_keeps_newer_local_changes_pending_and_never_pushes_other_shows():
+    from rinne import sync
+    lib = {1: show(1, status=WATCHING, episodes_watched=5),   # ahead of the account (watched offline)
+           2: show(2, status=WATCHING, episodes_watched=7),   # same as the account
+           3: show(3, status=PLAN_TO_WATCH)}                  # not on this account at all
+    account = [show(1, status=WATCHING, episodes_watched=4), show(2, status=WATCHING, episodes_watched=7)]
+    base = sync.after_pull(lib, account, previous={})
+    assert [a.mal_id for a in sync.pending_changes(lib, base)] == [1]
+    base = sync.after_pull(lib, account, previous={3: ["watching", 1, 0]})
+    assert base[3] == ["watching", 1, 0]  # an earlier baseline for an off-account show is kept

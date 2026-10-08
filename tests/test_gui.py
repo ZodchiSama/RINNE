@@ -283,3 +283,39 @@ def test_only_the_current_page_is_highlighted_in_the_sidebar(win, app):
     app.processEvents()
     assert [b.isChecked() for b in win.nav.buttons()] == [False, False, True, False]
     assert not win.settings_btn.isChecked()
+
+
+def test_background_pull_brings_in_progress_made_elsewhere(win, app, monkeypatch):
+    import time
+
+    from rinne import anilist
+    from rinne.gui import services
+    win.state.settings.anilist_token, win.state.settings.anilist_user = "tok", "me"
+    win.state.synced["anilist"] = {}
+    account = []
+    for a in win.state.library.values():
+        b = Anime(**{k: v for k, v in a.to_dict().items()})
+        if a.mal_id == 2:
+            b.episodes_watched = a.episodes_watched + 1  # watched one more on AniList's app
+        account.append(b)
+    monkeypatch.setattr(anilist, "fetch_user_list", lambda user, progress=None, token="": (account, 0))
+    pushed = []
+    monkeypatch.setattr(services.sync, "push_all", lambda *a, **k: pushed.append(a) or {})
+    start = date.fromisoformat(win.state.week.week_start)
+    today = (date.today() - start).days
+    first = next(it for it in win.state.week.items if it.mal_id == 2 and it.day == today)
+    win.pull_accounts()
+    end = time.time() + 3
+    while time.time() < end and win.state.library[2].episodes_watched != first.episode:
+        app.processEvents()
+        time.sleep(0.01)
+    assert win.state.library[2].episodes_watched == first.episode
+    ticked = next(it for it in win.state.week.items if it.mal_id == 2 and it.episode == first.episode)
+    assert ticked.done  # the plan knows it was watched elsewhere
+    assert "Updated from AniList: 1 show" in win.statusBar().currentMessage()
+    assert sync_pending(win) == []  # nothing to send back
+
+
+def sync_pending(win):
+    from rinne import sync
+    return sync.pending_changes(win.state.library, win.state.synced["anilist"])

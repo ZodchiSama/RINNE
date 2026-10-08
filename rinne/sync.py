@@ -55,6 +55,18 @@ def baseline(library: dict[int, Anime]) -> dict[int, list]:
     return {a.mal_id: snapshot(a) for a in library.values()}
 
 
+def after_pull(library: dict[int, Anime], account: list[Anime], previous: dict[int, list]) -> dict[int, list]:
+    """The sync baseline after bringing in an account's list: what the account holds now.
+    Anything newer in Rinne (a tick not sent yet, progress made offline) still differs, so it's
+    still sent. Shows the account doesn't have keep their old baseline, or count as in sync, so
+    a pull never pushes a whole other list into the account."""
+    base = {a.mal_id: snapshot(a) for a in account}
+    for a in library.values():
+        if a.mal_id not in base:
+            base[a.mal_id] = previous.get(a.mal_id, snapshot(a))
+    return base
+
+
 # --------------------------------------------------------------------------- HTTP helpers
 
 

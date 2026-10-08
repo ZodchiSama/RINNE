@@ -238,9 +238,20 @@ class ServicesMixin:
         self._run(sync.anilist_viewer, (token,), done, with_progress=False, exclusive=False,
                   on_error=lambda msg: (on_result or (lambda m: QMessageBox.warning(self, "AniList", m)))(msg))
 
-    def pull_account(self, service: str) -> None:
-        """Bring in the list of a connected account (private entries too)."""
+    def pull_accounts(self) -> None:
+        """Quietly bring in changes made on MyAnimeList / AniList (on startup and every few hours),
+        so watching or editing there shows up here too."""
         s = self.state.settings
+        if s.mal_token:
+            self.pull_account("mal", quiet=True)
+        if s.anilist_token:
+            self.pull_account("anilist", quiet=True)
+
+    def pull_account(self, service: str, quiet: bool = False) -> None:
+        """Bring in the list of a connected account (private entries too). `quiet`: in the
+        background, saying something only if anything changed."""
+        s = self.state.settings
+        name = "MyAnimeList" if service == "mal" else "AniList"
 
         def job(progress=None):
             if service == "mal":
@@ -253,14 +264,35 @@ class ServicesMixin:
             tokens, entries = result
             if tokens:
                 s.mal_token = tokens
-            self._finish_import(entries)
-            # What the account holds now is the starting point for sync, so the import itself
-            # isn't sent back.
-            self.state.synced[service] = sync.baseline(self.state.library)
+            lib = self.state.library
+            before = {k: sync.snapshot(a) for k, a in lib.items()}
+            if quiet:
+                added, _updated = mal.merge_import(lib, entries)
+                if added:
+                    self.run_enrich()
+            else:
+                self._finish_import(entries)
+            # What the account holds is now the starting point for sync: the import isn't sent
+            # back, but anything newer in Rinne still is.
+            self.state.synced[service] = sync.after_pull(lib, entries, self.state.synced.get(service, {}))
+            changed = sum(1 for k, a in lib.items() if before.get(k) != sync.snapshot(a))
+            if changed:
+                scheduler.replan(self.state, keep_today=True)  # ticks episodes watched elsewhere
+                if quiet:
+                    self.statusBar().showMessage(
+                        f"Updated from {name}: {changed} show{'s' if changed != 1 else ''}", 8000)
             self.save()
             self.refresh()
 
-        self._run(job, (), done)
+        def failed(msg: str) -> None:
+            log.info("Pulling from %s failed: %s", name, msg)
+            if not quiet:
+                QMessageBox.warning(self, name, msg)
+
+        if quiet:
+            self._run(job, (), done, with_progress=False, exclusive=False, on_error=failed)
+        else:
+            self._run(job, (), done, on_error=failed)
 
     def disconnect_account(self, service: str) -> None:
         s = self.state.settings
