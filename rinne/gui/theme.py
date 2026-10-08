@@ -263,6 +263,11 @@ def stylesheet() -> str:
     #day[today="true"] {{ border: 2px solid {ACCENT}; background: {today_bg}; }}
     #day[past="true"] {{ background: {sidebar}; }}
     #day[dropTarget="true"] {{ border: 2px dashed {ACCENT}; background: {ACCENT_CARD}; }}
+    #toast {{ background: {SURFACE_3}; border: 1px solid {BORDER}; border-radius: {px(12)}px; }}
+    #toast QLabel {{ color: {TEXT}; }}
+    QPushButton#toastAction {{ background: transparent; border: none; color: {SOFT_TEXT}; font-weight: 800;
+                               padding: {px(4)}px {px(10)}px; }}
+    QPushButton#toastAction:hover {{ color: {TEXT}; }}
     #dayDone {{ background: {surface}; border: 1px solid {BORDER}; border-left: {px(4)}px solid {SUCCESS};
                 border-radius: {r}px; }}
     #doneCheck {{ background: {SUCCESS}; color: {SURFACE}; border-radius: {px(15)}px;

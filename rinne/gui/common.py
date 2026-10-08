@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QPoint, QRect, QSize, Qt, Signal
+from PySide6.QtCore import QObject, QPoint, QRect, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QFontMetrics, QPainter
 from PySide6.QtWidgets import (
-    QAbstractButton, QBoxLayout, QFrame, QHBoxLayout, QLabel, QLayout, QProgressBar, QScrollArea, QSizePolicy,
-    QVBoxLayout, QWidget,
+    QAbstractButton, QBoxLayout, QFrame, QHBoxLayout, QLabel, QLayout, QProgressBar, QPushButton, QScrollArea,
+    QSizePolicy, QVBoxLayout, QWidget,
 )
 
 from ..models import CURRENTLY_AIRING, WEEKDAYS, Anime
@@ -346,3 +346,46 @@ def human_size(n: int) -> str:
             return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
         n /= 1024
     return f"{n} B"
+
+
+class Toast(QFrame):
+    """A short message at the bottom of the window, with an optional action (e.g. Undo)."""
+
+    def __init__(self, parent: QWidget):
+        super().__init__(parent)
+        self.setObjectName("toast")
+        lay = hbox(self, 12, 10)
+        lay.setContentsMargins(theme.px(16), theme.px(8), theme.px(8), theme.px(8))
+        self.text = label("", "")
+        lay.addWidget(self.text, 1)
+        self.action = QPushButton("")
+        self.action.setObjectName("toastAction")
+        self.action.setCursor(Qt.PointingHandCursor)
+        lay.addWidget(self.action)
+        self._callback = None
+        self.action.clicked.connect(self._act)
+        self._timer = QTimer(self, singleShot=True, timeout=self.hide)
+        self.hide()
+
+    def show_message(self, text: str, action: str = "", callback=None, ms: int = 6000) -> None:
+        self.text.setText(text)
+        self.action.setText(action)
+        self.action.setVisible(bool(action))
+        self._callback = callback
+        self.adjustSize()
+        self.place()
+        self.show()
+        self.raise_()
+        self._timer.start(ms)
+
+    def place(self) -> None:
+        p = self.parentWidget()
+        w = min(self.sizeHint().width(), p.width() - theme.px(24))
+        self.resize(w, self.sizeHint().height())
+        above_nav = theme.px(72) if theme.COMPACT else 0  # clear of the phone layout's bottom bar
+        self.move((p.width() - w) // 2, p.height() - self.height() - theme.px(18) - above_nav)
+
+    def _act(self) -> None:
+        self.hide()
+        if self._callback:
+            self._callback()

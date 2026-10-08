@@ -19,7 +19,7 @@ from ..logs import log
 from ..models import COMPLETED, WATCHING, Anime
 from ..storage import load_state, save_state
 from . import icons, theme
-from .common import Clickable, ElidedLabel, clear, hbox, label, vbox
+from .common import Clickable, ElidedLabel, Toast, clear, hbox, label, vbox
 from .images import Cover
 from .backdrop import Backdrop
 from .desktop import DesktopMixin, app_icon
@@ -151,6 +151,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
             self.show_welcome()
         self.refresh()
         self.backdrop.set_enabled(self.state.settings.backdrop)
+        self.toast = Toast(self.centralWidget())
         QTimer.singleShot(300, self._startup_enrich)
         QTimer.singleShot(5000, self._auto_update_check)
         QTimer.singleShot(8000, self.check_announcements)
@@ -428,6 +429,8 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
+        if hasattr(self, "toast") and self.toast.isVisible():
+            self.toast.place()
         if hasattr(self, "bottom_bar"):
             self._apply_compact()
 
@@ -627,6 +630,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         week = self.state.week
         item = week.items[idx]
         day, was_complete = item.day, week.day_complete(item.day)
+        mal_id, episode, ticked = item.mal_id, item.episode, not item.done
         event = scheduler.toggle_item(self.state, item)
         week = self.state.week
         if not was_complete and week and week.day_complete(day):
@@ -636,7 +640,21 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         self.save()
         self.refresh()
         if event.finished:
-            self._on_finished(event.finished)
+            self._on_finished(event.finished)  # a finale moves the series on; no undo for that
+            return
+        anime = self.state.library.get(mal_id)
+        self.toast.show_message(f"{anime.name if anime else 'Episode'} · episode {episode} "
+                                f"{'watched' if ticked else 'unticked'}", "Undo",
+                                lambda: self._untoggle(mal_id, episode))
+
+    def _untoggle(self, mal_id: int, episode: int) -> None:
+        """Undo a tick (or an untick). The plan may have been rebuilt, so find the episode again."""
+        week = self.state.week
+        idx = next((n for n, it in enumerate(week.items) if it.mal_id == mal_id and it.episode == episode), None)
+        if idx is None:
+            return
+        self.toggle_item(idx)
+        self.toast.hide()
 
     def move_show(self, mal_id: int, from_date, to_date) -> None:
         """Drag & drop: move a show's episodes from one day to another."""

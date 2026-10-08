@@ -319,3 +319,20 @@ def test_background_pull_brings_in_progress_made_elsewhere(win, app, monkeypatch
 def sync_pending(win):
     from rinne import sync
     return sync.pending_changes(win.state.library, win.state.synced["anilist"])
+
+
+def test_a_tick_can_be_undone(win, app):
+    win._on_finished = lambda *a: None
+    start = date.fromisoformat(win.state.week.week_start)
+    today = (date.today() - start).days
+    idx = next(n for n, it in enumerate(win.state.week.items) if it.day == today and it.mal_id == 1)
+    before = win.state.library[1].episodes_watched
+    win.toggle_item(idx)
+    app.processEvents()
+    assert win.state.library[1].episodes_watched == before + 1
+    assert win.toast.isVisible() and "watched" in win.toast.text.text()
+    win.toast.action.click()  # Undo
+    app.processEvents()
+    assert win.state.library[1].episodes_watched == before
+    assert not win.toast.isVisible()
+    assert not any(it.done for it in win.state.week.items if it.mal_id == 1 and it.day == today)
