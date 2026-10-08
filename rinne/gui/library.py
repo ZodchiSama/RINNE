@@ -13,8 +13,8 @@ from PySide6.QtWidgets import (
     QScrollArea, QStyle, QStyledItemDelegate, QStyleOptionViewItem, QWidget,
 )
 
-from ..i18n import _
-from ..models import LIST_STATUSES, PLAN_TO_WATCH, STATUS_LABELS, Anime
+from ..i18n import _, N_
+from ..models import LIST_STATUSES, PLAN_TO_WATCH, Anime, status_label
 from . import theme
 from .common import elide_lines, hbox, label, page_margin, progress_text, set_margins, vbox
 from .images import cache
@@ -71,7 +71,7 @@ class PosterDelegate(QStyledItemDelegate):
         f.setPixelSize(theme.px(11))
         f.setBold(True)
         p.setFont(f)
-        text = STATUS_LABELS.get(anime.status, anime.status)
+        text = status_label(anime.status)
         fm = QFontMetrics(f)
         pill = QRect(r.left() + pad + theme.px(6), r.top() + pad + theme.px(6),
                      fm.horizontalAdvance(text) + theme.px(14), fm.height() + theme.px(6))
@@ -126,7 +126,7 @@ class LibraryFilter(QSortFilterProxyModel):
         return self.text in (idx.data(SEARCH_ROLE) or "")
 
 
-SORTS = [("Title", "title"), ("MAL score", "score"), ("Progress", "progress"), ("Recently started", "started")]
+SORTS = [(N_("Title"), "title"), (N_("MAL score"), "score"), (N_("Progress"), "progress"), (N_("Recently started"), "started")]
 
 
 class LibraryPage(QWidget):
@@ -144,10 +144,10 @@ class LibraryPage(QWidget):
         titles.addWidget(label(_("Library"), "h1"))
         self.count = label("", "muted", wrap=True)
         titles.addWidget(self.count)
-        self.search = QLineEdit(placeholderText="Search your list…")
+        self.search = QLineEdit(placeholderText=_("Search your list…"))
         self.sort = QComboBox()
         for text, key in SORTS:
-            self.sort.addItem(f"Sort: {text}", key)
+            self.sort.addItem(_("Sort: {name}").format(name=_(text)), key)
         self.import_btn = QPushButton(_("Add your list"))
         self.import_btn.setObjectName("ghost")
         imenu = QMenu(self.import_btn)
@@ -168,7 +168,7 @@ class LibraryPage(QWidget):
         chip_host.setObjectName("page")
         chips = hbox(chip_host, 8)
         self.group = QButtonGroup(self)
-        for n, (text, key) in enumerate([("All", "")] + [(STATUS_LABELS[s], s) for s in LIST_STATUSES]):
+        for n, (text, key) in enumerate([(_("All"), "")] + [(status_label(s), s) for s in LIST_STATUSES]):
             b = QPushButton(text)
             b.setObjectName("chip")
             b.setCheckable(True)
@@ -310,7 +310,7 @@ class LibraryPage(QWidget):
         menu = QMenu(self)
         status_menu = menu.addMenu(_("Set status"))
         for s in LIST_STATUSES:
-            act = status_menu.addAction(STATUS_LABELS[s])
+            act = status_menu.addAction(status_label(s))
             act.setCheckable(True)
             act.setChecked(anime.status == s)
             act.triggered.connect(lambda _=False, s=s: self.win.set_status(anime, s))

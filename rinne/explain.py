@@ -5,12 +5,12 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from . import scheduler
+from .i18n import _, _n, weekday_name
 from .models import (
     COMPLETED, CURRENTLY_AIRING, DROPPED, ON_HOLD, PLAN_TO_WATCH, WATCHING, Anime,
 )
 from .recommender import SERIES, rank
 from .storage import State
-from .i18n import _, _n, weekday_name
 
 
 def _fmt_date(iso: str) -> str:
@@ -22,7 +22,7 @@ def _fmt_date(iso: str) -> str:
 
 def _hours(minutes: int) -> str:
     h, m = divmod(minutes, 60)
-    return f"{h}h {m:02d}m" if h else f"{m} min"
+    return _("{h}h {m:02d}m").format(h=h, m=m) if h else _("{m} min").format(m=m)
 
 
 def why(state: State, anime: Anime, today: date | None = None) -> list[str]:
@@ -33,8 +33,8 @@ def why(state: State, anime: Anime, today: date | None = None) -> list[str]:
 
     if anime.status == WATCHING:
         if o.get("replaced"):
-            how = ("it's the next season" if o.get("kind") == SERIES
-                   else "it was the best pick from your Plan to Watch list")
+            how = (_("it's the next season") if o.get("kind") == SERIES
+                   else _("it was the best pick from your Plan to Watch list"))
             out.append(_("Took over from {replaced} on {value} — {how}").format(replaced=o['replaced'], value=_fmt_date(o.get('date', '')), how=how))
         elif o.get("kind") == "manual":
             out.append(_("You started it from Up Next on {value}").format(value=_fmt_date(o.get('date', ''))))

@@ -87,6 +87,15 @@ def strftime(d, fmt: str) -> str:
                .replace("%\x00A", weekday_name(d.weekday())).replace("%\x00a", weekday_name(d.weekday(), True)))
 
 
+SEASONS = {"WINTER": "Winter", "SPRING": "Spring", "SUMMER": "Summer", "FALL": "Fall"}
+
+
+def season_name(season: str) -> str:
+    """An anime season (AniList's WINTER / SPRING / SUMMER / FALL) in the interface language."""
+    name = SEASONS.get((season or "").upper())
+    return _(name) if name else (season or "").title()
+
+
 def date_keys() -> list[str]:
     """Catalog keys used by dates (for tools/extract_strings.py)."""
     keys = []
@@ -94,7 +103,7 @@ def date_keys() -> list[str]:
         keys += [m, m[:3], f"{m} (in a date)"]
     for w in WEEKDAYS:
         keys += [w, w[:3]]
-    return keys
+    return keys + list(SEASONS.values())
 
 
 def N_(text: str) -> str:

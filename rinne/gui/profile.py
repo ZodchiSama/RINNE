@@ -12,29 +12,30 @@ from PySide6.QtGui import QColor, QDesktopServices, QLinearGradient, QPainter, Q
 from PySide6.QtWidgets import QFrame, QGraphicsOpacityEffect, QMenu, QPushButton, QWidget
 
 from .. import anilist, artwork, explain, models
-from ..models import CURRENTLY_AIRING, LIST_STATUSES, STATUS_LABELS, Anime
+from ..i18n import _, _n, N_, season_name, strftime
+from ..models import CURRENTLY_AIRING, LIST_STATUSES, Anime, status_label
 from . import theme
 from .common import (
+    format_label,
     Clickable, FlowLayout, Switch, badge, button_row, card, clear, hbox, label, page_margin, progress,
     set_margins, vbox, watch_button,
 )
 from .images import Cover, cache
 from .common import scroll_page
-from ..i18n import _, _n, strftime
 
 if TYPE_CHECKING:
     from .window import MainWindow
 
 RELATION_LABELS = {
-    "SEQUEL": "Sequel", "PREQUEL": "Prequel", "SIDE_STORY": "Side story", "PARENT": "Parent story",
-    "SPIN_OFF": "Spin-off", "ALTERNATIVE": "Alternative", "SUMMARY": "Summary",
-    "COMPILATION": "Compilation", "OTHER": "Other", "CHARACTER": "Shares characters",
+    "SEQUEL": N_("Sequel"), "PREQUEL": N_("Prequel"), "SIDE_STORY": N_("Side story"), "PARENT": N_("Parent story"),
+    "SPIN_OFF": N_("Spin-off"), "ALTERNATIVE": N_("Alternative"), "SUMMARY": N_("Summary"),
+    "COMPILATION": N_("Compilation"), "OTHER": N_("Other"), "CHARACTER": N_("Shares characters"),
 }
 RELATION_ORDER = ["PREQUEL", "SEQUEL", "PARENT", "SIDE_STORY", "SPIN_OFF", "ALTERNATIVE",
                   "SUMMARY", "COMPILATION", "CHARACTER", "OTHER"]
-SOURCE_LABELS = {"MANGA": "Manga", "LIGHT_NOVEL": "Light novel", "ORIGINAL": "Original",
-                 "VISUAL_NOVEL": "Visual novel", "WEB_NOVEL": "Web novel", "NOVEL": "Novel",
-                 "VIDEO_GAME": "Video game", "GAME": "Game"}
+SOURCE_LABELS = {"MANGA": N_("Manga"), "LIGHT_NOVEL": N_("Light novel"), "ORIGINAL": N_("Original"),
+                 "VISUAL_NOVEL": N_("Visual novel"), "WEB_NOVEL": N_("Web novel"), "NOVEL": N_("Novel"),
+                 "VIDEO_GAME": N_("Video game"), "GAME": N_("Game")}
 
 
 def pick_title(t: dict | None, mal_id: int | None = None) -> str:
@@ -56,7 +57,7 @@ def when_text(node: dict, today: date | None = None) -> str:
     nxt = node.get("nextAiringEpisode")
     if node.get("status") == "RELEASING" and nxt:
         when = datetime.fromtimestamp(nxt["airingAt"])
-        return f"Airing now — episode {nxt['episode']} on {when:%a %d %b}"
+        return _("Airing now — episode {episode} on {when}").format(episode=nxt['episode'], when=strftime(when, '%a %d %b'))
     d = node.get("startDate") or {}
     y, m, day = d.get("year"), d.get("month"), d.get("day")
     if y and m and day:
@@ -67,12 +68,12 @@ def when_text(node: dict, today: date | None = None) -> str:
                       date=strftime(start, "%a %d %B %Y"))
         return _("Started {date}").format(date=strftime(start, "%d %B %Y"))
     if y and m:
-        return f"Expected {date(y, m, 1):%B %Y}"
+        return _("Expected {value}").format(value=strftime(date(y, m, 1), '%B %Y'))
     if node.get("season") and node.get("seasonYear"):
-        return f"Expected {node['season'].title()} {node['seasonYear']}"
+        return _("Expected {season} {year}").format(season=season_name(node['season']), year=node['seasonYear'])
     if y:
-        return f"Expected {y}"
-    return "Release date not announced yet"
+        return _("Expected {y}").format(y=y)
+    return _("Release date not announced yet")
 
 
 def _fans(n: int) -> str:
@@ -83,7 +84,7 @@ def clean_description(text: str) -> str:
     text = re.sub(r"<br\s*/?>\s*(<br\s*/?>\s*)*", "<br><br>", text or "")
     text = re.sub(r"\(Source:[^)]*\)", "", text)
     text = re.sub(r"<(?!/?(i|b|em|strong|br)\b)[^>]+>", "", text)
-    return text.strip() or "No synopsis available."
+    return text.strip() or _("No synopsis available.")
 
 
 class Banner(QWidget):
@@ -179,12 +180,12 @@ class ProfilePage(QWidget):
                 self._load_upcoming(mal_id, data["id"])
             self.data = data or {}
             if not data:
-                self.error = "AniList has no entry for this show."
+                self.error = _("AniList has no entry for this show.")
             self.refresh()
 
     def _failed(self, mal_id: int, message: str) -> None:
         if self.anime and self.anime.mal_id == mal_id:
-            self.error = f"Couldn't load details: {message}"
+            self.error = _("Couldn't load details: {message}").format(message=message)
             self.refresh()
 
     # ------------------------------------------------------------------ building
@@ -250,18 +251,19 @@ class ProfilePage(QWidget):
             info.addWidget(label("  ·  ".join(others[:3]), "muted", wrap=True))
 
         chips = FlowLayout(spacing=6)
-        facts = [a.media_type or None]
+        facts = [format_label(a.media_type) if a.media_type else None]
         if a.episodes_total:
-            facts.append(f"{a.episodes_total} episodes")
+            facts.append(_n("{n} episode", "{n} episodes", a.episodes_total))
         if a.episode_minutes:
-            facts.append(f"{a.episode_minutes} min")
+            facts.append(_("{episode_minutes} min").format(episode_minutes=a.episode_minutes))
         if d.get("season") and d.get("seasonYear"):
-            facts.append(f"{d['season'].title()} {d['seasonYear']}")
+            facts.append(f"{season_name(d['season'])} {d['seasonYear']}")
         studios = [s["name"] for s in (d.get("studios") or {}).get("nodes", [])]
         if studios:
             facts.append(", ".join(studios[:2]))
         if d.get("source"):
-            facts.append(SOURCE_LABELS.get(d["source"], d["source"].replace("_", " ").title()))
+            facts.append(_(SOURCE_LABELS[d["source"]]) if d["source"] in SOURCE_LABELS
+                         else d["source"].replace("_", " ").title())
         for f in facts:
             if f:
                 chips.addWidget(badge(f, "chipLabel"))
@@ -271,14 +273,21 @@ class ProfilePage(QWidget):
             chips.addWidget(badge(_("Airing"), "badgeGreen"))
         rank = next((r for r in d.get("rankings") or [] if r.get("allTime")), None)
         if rank:
-            chips.addWidget(badge(f"#{rank['rank']} {rank['context'].replace('all time', 'all-time')}", "badge"))
+            context = rank.get("context") or ""
+            if "rated" in context:
+                text = _("#{n} highest rated all-time").format(n=rank["rank"])
+            elif "popular" in context:
+                text = _("#{n} most popular all-time").format(n=rank["rank"])
+            else:
+                text = f"#{rank['rank']} {context}"
+            chips.addWidget(badge(text, "badge"))
         chip_host = QWidget()
         chip_host.setLayout(chips)
         info.addWidget(chip_host)
 
         status_row = hbox(spacing=10)
         color = theme.STATUS_COLORS.get(a.status, theme.MUTED)
-        st = label(_("<span style='color:{color}'>●</span>  {value}  ·  Ep {episodes_watched} / {value2}").format(color=color, value=STATUS_LABELS.get(a.status, a.status), episodes_watched=a.episodes_watched, value2=a.episodes_total or '?'), "", rich=True)
+        st = label(_("<span style='color:{color}'>●</span>  {value}  ·  Ep {episodes_watched} / {value2}").format(color=color, value=status_label(a.status), episodes_watched=a.episodes_watched, value2=a.episodes_total or '?'), "", rich=True)
         status_row.addWidget(st)
         bar = progress(a)
         if theme.COMPACT:
@@ -296,7 +305,7 @@ class ProfilePage(QWidget):
             status_btn.setObjectName("primary")
             menu = QMenu(status_btn)
             for s in LIST_STATUSES:
-                act = menu.addAction(STATUS_LABELS[s])
+                act = menu.addAction(status_label(s))
                 act.setCheckable(True)
                 act.setChecked(a.status == s)
                 act.triggered.connect(lambda _=False, s=s: self.win.set_status(a, s))
@@ -355,19 +364,19 @@ class ProfilePage(QWidget):
         row.addWidget(Cover((node.get("coverImage") or {}).get("large", ""), title, 58, 82, 8))
         col = vbox(spacing=4)
         rel = entry["relation"]
-        tags = [badge(_("This show") if rel == "SELF" else RELATION_LABELS.get(rel, rel.title()), "badge"),
+        tags = [badge(_("This show") if rel == "SELF" else (_(RELATION_LABELS[rel]) if rel in RELATION_LABELS else rel.title()), "badge"),
                 badge(_("Airing now"), "badgeGreen") if node.get("status") == "RELEASING"
                 else badge(_("Announced"), "badgeAmber")]
         if node.get("format"):
-            tags.append(badge(node["format"].replace("_", " "), "chipLabel"))
+            tags.append(badge(format_label(node["format"]), "chipLabel"))
         col.addWidget(button_row(*tags, spacing=6))
         col.addWidget(label(title, "bigTitle", wrap=True))
         col.addWidget(label(when_text(node), "", wrap=True))
         extra = []
         if entry.get("via"):
-            extra.append(f"Follows {pick_title(entry['via'])}")
+            extra.append(_("Follows {value}").format(value=pick_title(entry['via'])))
         if in_lib:
-            extra.append(f"On your list: {STATUS_LABELS.get(in_lib.status, in_lib.status)}")
+            extra.append(_("On your list: {status}").format(status=status_label(in_lib.status)))
         if extra:
             col.addWidget(label("  ·  ".join(extra), "small", wrap=True))
         row.addLayout(col, 1)
@@ -386,8 +395,8 @@ class ProfilePage(QWidget):
         frame, lay = card(margins=18, spacing=10)
         lay.addWidget(label(_("Your plan for this show"), "h2"))
         for attr, title, desc in [
-            ("paused", "Pause", "Keep it on your Watching list but leave it out of the plan for now."),
-            ("pinned", "Pin", "Give it an episode every day, before your other shows."),
+            ("paused", _("Pause"), _("Keep it on your Watching list but leave it out of the plan for now.")),
+            ("pinned", _("Pin"), _("Give it an episode every day, before your other shows.")),
         ]:
             row = hbox(spacing=10)
             text = vbox(spacing=2)
@@ -405,9 +414,9 @@ class ProfilePage(QWidget):
                              "small", wrap=True))
         row.addLayout(text, 1)
         pace = QComboBox()
-        pace.addItem("Automatic", 0)
+        pace.addItem(_("Automatic"), 0)
         for n in range(1, 7):
-            pace.addItem(f"{n} a day", n)
+            pace.addItem(_("{n} a day").format(n=n), n)
         pace.setCurrentIndex(max(0, min(6, a.pace)))
         pace.currentIndexChanged.connect(lambda _: self.win.set_show_option(a, pace=pace.currentData()))
         row.addWidget(pace, alignment=Qt.AlignVCenter)
@@ -447,7 +456,7 @@ class ProfilePage(QWidget):
                 top.addWidget(badge(_("Up next")))
             top.addStretch()
             text.addLayout(top)
-            text.addWidget(label(artwork.episode_title(ep, models.title_language) or f"Episode {n}",
+            text.addWidget(label(artwork.episode_title(ep, models.title_language) or _("Episode {n}").format(n=n),
                                  "epTitle", wrap=True))
             if ep.get("airdate"):
                 text.addWidget(label(ep["airdate"], "faint"))
@@ -570,7 +579,8 @@ class ProfilePage(QWidget):
             node = e["node"]
             flow.addWidget(self._mini(node.get("idMal"), pick_title(node.get("title"), node.get("idMal")),
                                       (node.get("coverImage") or {}).get("large", ""),
-                                      RELATION_LABELS.get(e["relationType"], e["relationType"].title())))
+                                      (_(RELATION_LABELS[e["relationType"]]) if e["relationType"] in RELATION_LABELS
+                                       else e["relationType"].title())))
         host = QWidget()
         host.setLayout(flow)
         lay.addWidget(host)
@@ -606,7 +616,7 @@ class ProfilePage(QWidget):
         lay.addWidget(t)
         if entry:
             color = theme.STATUS_COLORS.get(entry.status, theme.MUTED)
-            lay.addWidget(label(_("<span style='color:{color}'>●</span> {value}").format(color=color, value=html.escape(STATUS_LABELS.get(entry.status, ''))),
+            lay.addWidget(label(_("<span style='color:{color}'>●</span> {value}").format(color=color, value=html.escape(status_label(entry.status) if entry.status else '')),
                                 "small", rich=True))
             click = Clickable(w)
             click.clicked.connect(lambda e=entry: self.win.open_profile(e))

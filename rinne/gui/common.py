@@ -11,9 +11,9 @@ from PySide6.QtWidgets import (
     QSizePolicy, QVBoxLayout, QWidget,
 )
 
-from ..models import CURRENTLY_AIRING, WEEKDAYS, Anime
+from ..i18n import _, N_, weekday_name
+from ..models import CURRENTLY_AIRING, Anime
 from . import theme
-from ..i18n import _
 
 
 def button_row(*widgets, spacing: float = 8, stretch_before: bool = False) -> QWidget:
@@ -126,21 +126,31 @@ def progress(anime: Anime) -> QProgressBar:
     return bar
 
 
+FORMAT_LABELS = {"TV": N_("TV"), "TV_SHORT": N_("TV short"), "MOVIE": N_("Movie"), "SPECIAL": N_("Special"),
+                 "OVA": "OVA", "ONA": "ONA", "MUSIC": N_("Music")}
+
+
+def format_label(code: str) -> str:
+    """A media format (AniList / MAL code like TV, MOVIE, TV_SHORT) as shown in the interface."""
+    code = (code or "").upper().replace(" ", "_")
+    return _(FORMAT_LABELS[code]) if code in FORMAT_LABELS else code.replace("_", " ")
+
+
 def progress_text(anime: Anime) -> str:
-    return f"Ep {anime.episodes_watched} / {anime.episodes_total or '?'}"
+    return _("Ep {watched} / {total}").format(watched=anime.episodes_watched, total=anime.episodes_total or "?")
 
 
 def airing_text(anime: Anime) -> str:
     if anime.airing_status != CURRENTLY_AIRING:
         return ""
     if anime.broadcast_day is not None:
-        return f"Airs {WEEKDAYS[anime.broadcast_day][:3]}"
-    return "Airing"
+        return _("Airs {day}").format(day=weekday_name(anime.broadcast_day, short=True))
+    return _("Airing")
 
 
 def fmt_minutes(m: int) -> str:
     h, mm = divmod(m, 60)
-    return f"{h}h {mm:02d}m" if h else f"{mm}m"
+    return _("{h}h {m:02d}m").format(h=h, m=mm) if h else _("{m}m").format(m=mm)
 
 
 class ElidedLabel(QLabel):

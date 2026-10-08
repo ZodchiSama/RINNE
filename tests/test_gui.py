@@ -55,8 +55,10 @@ def win(app, tmp_path, monkeypatch, request):
                         notify_premieres=False, weekly_recap=False, sync_mal=False, sync_anilist=False)
     state = State(library={a.mal_id: a for a in shows}, settings=settings)
     state.onboarded = True
-    catalog = getattr(request, "param", None)  # indirect parametrize: a translation to use
-    if catalog:
+    catalog = getattr(request, "param", None)  # indirect parametrize: a language code, or a test catalog
+    if isinstance(catalog, str):
+        state.settings.language = catalog
+    elif catalog:
         import json
 
         from rinne import i18n
@@ -365,3 +367,42 @@ def test_offline_chip_and_catching_up_when_back(win, app, monkeypatch):
     check()
     assert not win.offline and not win.offline_btn.isVisible()
     assert pulled == [1] and win.toast.text.text() == "Back online"
+
+
+ALLOWED_LATIN = {"Rinne", "MyAnimeList", "AniList", "MAL", "Shikimori", "Discord", "Zodchi", "OVA", "ONA", "Ctrl",
+                 "Rich", "Presence", "GitHub", "Full", "HD", "API", "ID", "Client", "Application", "Google",
+                 "Thunderbird", "GNOME", "ics", "Linux", "Windows", "TheTVDB", "ani", "zip", "Jikan", "Qt"}
+
+
+def _latin_words(win, page):
+    import re
+
+    from PySide6.QtWidgets import QAbstractButton, QLabel
+    titles = {w for a in win.state.library.values() for t in a.all_titles() for w in re.findall(r"[A-Za-z]+", t)}
+    found = set()
+    for w in page.findChildren(QLabel) + page.findChildren(QAbstractButton):
+        if not w.isVisible():
+            continue
+        text = re.sub(r"<[^>]+>", " ", re.sub(r"(?s)<code>.*?</code>", " ", w.text()))  # paths stay as they are
+        text = re.sub(r"[\w.-]+\.(?:net|com|co|io|me|org)\S*", " ", text)  # and so do web addresses
+        for word in re.findall(r"[A-Za-z]{2,}", text):
+            if not ({word, word.capitalize()} & ALLOWED_LATIN) and word.lower() not in {x.lower() for x in ALLOWED_LATIN} \
+                    and word not in titles:
+                found.add(f"{word} ({text.strip()[:40]!r})")
+    return found
+
+
+@pytest.mark.parametrize("win", ["ru"], indirect=True)
+def test_russian_interface_has_no_leftover_english(win, app):
+    """Every visible label and button on the main pages is translated (names and brands aside)."""
+    for n in range(4):
+        win._go(n)
+        app.processEvents()
+        assert not _latin_words(win, win.pages[n]), (n, sorted(_latin_words(win, win.pages[n]))[:10])
+    win.open_profile(win.state.library[1])
+    app.processEvents()
+    assert not _latin_words(win, win.profile_page), sorted(_latin_words(win, win.profile_page))[:10]
+    for section in ("general", "schedule", "notifications", "accounts", "data"):
+        win.open_settings(section)
+        app.processEvents()
+        assert not _latin_words(win, win.settings_page), (section, sorted(_latin_words(win, win.settings_page))[:10])

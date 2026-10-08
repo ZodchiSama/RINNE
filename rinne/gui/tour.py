@@ -9,9 +9,9 @@ from PySide6.QtCore import QPoint, QRect, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QFrame, QPushButton, QWidget
 
+from ..i18n import _
 from . import theme
 from .common import hbox, label, vbox
-from ..i18n import _
 
 
 @dataclass

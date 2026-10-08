@@ -11,9 +11,9 @@ from PySide6.QtWidgets import QFileDialog, QInputDialog, QMessageBox
 
 from .. import HOMEPAGE_URL, anilist, announcements, mal, models, net, scheduler, shikimori, sync, updates
 from .profile import pick_title
+from ..i18n import _, _n
 from ..logs import log
 from ..models import WATCHING, Anime
-from ..i18n import _, _n
 
 
 class ServicesMixin:
@@ -144,7 +144,7 @@ class ServicesMixin:
                    for a in sync.pending_changes(lib, synced.get(svc, {}))}
         if not changes:
             if on_result:
-                on_result("Everything is already in sync.")
+                on_result(_("Everything is already in sync."))
             return
         batch = [copy.copy(a) for a in changes.values()]
         self._syncing = True
@@ -182,7 +182,7 @@ class ServicesMixin:
         def failed(msg: str) -> None:
             self._syncing = False
             if on_result:
-                on_result(f"Sync failed: {msg}")
+                on_result(_("Sync failed: {msg}").format(msg=msg))
 
         self._run(sync.push_all, (batch, self.state.settings.mal_api_client_id(), mal_tokens, al_token),
                   done, with_progress=False, exclusive=False, on_error=failed)

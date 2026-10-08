@@ -14,9 +14,9 @@ from PySide6.QtWidgets import (
 )
 
 from .. import CONTACT_EMAIL, DISPLAY_NAME, ISSUES_URL, __version__
+from ..i18n import _, N_
 from . import theme
 from .common import hbox, label, vbox
-from ..i18n import _
 
 
 def system_info(state=None) -> list[tuple[str, str]]:
@@ -47,7 +47,7 @@ def system_info_text(state=None) -> str:
 
 
 class FeedbackDialog(QDialog):
-    KINDS = [("bug", "Bug report"), ("idea", "Feature idea"), ("other", "Other feedback")]
+    KINDS = [("bug", N_("Bug report")), ("idea", N_("Feature idea")), ("other", N_("Other feedback"))]
 
     def __init__(self, state, kind: str = "bug", parent=None):
         super().__init__(parent)

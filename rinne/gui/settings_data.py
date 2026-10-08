@@ -10,11 +10,11 @@ from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QFileDialog, QLineEdit, QMessageBox
 
+from ..i18n import _, _n
 from ..models import Settings
 from ..storage import cache_dir, data_dir, state_path
 from . import theme
 from .common import folder_size, human_size, button_row, label
-from ..i18n import _
 
 if TYPE_CHECKING:
     from .window import MainWindow
@@ -43,18 +43,18 @@ class DataSections:
             self._group(name)
             if connected:
                 disc = self._button("Disconnect", lambda _=False, v=svc: (self.win.disconnect_account(v), self.refresh()))
-                self._row(f"Connected as {user or 'your account'}",
+                self._row(_("Connected as {value}").format(value=user or _('your account')),
                           "Only status, episodes watched and score are sent — for shows that change.", disc)
-                self._switch(f"Send my progress to {name}", "", sync_attr, kind="save")
+                self._switch(_("Send my progress to {name}").format(name=name), "", sync_attr, kind="save")
             elif available:
-                go = self._button(f"Connect {name}", (lambda: self.win.connect_mal(result)) if svc == "mal"
+                go = self._button(_("Connect {name}").format(name=name), (lambda: self.win.connect_mal(result)) if svc == "mal"
                                   else (lambda: self.win.connect_anilist(result)), primary=True)
-                how = ("Opens MyAnimeList in your browser; approve Rinne and you're done."
+                how = (_("Opens MyAnimeList in your browser; approve Rinne and you're done.")
                        if svc == "mal" else
-                       "Opens AniList in your browser; approve Rinne, then paste the code it shows.")
+                       _("Opens AniList in your browser; approve Rinne, then paste the code it shows."))
                 self._row("Not connected", how, go)
             else:
-                self._row("Not available in this build", f"{name} sign-in hasn't been set up yet.", None)
+                self._row("Not available in this build", _("{name} sign-in hasn't been set up yet.").format(name=name), None)
         if s.mal_token or s.anilist_token:
             self._group("Sync")
             self._row("Sync now", "Send any changes immediately instead of waiting a few seconds.",
@@ -86,17 +86,16 @@ class DataSections:
                          self._button("Import from AniList…", lambda: self.win.import_manually("anilist")),
                          self._button("Import from Shikimori…", lambda: self.win.import_manually("shikimori")),
                          self._button("Refresh all details", lambda: self.win.run_enrich(force=True)))
-        self._row("Import", f"{len(self.win.state.library)} shows in your library.", imp)
+        self._row("Import", _n("{n} show in your library.", "{n} shows in your library.", len(self.win.state.library)), imp)
 
         self._group("Storage")
         d = data_dir()
         self._row("Data folder", f"<code>{d}</code>", self._button("Open", lambda: self._open(d)))
         img = cache_dir() / "images"
-        self._row("Image cache", f"Cover art and backgrounds — {human_size(folder_size(img))}.",
+        self._row("Image cache", _("Cover art and backgrounds — {value}.").format(value=human_size(folder_size(img))),
                   self._button("Clear", lambda: self._clear(img, "image cache")))
         meta = [cache_dir() / k for k in ("anilist", "anilist_profile", "anilist_chain", "artwork", "jikan", "mal")]
-        self._row("Metadata cache", f"Show details from AniList and others — "
-                  f"{human_size(sum(folder_size(m) for m in meta))}. Clearing makes Rinne fetch fresh details.",
+        self._row("Metadata cache", _("Show details from AniList and others — {value}. Clearing makes Rinne fetch fresh details.").format(value=human_size(sum(folder_size(m) for m in meta))),
                   self._button("Clear", lambda: self._clear(meta, "metadata cache")))
 
         self._group("Backup")

@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from datetime import date
 
+from .i18n import N_
+
 # List statuses (MAL API v2 spelling).
 WATCHING = "watching"
 COMPLETED = "completed"
@@ -13,12 +15,18 @@ DROPPED = "dropped"
 PLAN_TO_WATCH = "plan_to_watch"
 LIST_STATUSES = [WATCHING, COMPLETED, ON_HOLD, DROPPED, PLAN_TO_WATCH]
 STATUS_LABELS = {
-    WATCHING: "Watching",
-    COMPLETED: "Completed",
-    ON_HOLD: "On Hold",
-    DROPPED: "Dropped",
-    PLAN_TO_WATCH: "Plan to Watch",
+    WATCHING: N_("Watching"),
+    COMPLETED: N_("Completed"),
+    ON_HOLD: N_("On Hold"),
+    DROPPED: N_("Dropped"),
+    PLAN_TO_WATCH: N_("Plan to Watch"),
 }
+
+
+def status_label(status: str) -> str:
+    """A list status as shown in the interface, in its language."""
+    from .i18n import _
+    return _(STATUS_LABELS.get(status, status))
 
 # Airing statuses.
 FINISHED_AIRING = "finished_airing"
@@ -36,7 +44,7 @@ ROMAJI = "romaji"
 ENGLISH = "english"
 NATIVE = "native"
 RUSSIAN = "russian"  # from Shikimori; shows without one fall back to romaji
-TITLE_LANGUAGES = {ROMAJI: "Romaji", ENGLISH: "English", NATIVE: "日本語", RUSSIAN: "Русский"}
+TITLE_LANGUAGES = {ROMAJI: N_("Romaji"), ENGLISH: N_("English"), NATIVE: "日本語", RUSSIAN: "Русский"}
 # Which title variant `Anime.name` shows; set from Settings.title_language by the GUI.
 title_language = ROMAJI
 

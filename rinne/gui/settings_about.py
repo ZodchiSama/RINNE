@@ -9,12 +9,12 @@ from PySide6.QtGui import QDesktopServices, QPixmap
 from PySide6.QtWidgets import QGridLayout, QLabel
 
 from .. import DISPLAY_NAME, __version__, updates
+from ..i18n import _
 from ..models import Settings
 from ..logs import log_path
 from ..storage import data_dir
 from . import theme
 from .common import asset, badge, button_row, card, hbox, label, vbox
-from ..i18n import _
 
 if TYPE_CHECKING:
     from .window import MainWindow
@@ -50,7 +50,7 @@ class AboutSection:
         row.addWidget(label(_("by {AUTHOR}").format(AUTHOR=AUTHOR), "credit"))
         row.addStretch()
         info.addLayout(row)
-        info.addWidget(label(_("輪廻 — the cycle of rebirth. A weekly anime planner for Linux that follows "
+        info.addWidget(label(_("輪廻 — the cycle of rebirth. A weekly anime planner for Linux and Windows that follows "
                              "each series: when a show ends, its next season is reborn in its place."),
                              "muted", wrap=True))
         about_buttons = [self._button("Send feedback",
@@ -78,7 +78,7 @@ class AboutSection:
             self._row("Community", "Chat with other Rinne users and the developer.",
                       self._button("Join ↗", lambda: QDesktopServices.openUrl(QUrl(COMMUNITY_URL))))
         if CONTACT_EMAIL:
-            self._row("Contact", f"Reach {AUTHOR} directly at <b>{CONTACT_EMAIL}</b>.",
+            self._row("Contact", _("Reach {AUTHOR} directly at <b>{CONTACT_EMAIL}</b>.").format(AUTHOR=AUTHOR, CONTACT_EMAIL=CONTACT_EMAIL),
                       self._button("Email ↗", lambda: QDesktopServices.openUrl(QUrl(f"mailto:{CONTACT_EMAIL}"))))
 
         # --- Version & system
@@ -152,11 +152,11 @@ class AboutSection:
         self._group("Privacy")
         priv, pl = card(margins=16, spacing=6)
         for line in [
-            "Everything — your library, progress and settings — stays on this computer.",
-            "No accounts, analytics or tracking. Rinne never sends your list anywhere.",
-            "To show details it looks up shows by ID on AniList, and fan art via ani.zip / TheTVDB.",
-            "MyAnimeList is contacted only when you import by username.",
-            "Discord Rich Presence talks only to the Discord app on your computer, and can be turned off.",
+            _("Everything — your library, progress and settings — stays on this computer."),
+            _("No analytics or tracking. Rinne sends your list only to accounts you connect."),
+            _("To show details it looks up shows by ID on AniList, and fan art via ani.zip / TheTVDB."),
+            _("MyAnimeList is contacted only when you import by username or connect your account."),
+            _("Discord Rich Presence talks only to the Discord app on your computer, and can be turned off."),
         ]:
             pl.addWidget(label(f"•  {line}", "small", wrap=True))
         self.body.addWidget(priv)
@@ -165,9 +165,9 @@ class AboutSection:
         self._group("Data sources & thanks")
         for name, what, url in [
             ("AniList", "Show details, titles, relations, cast and airing dates", "https://anilist.co"),
-            ("MyAnimeList", "Your list (export file or API)", "https://myanimelist.net"),
-            ("ani.zip / TheTVDB", "Full-HD fan art for backgrounds and banners", "https://thetvdb.com"),
-            ("Jikan", "Fallback details from MyAnimeList", "https://jikan.moe"),
+            ("MyAnimeList", _("Your list (export file or API)"), "https://myanimelist.net"),
+            ("ani.zip / TheTVDB", _("Full-HD fan art for backgrounds and banners"), "https://thetvdb.com"),
+            ("Jikan", _("Fallback details from MyAnimeList"), "https://jikan.moe"),
         ]:
             self._row(name, what, self._button("Visit", lambda u=url: QDesktopServices.openUrl(QUrl(u))))
 
@@ -178,10 +178,10 @@ class AboutSection:
         grid.setHorizontalSpacing(theme.px(24))
         grid.setColumnStretch(1, 1)
         for n, (k, what) in enumerate([
-            ("Ctrl 1 / 2 / 3 / 4", "Your Week / Up Next / Library / Stats"), ("Ctrl ,", "Settings"),
-            ("Ctrl R", "Replan from today"), ("Ctrl O", "Import MAL export file"),
-            ("Ctrl I", "Import by MAL username"), ("Ctrl + / − / 0", "Zoom in / out / reset"),
-            ("Ctrl Q", "Quit"),
+            ("Ctrl 1 / 2 / 3 / 4", _("Your Week / Up Next / Library / Stats")), ("Ctrl ,", _("Settings")),
+            ("Ctrl R", _("Replan from today")), ("Ctrl O", _("Import MAL export file")),
+            ("Ctrl I", _("Import by MAL username")), ("Ctrl + / − / 0", _("Zoom in / out / reset")),
+            ("Ctrl Q", _("Quit")),
         ]):
             grid.addWidget(badge(k, "chipLabel"), n, 0, alignment=Qt.AlignLeft)
             grid.addWidget(label(what, "small"), n, 1)

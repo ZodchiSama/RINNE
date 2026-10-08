@@ -24,6 +24,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
 
+from .i18n import _
 from .models import (
     COMPLETED, CURRENTLY_AIRING, DROPPED, NOT_YET_AIRED, ON_HOLD, PLAN_TO_WATCH, WATCHING, Anime,
 )
@@ -67,7 +68,7 @@ def follow_series(finished: Anime, get: Getter, today: date,
     seen = {finished.mal_id}
     skipped: list[str] = []
     notes: list[str] = []
-    for _ in range(10):
+    for _hop in range(10):
         ids = [i for i in node.relations.get("sequel", []) if i not in seen]
         if not ids:
             break
@@ -75,10 +76,10 @@ def follow_series(finished: Anime, get: Getter, today: date,
         seen.add(sid)
         cand = get(sid)
         if cand is None:
-            title = node.relation_titles.get(str(sid)) or f"MAL #{sid}"
+            title = node.relation_titles.get(str(sid)) or _("MAL #{sid}").format(sid=sid)
             placeholder = Anime(mal_id=sid, title=title, added_by_app=True)
-            return placeholder, [f"Next in the series after {finished.name}",
-                                 "Not on your MAL list yet — it will be added"]
+            return placeholder, [_("Next in the series after {name}").format(name=finished.name),
+                                 _("Not on your MAL list yet — it will be added")]
         if cand.status == COMPLETED:
             skipped.append(cand.name)
             node = cand
@@ -88,21 +89,21 @@ def follow_series(finished: Anime, get: Getter, today: date,
             node = cand
             continue
         if cand.status == DROPPED or cand.excluded:
-            notes.append(f"You dropped the next season, {cand.name}")
+            notes.append(_("You dropped the next season, {name}").format(name=cand.name))
             break
         if cand.status == WATCHING:
-            notes.append(f"The next season, {cand.name}, is already in your rotation")
+            notes.append(_("The next season, {name}, is already in your rotation").format(name=cand.name))
             break
         if cand.airing_status == NOT_YET_AIRED or cand.episodes_available(today) == 0:
-            notes.append(f"The next season, {cand.name}, hasn't aired yet")
+            notes.append(_("The next season, {name}, hasn't aired yet").format(name=cand.name))
             break
-        reasons = [f"Next in the series after {finished.name}"]
+        reasons = [_("Next in the series after {name}").format(name=finished.name)]
         if skipped:
-            reasons.append("Skipped: " + ", ".join(skipped))
+            reasons.append(_("Skipped: ") + ", ".join(skipped))
         if cand.status == ON_HOLD:
-            reasons.append(f"Resumes from episode {cand.episodes_watched + 1} (was On Hold)")
+            reasons.append(_("Resumes from episode {value} (was On Hold)").format(value=cand.episodes_watched + 1))
         if cand.airing_status == CURRENTLY_AIRING:
-            reasons.append("Currently airing — paced as episodes release")
+            reasons.append(_("Currently airing — paced as episodes release"))
         return cand, reasons
     return None, notes
 
@@ -156,7 +157,7 @@ def score_candidate(
 
     if finished is not None and cand.mal_id in [
             i for k in FAMILY_KEYS for i in finished.relations.get(k, [])]:
-        add(25, f"Same franchise as {finished.name}")
+        add(25, _("Same franchise as {name}").format(name=finished.name))
 
     # The show being replaced counts as finished even if it's only about to be.
     done_id = finished.mal_id if finished is not None else None
@@ -166,46 +167,46 @@ def score_candidate(
     ]
     missing_prequels = [i for i in _prequels(cand) if i not in library]
     if unwatched_prequels:
-        add(-80, f"Watch {unwatched_prequels[0].name} first")
+        add(-80, _("Watch {name} first").format(name=unwatched_prequels[0].name))
     elif missing_prequels:
-        add(-30, "Has a prequel that isn't on your list")
+        add(-30, _("Has a prequel that isn't on your list"))
     elif _prequels(cand):
-        add(15, "You've finished its prequel")
+        add(15, _("You've finished its prequel"))
 
     if finished is not None and finished.genres and cand.genres:
         a, b = set(finished.genres), set(cand.genres)
         overlap = len(a & b) / len(a | b)
         if overlap:
             shared = ", ".join(sorted(a & b)[:3])
-            add(overlap * 25, f"Like {finished.name}: {shared}")
+            add(overlap * 25, _("Like {name}: {shared}").format(name=finished.name, shared=shared))
 
     if affinity and cand.genres:
         vals = [affinity[g] for g in cand.genres if g in affinity]
         if vals:
             taste = sum(vals) / len(vals) * 8
             best = max(cand.genres, key=lambda g: affinity.get(g, -99))
-            add(taste, f"You rate {best} highly" if taste > 0 else "Genres you usually rate lower")
+            add(taste, _("You rate {best} highly").format(best=best) if taste > 0 else _("Genres you usually rate lower"))
 
     if cand.mean_score:
-        add((cand.mean_score - 7.0) * 8, f"MAL score {cand.mean_score:.2f}")
+        add((cand.mean_score - 7.0) * 8, _("MAL score {mean_score:.2f}").format(mean_score=cand.mean_score))
 
-    add({0: 0, 1: 6, 2: 15}.get(cand.priority, 0), "Marked as priority on MAL")
+    add({0: 0, 1: 6, 2: 15}.get(cand.priority, 0), _("Marked as priority on MAL"))
 
     others = [a for a in active if a is not finished and a.genres]
     if others and cand.genres:
         rotation = {g for a in others for g in a.genres}
         crowd = len(set(cand.genres) & rotation) / len(set(cand.genres))
-        add(-crowd * 10, "Similar to what you're already watching" if crowd > 0.5 else "")
+        add(-crowd * 10, _("Similar to what you're already watching") if crowd > 0.5 else "")
         if crowd <= 0.25:
-            add(5, "Adds variety to your rotation")
+            add(5, _("Adds variety to your rotation"))
 
     total = cand.episodes_total
     if total and total > 50:
-        add(-min(20, (total - 50) / 10), f"Long commitment ({total} episodes)")
+        add(-min(20, (total - 50) / 10), _("Long commitment ({total} episodes)").format(total=total))
     elif total and total <= 13:
-        add(3, "Short (≤13 episodes)")
+        add(3, _("Short (≤13 episodes)"))
     if cand.airing_status == CURRENTLY_AIRING:
-        add(-5, "Still airing")
+        add(-5, _("Still airing"))
 
     return s
 
@@ -255,7 +256,7 @@ def pick_replacement(
     best = ranked[0]
     if not notes:
         known = (get or library.get)(finished.mal_id) or finished
-        notes = [f"No further seasons after {finished.name}" if known.enriched
-                 else f"Series info for {finished.name} isn't loaded yet — it's re-checked when it finishes"]
+        notes = [_("No further seasons after {name}").format(name=finished.name) if known.enriched
+                 else _("Series info for {name} isn't loaded yet — it's re-checked when it finishes").format(name=finished.name)]
     best.reasons[:0] = [(0.0, n) for n in notes]
     return best

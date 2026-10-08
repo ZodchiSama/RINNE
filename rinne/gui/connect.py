@@ -8,30 +8,30 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QFrame, QMessageBox, QPushButton, QToolButton
 
+from ..i18n import _, N_
 from . import theme
 from .common import card, hbox, label, vbox
-from ..i18n import _
 
 if TYPE_CHECKING:
     from .window import MainWindow
 
 SERVICES = [
-    ("mal", "MyAnimeList", "Opens MyAnimeList in your browser. Approve Rinne and you're done."),
-    ("anilist", "AniList", "Opens AniList in your browser. Approve Rinne, then paste the code it shows."),
+    ("mal", "MyAnimeList", N_("Opens MyAnimeList in your browser. Approve Rinne and you're done.")),
+    ("anilist", "AniList", N_("Opens AniList in your browser. Approve Rinne, then paste the code it shows.")),
 ]
 
 MISSING_OUT = [
-    "Episodes you tick, status changes and scores saved to your account automatically",
-    "Your list brought in again with one click: no export files or usernames",
-    "Private lists and private entries",
+    N_("Episodes you tick, status changes and scores saved to your account automatically"),
+    N_("Your list brought in again with one click: no export files or usernames"),
+    N_("Private lists and private entries"),
 ]
 
 
 def connected_name(win: MainWindow, service: str) -> str:
     s = win.state.settings
     if service == "mal":
-        return (s.mal_user or "your account") if s.mal_token else ""
-    return (s.anilist_user or "your account") if s.anilist_token else ""
+        return (s.mal_user or _("your account")) if s.mal_token else ""
+    return (s.anilist_user or _("your account")) if s.anilist_token else ""
 
 
 def any_connected(win: MainWindow) -> bool:
@@ -64,7 +64,7 @@ class ConnectDialog(QDialog):
                 again.clicked.connect(lambda _=False, k=key: self._pull(k))
                 cl.addWidget(again)
             else:
-                cl.addWidget(label(how, "small", wrap=True))
+                cl.addWidget(label(_(how), "small", wrap=True))
                 go = QPushButton(_("Connect {name}").format(name=name))
                 go.setObjectName("primary")
                 go.setMinimumHeight(theme.px(40))
@@ -76,7 +76,7 @@ class ConnectDialog(QDialog):
         line = QFrame()
         line.setObjectName("divider")
         lay.addWidget(line)
-        manual = QToolButton(text="Don't want to connect? Import a file or username instead")
+        manual = QToolButton(text=_("Don't want to connect? Import a file or username instead"))
         manual.setObjectName("linkButton")
         manual.setCursor(Qt.PointingHandCursor)
         manual.clicked.connect(self._manual)
@@ -111,7 +111,7 @@ def confirm_manual(win: MainWindow) -> bool:
     box.setTextFormat(Qt.RichText)
     box.setText(_("<b>Importing works, but it's a one-off snapshot of your list.</b>"))
     box.setInformativeText(_("Without a connected account you'll miss out on:<ul>")
-                           + "".join(f"<li>{m}</li>" for m in MISSING_OUT)
+                           + "".join(f"<li>{_(m)}</li>" for m in MISSING_OUT)
                            + _("</ul>Connecting takes a few seconds and only touches your anime list."))
     connect = box.addButton(_("Connect instead"), QMessageBox.AcceptRole)
     anyway = box.addButton(_("Import anyway"), QMessageBox.DestructiveRole)

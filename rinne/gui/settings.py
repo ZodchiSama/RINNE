@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 )
 
 from .. import i18n
-from ..i18n import _, N_
+from ..i18n import _, N_, weekday_name
 from ..models import EPISODES, MINUTES, TITLE_LANGUAGES, WEEKDAYS, Settings
 from . import theme
 from .common import Clickable, FlowLayout, Switch, badge, button_row, clear, hbox, label, set_margins, vbox
@@ -232,8 +232,9 @@ class SettingsPage(DataSections, AboutSection, QWidget):
         start.currentIndexChanged.connect(lambda _: self._set("start_page", start.currentData()))
         self._row("Open on", "The page Rinne shows when it starts.", start)
         tray = self.win.tray_available()
-        self._switch("Start minimized to the tray", "Launch quietly in the system tray." +
-                     ("" if tray else " <i>(No system tray detected.)</i>"), "start_minimized", enabled=tray)
+        no_tray = "" if tray else " <i>" + _("(No system tray detected.)") + "</i>"
+        self._switch("Start minimized to the tray", _("Launch quietly in the system tray.") + no_tray,
+                     "start_minimized", enabled=tray)
         self._switch("Check for updates", "Once a day, look for a newer Rinne release on GitHub.",
                      "check_updates")
         self._switch("Check airing shows on startup",
@@ -242,8 +243,8 @@ class SettingsPage(DataSections, AboutSection, QWidget):
 
         self._group("Window")
         self._switch("Keep running in the tray when closed",
-                     "Closing the window hides Rinne to the tray so notifications keep working. "
-                     "Quit from the tray menu." + ("" if tray else " <i>(No system tray detected.)</i>"),
+                     _("Closing the window hides Rinne to the tray so notifications keep working. "
+                       "Quit from the tray menu.") + no_tray,
                      "close_to_tray", kind="tray", enabled=tray)
 
         self._group("Getting started")
@@ -252,17 +253,17 @@ class SettingsPage(DataSections, AboutSection, QWidget):
         self._row("Welcome & tour", "Run the first-launch setup or the guided tour again.", again)
 
         self._group("Titles")
-        lang = self._combo(list(TITLE_LANGUAGES.items()), s.title_language)
+        lang = self._combo([(k, _(v)) for k, v in TITLE_LANGUAGES.items()], s.title_language)
         lang.currentIndexChanged.connect(lambda _: self.win.set_title_language(lang.currentData()))
-        self._row("Show titles in", "Romaji, English or Japanese. Searching matches all three.", lang)
+        self._row("Show titles in", "Romaji, English, Japanese or Russian. Searching matches all of them.", lang)
 
         self._group("Language")
         langs = [("auto", "System default")] + [(k, v) for k, v in i18n.available().items()]
         ui_lang = self._combo(langs, s.language)
         ui_lang.currentIndexChanged.connect(lambda _i: self._set("language", ui_lang.currentData()))
-        self._row("Interface language", "Takes effect the next time Rinne starts. Only English is "
-                  "included so far: <a href=\"https://github.com/ZodchiSama/RINNE/blob/main/CONTRIBUTING.md"
-                  "#translating-rinne\">help translate Rinne</a>.", ui_lang)
+        self._row("Interface language", "Takes effect the next time Rinne starts. Missing your language? "
+                  "<a href=\"https://github.com/ZodchiSama/RINNE/blob/main/CONTRIBUTING.md"
+                  "#translating-rinne\">Help translate Rinne</a>.", ui_lang)
 
     # ------------------------------------------------------------------ Appearance
 
@@ -281,7 +282,7 @@ class SettingsPage(DataSections, AboutSection, QWidget):
         self._switch("Slideshow of today's shows",
                      "Full-HD fan art of today's shows fades behind the window.", "backdrop", kind="backdrop")
         secs = QSpinBox(minimum=4, maximum=120, value=s.slide_seconds)
-        secs.setSuffix(" s")
+        secs.setSuffix(_(" s"))
         secs.valueChanged.connect(lambda v: self._set("slide_seconds", v, "backdrop"))
         self._row("Time per image", "How long each image stays before fading to the next.", secs)
         dim = self._combo([("0", "Light"), ("1", "Medium"), ("2", "Strong")], str(s.backdrop_dim))
@@ -349,10 +350,10 @@ class SettingsPage(DataSections, AboutSection, QWidget):
         for i, day in enumerate(WEEKDAYS):
             # Phones: two rows (Mon–Thu, Fri–Sun) so seven boxes fit the width.
             r, c = ((i // 4) * 2, i % 4) if theme.COMPACT else (0, i)
-            grid.addWidget(label(day[:3], "small"), r, c, alignment=Qt.AlignCenter)
+            grid.addWidget(label(weekday_name(i, short=True), "small"), r, c, alignment=Qt.AlignCenter)
             sp = QSpinBox(minimum=0, maximum=24 if eps else 24 * 60, singleStep=1 if eps else 15)
             sp.setValue(s.day_amount(i))
-            sp.setSuffix("" if theme.COMPACT else (" ep" if eps else " min"))
+            sp.setSuffix("" if theme.COMPACT else (_(" ep") if eps else _(" min")))
             sp.setAlignment(Qt.AlignCenter)
             if theme.COMPACT:
                 sp.setMinimumWidth(theme.px(48))
@@ -368,9 +369,9 @@ class SettingsPage(DataSections, AboutSection, QWidget):
             for sp, v in zip(spins, values):
                 sp.setValue(v)
 
-        for text, fn in [("Same every day", lambda: apply([spins[0].value() or base] * 7)),
-                         ("Weekends ×2", lambda: apply([spins[0].value() or base] * 5 + [(spins[0].value() or base) * 2] * 2)),
-                         ("Weekdays off", lambda: apply([0] * 5 + [max(spins[5].value(), spins[6].value()) or base * 2] * 2))]:
+        for text, fn in [(_("Same every day"), lambda: apply([spins[0].value() or base] * 7)),
+                         (_("Weekends ×2"), lambda: apply([spins[0].value() or base] * 5 + [(spins[0].value() or base) * 2] * 2)),
+                         (_("Weekdays off"), lambda: apply([0] * 5 + [max(spins[5].value(), spins[6].value()) or base * 2] * 2))]:
             b = QPushButton(text)
             b.setObjectName("chip")
             b.clicked.connect(fn)
@@ -378,7 +379,7 @@ class SettingsPage(DataSections, AboutSection, QWidget):
         self._row("Quick set", "", button_row(*preset_buttons, spacing=6), stretch_control=True)
 
         cap = QSpinBox(minimum=1, maximum=24, value=s.max_eps_per_show_per_day)
-        cap.setSuffix(" ep")
+        cap.setSuffix(_(" ep"))
         cap.valueChanged.connect(lambda v: self._set("max_eps_per_show_per_day", v, "replan"))
         self._row("Episodes of one show per day",
                   "Kept when possible. Exceeded only to fill a day when you're watching few shows.", cap)
@@ -410,8 +411,7 @@ class SettingsPage(DataSections, AboutSection, QWidget):
                   "Calendar, Thunderbird, GNOME Calendar and others.", cal_buttons)
         from ..calendar_export import calendar_path
         self._switch("Keep a calendar file up to date",
-                     f"Rinne rewrites <code>{str(calendar_path()).replace('/', '/&#8203;')}</code> whenever "
-                     "the plan changes. Subscribe to it in your calendar app to always see this week's plan.",
+                     _("Rinne rewrites <code>{value}</code> whenever the plan changes. Subscribe to it in your calendar app to always see this week's plan.").format(value=str(calendar_path()).replace('/', '/&#8203;')),
                      "calendar_file", kind="calendar")
         self.body.addWidget(self._button("Replan from today", self.win.replan_fresh, primary=True),
                             alignment=Qt.AlignLeft)
@@ -467,8 +467,8 @@ class SettingsPage(DataSections, AboutSection, QWidget):
         app_id.setMinimumWidth(theme.px(260))
         app_id.editingFinished.connect(lambda: self._set("discord_app_id", app_id.text().strip(), "discord"))
         self._row("Custom Application ID",
-                  "Leave empty to use Rinne's own Discord app. Set your own to show a different name or art "
-                  "(create one in the <a href='" + DISCORD_PORTAL + "'>Developer Portal</a>).", app_id)
+                  _("Leave empty to use Rinne's own Discord app. Set your own to show a different name or art "
+                    "(create one in the <a href='{url}'>Developer Portal</a>).").format(url=DISCORD_PORTAL), app_id)
 
     def _test_discord(self) -> None:
         self.discord_status.setText(self.win.test_discord())

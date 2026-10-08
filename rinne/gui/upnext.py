@@ -13,6 +13,7 @@ from ..models import Anime
 from ..recommender import SERIES, rank
 from . import theme
 from .common import (
+    format_label,
     Clickable, ElidedLabel, badge, button_row, card, clear, hbox, label, page_margin, progress, progress_text,
     scroll_page, set_margins, vbox,
 )
@@ -119,10 +120,10 @@ class UpNextPage(QWidget):
         lay.addWidget(Cover(image, nxt.name, 70, 100, 8))
         right = vbox(spacing=4)
         if sug.kind == SERIES:
-            kind = ("Next season · will be added from MAL", "badgeAmber") \
-                if nxt.mal_id not in self.win.state.library else ("Next season", "badgeGreen")
+            kind = (_("Next season · will be added"), "badgeAmber") \
+                if nxt.mal_id not in self.win.state.library else (_("Next season"), "badgeGreen")
         else:
-            kind = ("From Plan to Watch", "badge")
+            kind = (_("From Plan to Watch"), "badge")
         right.addWidget(badge(*kind), alignment=Qt.AlignLeft)
         right.addWidget(label(nxt.name, "bigTitle", wrap=True))
         for _points, text in sug.reasons[:3]:
@@ -141,7 +142,7 @@ class UpNextPage(QWidget):
         airing = node.get("status") == "RELEASING"
         tags = [badge(_("Airing now"), "badgeGreen") if airing else badge(_("Announced"), "badgeAmber")]
         if node.get("format"):
-            tags.append(badge(node["format"].replace("_", " "), "chipLabel"))
+            tags.append(badge(format_label(node["format"]), "chipLabel"))
         col.addWidget(button_row(*tags, spacing=6))
         col.addWidget(label(title, "cardTitle", wrap=True))
         col.addWidget(label(when_text(node), "small", wrap=True))

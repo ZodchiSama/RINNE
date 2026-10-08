@@ -12,8 +12,8 @@ from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from .. import DISPLAY_NAME, scheduler
 from ..discord_rpc import DiscordRPC, build_activity
-from ..models import CURRENTLY_AIRING, WATCHING
 from ..i18n import _, _n
+from ..models import CURRENTLY_AIRING, WATCHING
 
 
 def app_icon() -> QIcon:
@@ -194,18 +194,19 @@ class DesktopMixin:
         items = self._today_items()
         done = sum(i.done for i in items)
         nxt = self.next_up()
-        progress = f"{done} of {len(items)} episodes watched today" if items else "No episodes planned today"
+        progress = _n("{done} of {n} episode watched today", "{done} of {n} episodes watched today", len(items), done=done) if items else _("No episodes planned today")
         if s.discord_private:
-            return build_activity(None, "Planning the week" if items else "Taking a day off", progress,
+            return build_activity(None, _("Planning the week") if items else _("Taking a day off"), progress,
                                   buttons=False, started=self._started_at)
         if nxt:
             anime, ep = nxt
             total = f" of {anime.episodes_total}" if anime.episodes_total else ""
-            return build_activity(anime.name, anime.name, f"Up next: episode {ep}{total} · {progress}",
+            return build_activity(anime.name, anime.name, _("Up next: episode {ep}{total} · {progress}").format(ep=ep, total=total, progress=progress),
                                   anime.image_url if s.discord_show_cover else "", anime.mal_id,
                                   s.discord_buttons, self._started_at)
-        return build_activity(None, "All caught up today ✓" if items else "Planning the week",
-                              f"{len(self.state.week.items) if self.state.week else 0} episodes in this week's plan",
+        return build_activity(None, _("All caught up today ✓") if items else _("Planning the week"),
+                              _n("{n} episode in this week's plan", "{n} episodes in this week's plan",
+                  len(self.state.week.items) if self.state.week else 0),
                               buttons=False, started=self._started_at)
 
     def schedule_presence(self) -> None:
@@ -236,10 +237,10 @@ class DesktopMixin:
     def discord_status(self) -> str:
         s = self.state.settings
         if not s.discord_enabled:
-            return "Rich Presence is off."
+            return _("Rich Presence is off.")
         if self._rpc is not None and self._rpc.connected:
-            return "Connected — your status is showing on Discord."
-        return self._rpc.last_error if self._rpc and self._rpc.last_error else "Not connected yet."
+            return _("Connected — your status is showing on Discord.")
+        return self._rpc.last_error if self._rpc and self._rpc.last_error else _("Not connected yet.")
 
     def test_discord(self) -> str:
         enabled = self.state.settings.discord_enabled
@@ -249,8 +250,8 @@ class DesktopMixin:
         ok = self._rpc is not None and self._rpc.connected
         if not enabled:
             self.update_presence()  # turn it back off
-        return ("Connected! Check your Discord profile." + ("" if enabled else " (Enable it to keep it on.)")
-                if ok else f"Couldn't connect: {self._rpc.last_error if self._rpc else 'unknown error'}")
+        return (_("Connected! Check your Discord profile.") + ("" if enabled else _(" (Enable it to keep it on.)"))
+                if ok else f"Couldn't connect: {self._rpc.last_error if self._rpc else _('unknown error')}")
 
     def shutdown_desktop(self) -> None:
         if self._rpc is not None:

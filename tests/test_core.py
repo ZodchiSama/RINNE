@@ -934,3 +934,15 @@ def test_after_pull_keeps_newer_local_changes_pending_and_never_pushes_other_sho
     assert [a.mal_id for a in sync.pending_changes(lib, base)] == [1]
     base = sync.after_pull(lib, account, previous={3: ["watching", 1, 0]})
     assert base[3] == ["watching", 1, 0]  # an earlier baseline for an off-account show is kept
+
+
+def test_russian_plural_forms_and_dates():
+    from rinne import i18n
+    try:
+        assert i18n.set_language("ru") == "ru"
+        assert [i18n._n("{n} episode", "{n} episodes", k) for k in (1, 3, 5, 21)] == \
+            ["1 серия", "3 серии", "5 серий", "21 серия"]
+        assert i18n.strftime(date(2026, 10, 7), "%d %B") == "07 октября"  # a month with a day: genitive
+        assert i18n.strftime(date(2026, 10, 7), "%a") == "Ср"
+    finally:
+        i18n.set_language("en")

@@ -6,9 +6,9 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
+from .i18n import _, _n
 from .models import COMPLETED, DROPPED, WATCHING, Anime
 from .storage import State
-from .i18n import _, _n
 
 
 def record(state: State, anime: Anime, old: int, new: int, today: date | None = None) -> None:
@@ -146,5 +146,5 @@ def recap_text(s: Stats) -> str:
     if s.finished_this_week:
         parts.append("finished " + ", ".join(s.finished_this_week[:3]))
     if s.streak >= 2:
-        parts.append(f"{s.streak}-day streak")
+        parts.append(_n("{n}-day streak", "{n}-day streak", s.streak))
     return " · ".join(parts)

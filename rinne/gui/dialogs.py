@@ -5,12 +5,12 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLayout, QPushButton, QWidget
 
+from ..i18n import _
 from ..models import Anime
 from ..recommender import SERIES, Suggestion
 from . import theme
 from .common import badge, label, vbox
 from .images import Cover
-from ..i18n import _
 
 
 class ReplacementDialog(QDialog):
@@ -24,12 +24,12 @@ class ReplacementDialog(QDialog):
 
         row = QHBoxLayout()
         row.setSpacing(theme.px(18))
-        row.addWidget(_poster_block(finished, "Finished"))
+        row.addWidget(_poster_block(finished, _("Finished")))
         if sug:
             arrow = label("→", "arrow")
             row.addWidget(arrow, alignment=Qt.AlignVCenter)
             is_series = sug.kind == SERIES
-            row.addWidget(_poster_block(sug.anime, "Next season" if is_series else "Up next",
+            row.addWidget(_poster_block(sug.anime, _("Next season") if is_series else _("Up next"),
                                         "badgeGreen" if is_series else "badge"))
         row.addStretch()
         root.addLayout(row)

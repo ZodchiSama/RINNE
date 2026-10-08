@@ -9,17 +9,17 @@ from PySide6.QtGui import QColor, QPainter, QPixmap, QRadialGradient
 from PySide6.QtWidgets import QButtonGroup, QFrame, QLabel, QPushButton, QScrollArea, QWidget
 
 from .. import DISPLAY_NAME, __version__
+from ..i18n import _, _n, N_
 from ..models import EPISODES, TITLE_LANGUAGES
 from . import icons, theme
 from .common import FlowLayout, Switch, button_row, card, clear, hbox, label, vbox
 from .common import asset
 from .settings import theme_card
-from ..i18n import _, _n
 
 if TYPE_CHECKING:
     from .window import MainWindow
 
-STEPS = ["Welcome", "Your list", "Your week", "Make it yours", "Ready"]
+STEPS = [N_("Welcome"), N_("Your list"), N_("Your week"), N_("Make it yours"), N_("Ready")]
 
 
 class Glow(QLabel):
@@ -94,7 +94,7 @@ class WelcomePage(QWidget):
     def _dots(self):
         row = hbox(spacing=8)
         row.addStretch()
-        for n, name in enumerate(STEPS):
+        for n, name in enumerate(_(s) for s in STEPS):
             dot = QLabel()
             active = n == self.step
             dot.setFixedSize(theme.px(26 if active else 8), theme.px(8))
@@ -105,7 +105,7 @@ class WelcomePage(QWidget):
         row.addStretch()
         return row
 
-    def _nav(self, next_text: str = "Continue", back: bool = True, skip_text: str = ""):
+    def _nav(self, next_text: str = _("Continue"), back: bool = True, skip_text: str = ""):
         row = hbox(spacing=10)
         if back:
             b = QPushButton(_("Back"))
@@ -153,18 +153,18 @@ class WelcomePage(QWidget):
 
         feats = (vbox if theme.COMPACT else hbox)(spacing=12)
         for ic, head, text in [
-            ("week", "Plans your week", "A Sunday-to-Saturday plan built from the shows you're watching."),
-            ("stats", "Daily goals", "Finish a day's episodes to check it off. Stats keeps your completed "
-             "and failed days."),
-            ("next", "Follows every series", "Finish a season and the next one takes its slot automatically."),
-            ("sparkle", "Stays in sync", "Connect MyAnimeList or AniList and your progress is saved there "
-             "as you watch."),
+            ("week", _("Plans your week"), _("A Sunday-to-Saturday plan built from the shows you're watching.")),
+            ("stats", _("Daily goals"), _("Finish a day's episodes to check it off. Stats keeps your completed "
+             "and failed days.")),
+            ("next", _("Follows every series"), _("Finish a season and the next one takes its slot automatically.")),
+            ("sparkle", _("Stays in sync"), _("Connect MyAnimeList or AniList and your progress is saved there "
+             "as you watch.")),
         ]:
             frame, lay = card(margins=16, spacing=6)
             ico = QLabel()
             ico.setPixmap(icons.pixmap(ic, theme.ACCENT, 26))
             lay.addWidget(ico)
-            lay.addWidget(label(head, "cardTitle"))
+            lay.addWidget(label(head, "cardTitle", wrap=True))
             lay.addWidget(label(text, "small", wrap=True))
             lay.addStretch()
             feats.addWidget(frame, 1)
@@ -195,7 +195,7 @@ class WelcomePage(QWidget):
             ok.setProperty("accent", True)
             watching = sum(a.status == "watching" for a in self.win.state.library.values())
             lay.addWidget(label(_("✓  {n} shows in your library · {watching} watching").format(n=n, watching=watching), "cardTitle"))
-            lay.addWidget(label(self.import_note or "Covers and details load in the background.", "small", wrap=True))
+            lay.addWidget(label(self.import_note or _("Covers and details load in the background."), "small", wrap=True))
             self.body.addWidget(ok)
 
         from .connect import SERVICES, connected_name
@@ -207,7 +207,7 @@ class WelcomePage(QWidget):
             if user:
                 cl.addWidget(label(_("✓ Connected as {user}").format(user=user), "small"))
             else:
-                cl.addWidget(label(how, "small", wrap=True))
+                cl.addWidget(label(_(how), "small", wrap=True))
                 go = QPushButton(_("Connect {name}").format(name=name))
                 go.setObjectName("primary")
                 go.setMinimumHeight(theme.px(42))
@@ -221,11 +221,11 @@ class WelcomePage(QWidget):
         manual.setObjectName("link")
         manual.clicked.connect(self._manual)
         self.body.addWidget(manual, alignment=Qt.AlignLeft)
-        self._nav("Continue" if n else "Skip for now")
+        self._nav(_("Continue") if n else _("Skip for now"))
 
     def _connect(self, key: str) -> None:
         def result(msg) -> None:
-            self.import_note = msg or "Connected. Bringing in your list…"
+            self.import_note = msg or _("Connected. Bringing in your list…")
             self.refresh()
         (self.win.connect_mal if key == "mal" else self.win.connect_anilist)(result)
 
@@ -234,7 +234,7 @@ class WelcomePage(QWidget):
         self.win.import_manually()
         added = len(self.win.state.library) - before
         if added:
-            self.import_note = f"Added {added} shows. Fetching covers and details in the background…"
+            self.import_note = _n("Added {n} show. Fetching covers and details in the background…", "Added {n} shows. Fetching covers and details in the background…", added)
         self.refresh()
 
     def _step_2(self) -> None:
@@ -242,8 +242,8 @@ class WelcomePage(QWidget):
         self._title(_("How much do you watch?"), _("Pick a pace. You can fine-tune every day later "
                     "(Settings → Schedule, or − / + on each day)."))
         s.plan_by = EPISODES
-        for title, days, options in [("Weekdays", range(0, 5), (1, 2, 3, 4, 6)),
-                                     ("Weekends", range(5, 7), (0, 2, 4, 6, 8))]:
+        for title, days, options in [(_("Weekdays"), range(0, 5), (1, 2, 3, 4, 6)),
+                                     (_("Weekends"), range(5, 7), (0, 2, 4, 6, 8))]:
             frame, lay = card(margins=18, spacing=10)
             lay.addWidget(label(title, "h2"))
             chips = []
@@ -299,7 +299,7 @@ class WelcomePage(QWidget):
         seg = hbox(seg_box, 2, 3)
         group = QButtonGroup(seg_box)
         for key, name in TITLE_LANGUAGES.items():
-            b = QPushButton(name)
+            b = QPushButton(_(name))
             b.setObjectName("seg")
             b.setCheckable(True)
             b.setChecked(key == s.title_language)
@@ -309,12 +309,12 @@ class WelcomePage(QWidget):
         row.addWidget(seg_box)
         ol.addLayout(row)
         options = [
-            ("backdrop", "Background slideshow", "Full-HD art from today's shows behind the window.",
+            ("backdrop", _("Background slideshow"), _("Full-HD art from today's shows behind the window."),
              "backdrop"),
-            ("discord_enabled", "Discord Rich Presence",
-             "Show “Watching Rinne” and today's next episode on your Discord profile.", "discord"),
-            ("notify_new_episodes", "New-episode notifications",
-             "A desktop notification when a show you're watching airs a new episode.", "save"),
+            ("discord_enabled", _("Discord Rich Presence"),
+             _("Show “Watching Rinne” and today's next episode on your Discord profile."), "discord"),
+            ("notify_new_episodes", _("New-episode notifications"),
+             _("A desktop notification when a show you're watching airs a new episode."), "save"),
         ]
         for attr, title, desc, kind in options:
             r = hbox(spacing=10)

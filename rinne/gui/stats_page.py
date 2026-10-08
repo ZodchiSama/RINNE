@@ -11,7 +11,7 @@ from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPainterPath, Q
 from PySide6.QtWidgets import QFrame, QGridLayout, QToolTip, QWidget
 
 from .. import stats as stats_mod
-from ..i18n import _, _n, strftime
+from ..i18n import _, _n, N_, strftime, weekday_name
 from . import theme
 from .common import card, clear, fmt_minutes, hbox, label, page_margin, set_margins, vbox
 from .images import Cover
@@ -122,8 +122,8 @@ class GoalGrid(QWidget):
     """Daily goals for the last weeks: one row per week (Sunday → Saturday), one cell per day.
     Complete days get a ✓, failed ones an ✕, so the grid doesn't rely on colour alone."""
 
-    LABELS = {"done": "Complete", "failed": "Failed", "open": "Not finished yet",
-              "none": "Nothing planned", "future": "Coming up"}
+    LABELS = {"done": N_("Complete"), "failed": N_("Failed"), "open": N_("Not finished yet"),
+              "none": N_("Nothing planned"), "future": N_("Coming up")}
 
     def __init__(self, weeks: list[tuple[date, list[str]]], parent=None):
         super().__init__(parent)
@@ -153,7 +153,7 @@ class GoalGrid(QWidget):
         f.setPixelSize(theme.px(11))
         p.setFont(f)
         p.setPen(QColor(theme.MUTED))
-        for d, name in enumerate(["S", "M", "T", "W", "T", "F", "S"]):
+        for d, name in enumerate(weekday_name((k + 6) % 7, short=True) for k in range(7)):  # Sun … Sat
             r = self._cell_rect(-1, d)
             p.drawText(r, Qt.AlignCenter, name)
         fill = {"done": theme.SUCCESS, "failed": theme.DANGER, "open": theme.AMBER_BG,
@@ -161,7 +161,7 @@ class GoalGrid(QWidget):
         for w, (start, states) in enumerate(self.weeks):
             p.setPen(QColor(theme.MUTED))
             p.drawText(QRectF(0, self._row_h() * (w + 1), theme.px(58), self._row_h()),
-                       Qt.AlignVCenter | Qt.AlignLeft, f"{start:%d %b}")
+                       Qt.AlignVCenter | Qt.AlignLeft, strftime(start, "%d %b"))
             for d, st in enumerate(states):
                 r = self._cell_rect(w, d)
                 if fill[st]:
@@ -194,7 +194,7 @@ class GoalGrid(QWidget):
         if hit:
             start, states = self.weeks[hit[0]]
             on = start + timedelta(days=hit[1])
-            QToolTip.showText(event.globalPosition().toPoint(), f"{on:%a %d %b}: {self.LABELS[states[hit[1]]]}", self)
+            QToolTip.showText(event.globalPosition().toPoint(), f"{strftime(on, '%a %d %b')}: {_(self.LABELS[states[hit[1]]])}", self)
         else:
             QToolTip.hideText()
 
@@ -272,7 +272,7 @@ class StatsPage(QWidget):
             self._tile(_n("{n} day", "{n} days", s.streak), _("Current streak"),
                        _n("Best: {n} day", "Best: {n} days", s.best_streak)),
             self._tile(f"{s.total_episodes:,}", _("Episodes watched, all time")),
-            self._tile(f"{days:,.1f} days" if days >= 1 else fmt_minutes(s.total_minutes),
+            self._tile(_("{days:,.1f} days").format(days=days) if days >= 1 else fmt_minutes(s.total_minutes),
                        _("Time watched, all time"), _("{value:,} hours").format(value=s.total_minutes // 60)),
         ]
         grid = QGridLayout()
@@ -288,9 +288,9 @@ class StatsPage(QWidget):
         goals = (vbox if theme.COMPACT else hbox)(spacing=18)
         nums = vbox(spacing=8)
         rate = s.goal_rate
-        for value, caption in [(s.days_done, "Days complete"), (s.days_failed, "Days failed"),
-                               (f"{rate:.0%}" if rate is not None else "—", "Success rate"),
-                               (f"{s.goal_streak}", f"Complete in a row (best {s.best_goal_streak})")]:
+        for value, caption in [(s.days_done, _("Days complete")), (s.days_failed, _("Days failed")),
+                               (f"{rate:.0%}" if rate is not None else "—", _("Success rate")),
+                               (f"{s.goal_streak}", _("Complete in a row (best {best_goal_streak})").format(best_goal_streak=s.best_goal_streak))]:
             line = hbox(spacing=8)
             line.addWidget(label(str(value), "h2"))
             line.addWidget(label(caption, "small"), 1)
@@ -339,8 +339,8 @@ class StatsPage(QWidget):
         lframe, ll = card(margins=18, spacing=10)
         ll.addWidget(label(_("Your list"), "h2"))
         rate = s.completion_rate
-        for value, caption in [(s.watching, "Watching"), (s.completed, "Completed"), (s.dropped, "Dropped"),
-                               (f"{rate:.0%}" if rate is not None else "—", "Completion rate (completed vs dropped)")]:
+        for value, caption in [(s.watching, _("Watching")), (s.completed, _("Completed")), (s.dropped, _("Dropped")),
+                               (f"{rate:.0%}" if rate is not None else "—", _("Completion rate (completed vs dropped)"))]:
             line = hbox(spacing=8)
             line.addWidget(label(str(value), "h2"))
             line.addWidget(label(caption, "small"), 1)
@@ -361,7 +361,7 @@ class StatsPage(QWidget):
                 line.addWidget(label(_("{name} — episode {e}").format(name=a.name, e=h['e']), "", wrap=True), 1)
                 try:
                     when = date.fromisoformat(h["d"])
-                    line.addWidget(label(f"{when:%a %d %b}", "faint"))
+                    line.addWidget(label(strftime(when, "%a %d %b"), "faint"))
                 except ValueError:
                     pass
                 lay.addLayout(line)
