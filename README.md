@@ -1,8 +1,9 @@
-<p align="center"><img src="rinne/assets/logo-round.png" width="160" alt="Rinne"></p>
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="brand/banner/rinne-readme-banner-light-mode.png">
+  <img src="brand/banner/rinne-readme-banner-dark-mode.png" alt="Rinne 輪廻 — the cycle of rebirth · a weekly anime planner">
+</picture>
 
-<h1 align="center">Rinne 輪廻</h1>
-
-<p align="center"><i>The cycle of rebirth.</i> A desktop anime planner for Linux and Windows.</p>
+<p align="center">A desktop anime planner for Linux and Windows.</p>
 
 Rinne turns your **MyAnimeList** or **AniList** list into a weekly watch plan. When a show ends,
 its next season is reborn in its place, even if it isn't on your list yet, and Rinne tells you
@@ -192,6 +193,7 @@ file; see [CONTRIBUTING.md](CONTRIBUTING.md#translating-rinne) to add yours.
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/python -m pytest              # logic and interface tests (offscreen, no network)
 packaging/linux/build_appimage.sh       # AppImage in dist/
+.venv/bin/python tools/brand_assets.py  # rebuild the app's icons and logos from brand/
 ```
 
 Pushing a `v*` tag builds the Windows installer, the portable exe and the AppImage on GitHub

@@ -40,7 +40,8 @@ def run(report: str | None) -> int:
 
     def assets():
         from .gui.common import asset
-        missing = [n for n in ("icon-256.png", "logo-round.png", "icon-1024.png") if not Path(asset(n)).exists()]
+        missing = [n for n in ("icon-256.png", "icon-1024.png", "mark-dark.png", "mark-light.png", "title-dark.png")
+                   if not Path(asset(n)).exists()]
         if missing:
             raise FileNotFoundError(", ".join(missing))
         return "icons and logo found"

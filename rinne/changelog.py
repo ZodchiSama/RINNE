@@ -4,6 +4,11 @@ Notes wrapped in N_ are translated when shown."""
 from .i18n import N_
 
 CHANGELOG: list[tuple[str, str, list[str]]] = [
+    ("1.1.1", N_("A new look"), [
+        N_("New logo: the Wheel of Reincarnation, an arrow chasing its own tail"),
+        N_("New app icon, clear at every size from the tray to the desktop"),
+        N_("The logo follows your theme, light or dark"),
+    ]),
     ("1.1.0", N_("Two-way sync and Russian"), [
         N_("Changes you make on MyAnimeList or AniList come back to Rinne too, on startup and every few hours"),
         N_("Russian interface, and show titles in Russian (from Shikimori)"),

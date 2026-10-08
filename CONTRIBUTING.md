@@ -35,6 +35,7 @@ Run the tests before sending a pull request. They're offscreen and never touch t
 | `rinne/gui/week.py`, `upnext.py`, `library.py`, `stats_page.py`, `profile.py` | The pages |
 | `rinne/gui/settings.py` (+ `settings_data.py`, `settings_about.py`) | The Settings page |
 | `tests/test_core.py`, `tests/test_gui.py` | Logic tests and interface tests |
+| `brand/` | The logo, icons, banners and their notes (`brand/README.md`); `tools/brand_assets.py` builds the app's copies in `rinne/assets/` |
 
 ## Translating Rinne
 

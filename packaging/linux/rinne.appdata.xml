@@ -75,6 +75,11 @@
     <keyword>watchlist</keyword>
   </keywords>
   <releases>
+    <release version="1.1.1" date="2026-10-08">
+      <description>
+        <p>A new look: a new logo and app icon, the Wheel of Reincarnation.</p>
+      </description>
+    </release>
     <release version="1.1.0" date="2026-10-08">
       <description>
         <p>Two-way sync and Russian.</p>

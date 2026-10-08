@@ -5,15 +5,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QColor, QPainter, QPixmap, QRadialGradient
+from PySide6.QtGui import QColor, QPainter, QRadialGradient
 from PySide6.QtWidgets import QButtonGroup, QFrame, QLabel, QPushButton, QScrollArea, QWidget
 
 from .. import DISPLAY_NAME, __version__
 from ..i18n import _, _n, N_
 from ..models import EPISODES, TITLE_LANGUAGES
 from . import icons, theme
-from .common import FlowLayout, Switch, button_row, card, clear, hbox, label, vbox
-from .common import asset
+from .common import brand_pixmap, button_row, card, clear, FlowLayout, hbox, label, Switch, vbox
 from .settings import theme_card
 
 if TYPE_CHECKING:
@@ -23,17 +22,13 @@ STEPS = [N_("Welcome"), N_("Your list"), N_("Your week"), N_("Make it yours"), N
 
 
 class Glow(QLabel):
-    """The round logo on a soft accent glow."""
+    """The Rinne wheel on a soft accent glow."""
 
     def __init__(self, size: int):
         super().__init__()
         self.size_px = theme.px(size)
         self.setFixedSize(round(self.size_px * 1.5), round(self.size_px * 1.5))
-        dpr = self.devicePixelRatioF() or 1.0
-        pix = QPixmap(asset("logo-round.png")).scaled(round(self.size_px * dpr), round(self.size_px * dpr),
-                                                      Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        pix.setDevicePixelRatio(dpr)
-        self.pix = pix
+        self.pix = brand_pixmap("mark", self.size_px, self)
 
     def paintEvent(self, event) -> None:
         p = QPainter(self)
@@ -139,10 +134,12 @@ class WelcomePage(QWidget):
 
     def _step_0(self) -> None:
         self.body.addWidget(Glow(140 if theme.COMPACT else 190), alignment=Qt.AlignHCenter)
-        name = label(DISPLAY_NAME, "heroName")
+        name = QLabel()  # RINNE / 輪廻, as drawn in the brand kit
+        name.setPixmap(brand_pixmap("title", theme.px(78 if theme.COMPACT else 104), self))
+        name.setAccessibleName(DISPLAY_NAME)
         name.setAlignment(Qt.AlignCenter)
         self.body.addWidget(name)
-        sub = label(_("輪廻 — the cycle of rebirth"), "heroSub")
+        sub = label(_("The cycle of rebirth"), "heroSub")
         sub.setAlignment(Qt.AlignCenter)
         self.body.addWidget(sub)
         tag = label(_("Your weekly anime planner. When a show ends, its next season is reborn in its place."),

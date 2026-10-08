@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QPoint, QRect, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QFontMetrics, QPainter
+from PySide6.QtGui import QFontMetrics, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QAbstractButton, QBoxLayout, QFrame, QHBoxLayout, QLabel, QLayout, QProgressBar, QPushButton, QScrollArea,
     QSizePolicy, QVBoxLayout, QWidget,
@@ -400,3 +400,17 @@ class Toast(QFrame):
         self.hide()
         if self._callback:
             self._callback()
+
+
+def brand_pixmap(kind: str, size: int, widget: QWidget | None = None) -> QPixmap:
+    """Rinne's artwork for the current theme: the wheel ("mark", `size` = its height, using the
+    simplified wheel at 48 px and under) or the RINNE / 輪廻 title ("title", `size` = height)."""
+    mode = "dark" if theme.DARK else "light"
+    if kind == "title":
+        name = f"title-{mode}.png"
+    else:
+        name = f"mark-simple-{mode}.png" if size <= theme.px(48) else f"mark-{mode}.png"
+    dpr = (widget.devicePixelRatioF() if widget is not None else 0) or 2.0
+    pix = QPixmap(asset(name)).scaledToHeight(round(size * dpr), Qt.SmoothTransformation)
+    pix.setDevicePixelRatio(dpr)
+    return pix

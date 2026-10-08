@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, QUrl
-from PySide6.QtGui import QDesktopServices, QPixmap
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QGridLayout, QLabel
 
 from .. import DISPLAY_NAME, __version__, updates
@@ -14,7 +14,7 @@ from ..models import Settings
 from ..logs import log_path
 from ..storage import data_dir
 from . import theme
-from .common import asset, badge, button_row, card, hbox, label, vbox
+from .common import badge, brand_pixmap, button_row, card, hbox, label, vbox
 
 if TYPE_CHECKING:
     from .window import MainWindow
@@ -34,12 +34,7 @@ class AboutSection:
         frame, lay = card(margins=18 if theme.COMPACT else 28, spacing=10)
         top = (vbox if theme.COMPACT else hbox)(spacing=16 if theme.COMPACT else 24)
         logo = QLabel()
-        pix = QPixmap(asset("logo-round.png"))
-        size = theme.px(110 if theme.COMPACT else 150)
-        dpr = self.devicePixelRatioF() or 1.0
-        pix = pix.scaled(round(size * dpr), round(size * dpr), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        pix.setDevicePixelRatio(dpr)
-        logo.setPixmap(pix)
+        logo.setPixmap(brand_pixmap("mark", theme.px(110 if theme.COMPACT else 150), self))
         top.addWidget(logo)
         info = vbox(spacing=6)
         info.addStretch()

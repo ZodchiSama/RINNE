@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from PySide6.QtCore import QEvent, QObject, QSize, Qt, QThread, QTimer, QUrl, Signal
-from PySide6.QtGui import QDesktopServices, QKeySequence, QPixmap, QShortcut
+from PySide6.QtGui import QDesktopServices, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QFrame, QInputDialog, QLabel, QMainWindow, QMessageBox, QProgressBar,
     QPushButton, QSizePolicy, QStackedWidget, QToolButton, QWidget,
@@ -19,7 +19,7 @@ from ..logs import log
 from ..models import COMPLETED, WATCHING, Anime
 from ..storage import load_state, save_state
 from . import icons, theme
-from .common import Clickable, ElidedLabel, Toast, clear, hbox, label, vbox
+from .common import brand_pixmap, clear, Clickable, ElidedLabel, hbox, label, Toast, vbox
 from .images import Cover
 from .backdrop import Backdrop
 from .desktop import DesktopMixin, app_icon
@@ -27,7 +27,6 @@ from .dialogs import ReplacementDialog
 from .library import LibraryPage
 from .profile import ProfilePage
 from .services import ServicesMixin
-from .common import asset
 from .settings import SettingsPage
 from .stats_page import StatsPage
 from .tour import Step, TourOverlay
@@ -183,12 +182,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         # Brand
         brand = hbox(spacing=10)
         logo = QLabel()
-        size = theme.px(44)
-        dpr = self.devicePixelRatioF() or 1.0
-        pix = QPixmap(asset("logo-round.png")).scaled(round(size * dpr), round(size * dpr),
-                                                      Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        pix.setDevicePixelRatio(dpr)
-        logo.setPixmap(pix)
+        logo.setPixmap(brand_pixmap("mark", theme.px(44), self))
         brand.addWidget(logo)
         names = vbox(spacing=0)
         names.addWidget(label(DISPLAY_NAME, "brand"))
