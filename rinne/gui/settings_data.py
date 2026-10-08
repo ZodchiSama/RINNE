@@ -83,6 +83,7 @@ class DataSections:
         imp = button_row(self._button("Import export file…", lambda: self.win.import_manually("file")),
                          self._button("Import by username", lambda: self.win.import_manually("mal")),
                          self._button("Import from AniList…", lambda: self.win.import_manually("anilist")),
+                         self._button("Import from Shikimori…", lambda: self.win.import_manually("shikimori")),
                          self._button("Refresh all details", lambda: self.win.run_enrich(force=True)))
         self._row("Import", f"{len(self.win.state.library)} shows in your library.", imp)
 

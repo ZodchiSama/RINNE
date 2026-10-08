@@ -134,7 +134,7 @@ class UpNextPage(QWidget):
     def _announcement(self, entry: dict) -> QFrame:
         from .profile import pick_title, when_text  # (profile imports this module)
         node = entry["node"]
-        title = pick_title(node.get("title"))
+        title = pick_title(node.get("title"), node.get("idMal"))
         frame, lay = card(margins=12, spacing=14, horizontal=True)
         lay.addWidget(Cover((node.get("coverImage") or {}).get("large", ""), title, 58, 82, 8), alignment=Qt.AlignTop)
         col = vbox(spacing=4)

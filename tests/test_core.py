@@ -871,3 +871,54 @@ def test_connected_mal_import_uses_the_sign_in_token(monkeypatch):
     mal.fetch_mal_list("@me", "cid", token="tok")
     assert "/users/%40me/animelist" in seen["url"] or "/users/@me/animelist" in seen["url"]
     assert seen["headers"] == {"Authorization": "Bearer tok"}  # private lists work too
+
+
+# --------------------------------------------------------------------------- Shikimori
+
+
+def test_shikimori_import_pages_maps_statuses_and_keeps_russian_titles(monkeypatch):
+    from rinne import shikimori
+    monkeypatch.setattr(shikimori, "PAGE", 2)
+    pages = {
+        1: [{"status": "watching", "episodes": 3, "score": 8,
+             "anime": {"id": 52991, "name": "Sousou no Frieren", "russian": "Провожающая в последний путь Фрирен",
+                       "kind": "tv", "episodes": 28, "status": "released", "aired_on": "2023-09-29"}},
+            {"status": "planned", "episodes": 0, "score": 0,
+             "anime": {"id": 21, "name": "One Piece", "russian": "Ван-Пис", "kind": "tv", "episodes": 0,
+                       "status": "ongoing"}},
+            {"status": "rewatching", "episodes": 1, "score": 9,  # the extra one: there's a next page
+             "anime": {"id": 1, "name": "Cowboy Bebop", "russian": "Ковбой Бибоп", "kind": "tv", "episodes": 26,
+                       "status": "released"}}],
+        2: [{"status": "rewatching", "episodes": 1, "score": 9,
+             "anime": {"id": 1, "name": "Cowboy Bebop", "russian": "Ковбой Бибоп", "kind": "tv", "episodes": 26,
+                       "status": "released"}}],
+    }
+    monkeypatch.setattr(shikimori, "_get", lambda path, params: pages[params["page"]])
+    entries = {a.mal_id: a for a in shikimori.fetch_user_list("someone")}
+    assert set(entries) == {52991, 21, 1}
+    f = entries[52991]
+    assert (f.status, f.episodes_watched, f.episodes_total, f.user_score, f.media_type) == (WATCHING, 3, 28, 8, "TV")
+    assert f.title_ru == "Провожающая в последний путь Фрирен" and f.airing_status == FINISHED_AIRING
+    assert entries[21].status == PLAN_TO_WATCH and entries[21].airing_status == CURRENTLY_AIRING
+    assert entries[1].status == WATCHING  # rewatching counts as watching
+
+
+def test_russian_titles_are_cached_and_used_when_chosen(tmp_path, monkeypatch):
+    from rinne import models, shikimori
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+    calls = []
+
+    def fake_get(path, params):
+        calls.append(params["ids"])
+        return [{"id": 1, "russian": "Ковбой Бибоп"}]
+    monkeypatch.setattr(shikimori, "_get", fake_get)
+    assert shikimori.russian_titles([1, 2]) == {1: "Ковбой Бибоп", 2: ""}
+    assert shikimori.russian_titles([1, 2]) == {1: "Ковбой Бибоп", 2: ""} and calls == ["1,2"]  # cached
+    lib = {1: show(1, "Cowboy Bebop", title_romaji="Cowboy Bebop"), 2: show(2, "Other", title_romaji="Other")}
+    assert shikimori.apply_russian(lib, {1: "Ковбой Бибоп", 2: ""}) == 1
+    monkeypatch.setattr(models, "title_language", models.RUSSIAN)
+    assert lib[1].name == "Ковбой Бибоп" and lib[2].name == "Other"  # no Russian title: romaji
+    assert "Ковбой Бибоп" in lib[1].all_titles()  # search finds it in Russian too
+    old = {1: show(1, "Cowboy Bebop")}
+    mal.merge_import(old, [show(1, "Cowboy Bebop", title_ru="Ковбой Бибоп")])
+    assert old[1].title_ru == "Ковбой Бибоп"

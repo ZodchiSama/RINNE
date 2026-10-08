@@ -82,8 +82,12 @@ week. You can replay it, and a short tour, from Settings → General.
   MyAnimeList or AniList. Rinne brings in your whole list, private entries included, and keeps
   your account up to date from then on.
 - **Import by hand:** if you'd rather not connect, use *Don't want to connect?* in the same
-  window. You can import a MAL export file (*Profile → Export* on MAL), a MAL username, or a
-  public AniList username. Rinne first lists what you'd miss without a connection.
+  window. You can import a MAL export file (*Profile → Export* on MAL), a MAL username, a
+  public AniList username, or a public **Shikimori** nickname. Rinne first lists what you'd miss
+  without a connection.
+- **Titles in Russian:** pick **Русский** in *Settings → General → Titles*. Russian titles come
+  from Shikimori and work for any list, not only Shikimori imports. Shows Shikimori has no
+  Russian title for stay in romaji.
 
 Rinne then fills in show details from **AniList**: covers, English, romaji and Japanese titles,
 sequel links, episode lengths and exact airing dates. Episode titles and fan art come from

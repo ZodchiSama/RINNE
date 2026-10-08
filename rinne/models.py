@@ -35,7 +35,8 @@ META_VERSION = 2
 ROMAJI = "romaji"
 ENGLISH = "english"
 NATIVE = "native"
-TITLE_LANGUAGES = {ROMAJI: "Romaji", ENGLISH: "English", NATIVE: "日本語"}
+RUSSIAN = "russian"  # from Shikimori; shows without one fall back to romaji
+TITLE_LANGUAGES = {ROMAJI: "Romaji", ENGLISH: "English", NATIVE: "日本語", RUSSIAN: "Русский"}
 # Which title variant `Anime.name` shows; set from Settings.title_language by the GUI.
 title_language = ROMAJI
 
@@ -65,6 +66,7 @@ class Anime:
     title_romaji: str = ""
     title_english: str = ""
     title_native: str = ""
+    title_ru: str = ""  # Russian, from Shikimori
     anilist_id: int = 0
     next_episode: int = 0  # next episode to air (AniList), 0 = none/unknown
     next_airing: str = ""  # local ISO datetime of next_episode
@@ -94,11 +96,13 @@ class Anime:
             return self.title_english
         if title_language == NATIVE and self.title_native:
             return self.title_native
+        if title_language == RUSSIAN and self.title_ru:
+            return self.title_ru
         return self.title_romaji or self.title
 
     def all_titles(self) -> list[str]:
         seen, out = set(), []
-        for t in (self.name, self.title_romaji, self.title_english, self.title_native, self.title):
+        for t in (self.name, self.title_romaji, self.title_english, self.title_native, self.title_ru, self.title):
             if t and t not in seen:
                 seen.add(t)
                 out.append(t)
@@ -184,6 +188,7 @@ class Settings:
     mal_username: str = ""
     mal_client_id: str = ""
     anilist_username: str = ""
+    shikimori_username: str = ""
     # Account sync (tokens are stored locally only)
     mal_token: dict = field(default_factory=dict)  # access_token, refresh_token, expires_at
     mal_user: str = ""

@@ -9,7 +9,7 @@ from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QFileDialog, QInputDialog, QMessageBox
 
-from .. import HOMEPAGE_URL, anilist, announcements, mal, scheduler, sync, updates
+from .. import HOMEPAGE_URL, anilist, announcements, mal, models, scheduler, shikimori, sync, updates
 from .profile import pick_title
 from ..logs import log
 from ..models import WATCHING, Anime
@@ -79,7 +79,7 @@ class ServicesMixin:
             self.announcements = results
             s = self.state.settings
             for r in announcements.premiered(results, self.state.announced):
-                title = pick_title(r["node"].get("title"))
+                title = pick_title(r["node"].get("title"), r["node"].get("idMal"))
                 if s.auto_add_sequels:
                     self.add_sequel(r["mal_id"], start=False, quiet=True)
                 if s.notify_premieres and self.state.announced.get(r["mal_id"]):  # skip first sighting
@@ -328,6 +328,47 @@ class ServicesMixin:
         self.save()
         self.statusBar().showMessage(f"Imported: {added} new, {updated} updated", 8000)
         self.run_enrich()
+        if models.title_language == models.RUSSIAN:
+            self.fetch_russian_titles()
+
+    def import_shikimori(self, username: str | None = None) -> None:
+        """Import a public Shikimori list by nickname. Russian titles come with it."""
+        s = self.state.settings
+        if username is None:
+            name, ok = QInputDialog.getText(self, "Import from Shikimori", "Shikimori nickname:",
+                                            text=s.shikimori_username)
+            if not ok or not name.strip():
+                return
+            username = name
+        s.shikimori_username = username.strip()
+        self.save()
+
+        def done(entries) -> None:
+            self._finish_import(entries)
+            if s.title_language != models.RUSSIAN and QMessageBox.question(
+                    self, "Russian titles", "Show titles in Russian? You can change this any time in "
+                    "Settings → General → Titles.") == QMessageBox.Yes:
+                self.set_title_language(models.RUSSIAN)
+
+        self._run(shikimori.fetch_user_list, (s.shikimori_username,), done)
+
+    def fetch_russian_titles(self) -> None:
+        """Russian titles (from Shikimori) for every show that doesn't have one yet."""
+        missing = [a.mal_id for a in self.state.library.values() if not a.title_ru]
+        if not missing:
+            return
+
+        def done(titles) -> None:
+            changed = shikimori.apply_russian(self.state.library, titles)
+            if changed:
+                self.save()
+                self.refresh()
+                self.statusBar().showMessage(f"Russian titles added for {changed} show{'s' if changed != 1 else ''}",
+                                             5000)
+            elif self.statusBar().currentMessage().startswith("Fetching Russian titles"):
+                self.statusBar().clearMessage()
+
+        self._run(shikimori.russian_titles, (missing,), done, exclusive=False)
 
     def _startup_enrich(self) -> None:
         # Episode titles/thumbnails for the shows being watched (airing ones refresh every 2 days).
@@ -335,6 +376,8 @@ class ServicesMixin:
         # Retry anything a previous session couldn't look up (and backfill new fields).
         if any(a.needs_enrichment for a in self.state.library.values()):
             self.run_enrich()
+        if models.title_language == models.RUSSIAN:
+            self.fetch_russian_titles()  # cached, so only new shows are looked up
         if self.state.settings.refresh_on_startup:
             airing = [a for a in self.state.library.values()
                       if a.status == WATCHING and a.airing_status == "currently_airing"]

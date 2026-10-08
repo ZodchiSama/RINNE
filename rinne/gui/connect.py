@@ -124,8 +124,8 @@ def confirm_manual(win: MainWindow) -> bool:
 
 
 def import_manually(win: MainWindow, kind: str = "") -> None:
-    """Import from a MAL export file ("file"), a MAL username ("mal") or an AniList username
-    ("anilist"), asking which if `kind` is empty. Without a connected account, first says what
+    """Import from a MAL export file ("file"), a MAL username ("mal"), an AniList username
+    ("anilist") or a Shikimori nickname ("shikimori"), asking which if `kind` is empty. Without a connected account, first says what
     connecting would give."""
     if not any_connected(win) and not confirm_manual(win):
         return
@@ -136,12 +136,15 @@ def import_manually(win: MainWindow, kind: str = "") -> None:
         f = box.addButton("MAL export file…", QMessageBox.ActionRole)
         m = box.addButton("MAL username…", QMessageBox.ActionRole)
         a = box.addButton("AniList username…", QMessageBox.ActionRole)
+        sh = box.addButton("Shikimori nickname…", QMessageBox.ActionRole)
         box.addButton(QMessageBox.Cancel)
         box.exec()
-        kind = {f: "file", m: "mal", a: "anilist"}.get(box.clickedButton(), "")
+        kind = {f: "file", m: "mal", a: "anilist", sh: "shikimori"}.get(box.clickedButton(), "")
     if kind == "file":
         win.import_file()
     elif kind == "mal":
         win.import_username()
     elif kind == "anilist":
         win.import_anilist()
+    elif kind == "shikimori":
+        win.import_shikimori()

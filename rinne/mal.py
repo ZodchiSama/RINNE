@@ -414,6 +414,8 @@ def merge_import(library: dict[int, Anime], imported: list[Anime]) -> tuple[int,
             old.status = new.status
         if new.episodes_total:
             old.episodes_total = new.episodes_total
+        if new.title_ru:  # Shikimori imports carry Russian titles
+            old.title_ru = new.title_ru
         if new.genres:  # API import carries metadata; keep relations from enrichment
             for name in ("mean_score", "genres", "episode_minutes", "airing_status",
                          "broadcast_day", "aired_from", "image_url"):

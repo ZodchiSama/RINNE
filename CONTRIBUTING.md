@@ -28,6 +28,7 @@ Run the tests before sending a pull request. They're offscreen and never touch t
 | `rinne/scheduler.py` | The weekly plan: sharing out episodes, catch-up, moves, finales |
 | `rinne/recommender.py` | What replaces a finished show, and why |
 | `rinne/anilist.py`, `mal.py`, `artwork.py` | Metadata sources (AniList first, MAL/Jikan as fallbacks) |
+| `rinne/shikimori.py` | Shikimori list import and Russian titles |
 | `rinne/sync.py` | Sending progress back to MyAnimeList and AniList |
 | `rinne/stats.py`, `calendar_export.py`, `announcements.py` | Stats, the .ics file, new-season checks |
 | `rinne/gui/window.py` | The main window; `services.py` has updates, sync and imports |

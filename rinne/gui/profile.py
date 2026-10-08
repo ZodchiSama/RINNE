@@ -36,12 +36,16 @@ SOURCE_LABELS = {"MANGA": "Manga", "LIGHT_NOVEL": "Light novel", "ORIGINAL": "Or
                  "VIDEO_GAME": "Video game", "GAME": "Game"}
 
 
-def pick_title(t: dict | None) -> str:
+def pick_title(t: dict | None, mal_id: int | None = None) -> str:
     t = t or {}
     if models.title_language == models.ENGLISH and t.get("english"):
         return t["english"]
     if models.title_language == models.NATIVE and t.get("native"):
         return t["native"]
+    if models.title_language == models.RUSSIAN and mal_id:
+        from ..shikimori import cached_title
+        if ru := cached_title(mal_id):
+            return ru
     return t.get("romaji") or t.get("english") or t.get("native") or "?"
 
 
@@ -346,7 +350,7 @@ class ProfilePage(QWidget):
         row_w = QFrame()
         row_w.setObjectName("episode")
         row = hbox(row_w, 14, 10)
-        title = in_lib.name if in_lib else pick_title(node.get("title"))
+        title = in_lib.name if in_lib else pick_title(node.get("title"), node.get("idMal"))
         row.addWidget(Cover((node.get("coverImage") or {}).get("large", ""), title, 58, 82, 8))
         col = vbox(spacing=4)
         rel = entry["relation"]
@@ -541,7 +545,7 @@ class ProfilePage(QWidget):
             node = ce.get("node") or {}
             if node.get("idMal") == own_id or not ce.get("characters"):
                 continue
-            role = f"{ce['characters'][0]['name']['full']} in {pick_title(node.get('title'))}"
+            role = f"{ce['characters'][0]['name']['full']} in {pick_title(node.get('title'), node.get('idMal'))}"
             entry = lib.get(node.get("idMal"))
             (known if entry and entry.status in ("completed", "watching") else other).append(role)
         if known:
@@ -563,7 +567,7 @@ class ProfilePage(QWidget):
         flow = FlowLayout(spacing=12)
         for e in edges[:12]:
             node = e["node"]
-            flow.addWidget(self._mini(node.get("idMal"), pick_title(node.get("title")),
+            flow.addWidget(self._mini(node.get("idMal"), pick_title(node.get("title"), node.get("idMal")),
                                       (node.get("coverImage") or {}).get("large", ""),
                                       RELATION_LABELS.get(e["relationType"], e["relationType"].title())))
         host = QWidget()
@@ -581,7 +585,7 @@ class ProfilePage(QWidget):
         flow = FlowLayout(spacing=12)
         for m in nodes:
             score = f"★ {m['averageScore'] / 10:.1f}" if m.get("averageScore") else ""
-            flow.addWidget(self._mini(m.get("idMal"), pick_title(m.get("title")),
+            flow.addWidget(self._mini(m.get("idMal"), pick_title(m.get("title"), m.get("idMal")),
                                       (m.get("coverImage") or {}).get("large", ""), score))
         host = QWidget()
         host.setLayout(flow)

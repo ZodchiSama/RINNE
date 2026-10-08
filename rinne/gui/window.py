@@ -501,6 +501,8 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         models.title_language = self.state.settings.title_language = lang
         self.save()
         self.refresh_pages()
+        if lang == models.RUSSIAN:
+            self.fetch_russian_titles()
 
     def _shortcuts(self) -> None:
         for keys, fn in [
