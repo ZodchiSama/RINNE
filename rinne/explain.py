@@ -6,10 +6,11 @@ from datetime import date, timedelta
 
 from . import scheduler
 from .models import (
-    COMPLETED, CURRENTLY_AIRING, DROPPED, ON_HOLD, PLAN_TO_WATCH, WATCHING, WEEKDAYS, Anime,
+    COMPLETED, CURRENTLY_AIRING, DROPPED, ON_HOLD, PLAN_TO_WATCH, WATCHING, Anime,
 )
 from .recommender import SERIES, rank
 from .storage import State
+from .i18n import _, _n, weekday_name
 
 
 def _fmt_date(iso: str) -> str:
@@ -82,10 +83,11 @@ def _schedule_lines(state: State, anime: Anime, today: date) -> list[str]:
         if todo:
             first = todo[0]
             on = start + timedelta(days=first.day)
-            when = "today" if on == today else ("tomorrow" if on == today + timedelta(days=1)
-                                                else WEEKDAYS[on.weekday()])
-            out.append(f"{len(mine)} episode{'s' if len(mine) != 1 else ''} planned this week — "
-                       f"next is episode {first.episode}, {when}")
+            when = _("today") if on == today else (_("tomorrow") if on == today + timedelta(days=1)
+                                                   else weekday_name(on.weekday()))
+            out.append(_n("{n} episode planned this week — next is episode {ep}, {when}",
+                          "{n} episodes planned this week — next is episode {ep}, {when}",
+                          len(mine), ep=first.episode, when=when))
         elif mine:
             out.append("All of this week's planned episodes are watched")
         else:
@@ -94,8 +96,8 @@ def _schedule_lines(state: State, anime: Anime, today: date) -> list[str]:
     if anime.episodes_total:
         left = anime.episodes_total - anime.episodes_watched
         if left > 0:
-            out.append(f"{left} episode{'s' if left != 1 else ''} left "
-                       f"(about {_hours(left * anime.minutes_per_episode)})")
+            out.append(_n("{n} episode left (about {time})", "{n} episodes left (about {time})", left,
+                          time=_hours(left * anime.minutes_per_episode)))
     if anime.airing_status == CURRENTLY_AIRING:
         if anime.next_episode and anime.next_airing:
             out.append(f"Still airing — episode {anime.next_episode} airs "

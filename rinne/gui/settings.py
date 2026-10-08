@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 )
 
 from .. import i18n
-from ..i18n import N_, _
+from ..i18n import _, N_
 from ..models import EPISODES, MINUTES, TITLE_LANGUAGES, WEEKDAYS, Settings
 from . import theme
 from .common import Clickable, FlowLayout, Switch, badge, button_row, clear, hbox, label, set_margins, vbox

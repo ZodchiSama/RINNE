@@ -10,6 +10,13 @@ translation, plus "_language" with the language's own name:
     {"_language": "Español", "Your Week": "Tu semana", "Up Next": "A continuación"}
 
 Missing or empty entries fall back to English, so a partial catalog is fine.
+
+Counts use _n("{n} episode", "{n} episodes", n). In a catalog, its entry (keyed by the singular)
+is a list of forms in the language's plural order, e.g. Russian one / few / many:
+
+    "{n} episode": ["{n} эпизод", "{n} эпизода", "{n} эпизодов"]
+
+Dates go through strftime() below, so month and weekday names are translated too.
 `python tools/extract_strings.py` lists every wrapped string in rinne/locale/template.json and adds
 new ones to existing catalogs. The language is picked in Settings → General (needs a restart).
 """
@@ -25,10 +32,69 @@ LOCALE_DIR = Path(__file__).resolve().parent / "locale"
 
 current = "en"
 _catalog: dict[str, str] = {}
+_plurals: dict[str, list[str]] = {}
+
+MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September",
+          "October", "November", "December"]
+WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 
 def _(text: str) -> str:
     return _catalog.get(text) or text
+
+
+def _plural_index(n: int) -> int:
+    """Which plural form n takes in the current language."""
+    n = abs(int(n))
+    if current.split("_")[0] in ("ru", "uk", "be"):  # one / few / many
+        if n % 10 == 1 and n % 100 != 11:
+            return 0
+        if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+            return 1
+        return 2
+    return 0 if n == 1 else 1
+
+
+def _n(singular: str, plural: str, n: int, **values) -> str:
+    """A count, in the right plural form, with {n} (and any other placeholders) filled in."""
+    forms = _plurals.get(singular)
+    if forms:
+        text = forms[min(_plural_index(n), len(forms) - 1)]
+    else:
+        text = singular if n == 1 else plural
+    return text.format(n=n, **values)
+
+
+def month_name(month: int, short: bool = False, in_date: bool = False) -> str:
+    """`in_date`: written with a day ("7 October"), which some languages inflect (7 октября)."""
+    name = MONTHS[month - 1]
+    if short:
+        return _(name[:3])
+    return (_(f"{name} (in a date)") if in_date and _catalog.get(f"{name} (in a date)") else _(name))
+
+
+def weekday_name(weekday: int, short: bool = False) -> str:
+    name = WEEKDAYS[weekday]
+    return _(name[:3]) if short else _(name)
+
+
+def strftime(d, fmt: str) -> str:
+    """date.strftime, with month and weekday names (%b %B %a %A) in the interface language."""
+    fmt = (fmt.replace("%B", "\x00B").replace("%b", "\x00b").replace("%A", "\x00A").replace("%a", "\x00a"))
+    out = d.strftime(fmt.replace("\x00", "%%\x00"))
+    in_date = "%d" in fmt or "%-d" in fmt or "%e" in fmt
+    return (out.replace("%\x00B", month_name(d.month, in_date=in_date)).replace("%\x00b", month_name(d.month, True))
+               .replace("%\x00A", weekday_name(d.weekday())).replace("%\x00a", weekday_name(d.weekday(), True)))
+
+
+def date_keys() -> list[str]:
+    """Catalog keys used by dates (for tools/extract_strings.py)."""
+    keys = []
+    for m in MONTHS:
+        keys += [m, m[:3], f"{m} (in a date)"]
+    for w in WEEKDAYS:
+        keys += [w, w[:3]]
+    return keys
 
 
 def N_(text: str) -> str:
@@ -63,20 +129,21 @@ def system_language() -> str:
 
 def set_language(code: str) -> str:
     """Load a catalog ("auto" = the system language). Returns the code actually used."""
-    global current, _catalog
+    global current, _catalog, _plurals
     if code in ("", "auto"):
         code = system_language()
     codes = available()
     if code not in codes:
         code = code.split("_")[0]  # pt_BR → pt
+    current, _catalog, _plurals = "en", {}, {}
     if code not in codes or code == "en":
-        current, _catalog = "en", {}
         return current
     try:
         data = json.loads((LOCALE_DIR / f"{code}.json").read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        current, _catalog = "en", {}
         return current
     current = code
     _catalog = {k: v for k, v in data.items() if not k.startswith("_") and isinstance(v, str) and v}
+    _plurals = {k: v for k, v in data.items()
+                if not k.startswith("_") and isinstance(v, list) and v and all(isinstance(f, str) and f for f in v)}
     return current

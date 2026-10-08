@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from .. import artwork, models, scheduler
-from ..i18n import _
+from ..i18n import _, month_name, _n, weekday_name
 from ..models import EPISODES, WEEKDAYS, Anime
 from . import theme
 from .common import (
@@ -363,10 +363,11 @@ class CompletedDay(QFrame):
         check.setAlignment(Qt.AlignCenter)
         check.setFixedSize(theme.px(30), theme.px(30))
         row.addWidget(check)
-        when = "Today" if on == today else WEEKDAYS[on.weekday()]
-        title = label(f"{when} · {on.day} {on:%b}", "cardTitle")
-        detail = label(f"Day complete · {count} episode{'s' if count != 1 else ''} · {fmt_minutes(minutes)}"
-                       + (f" · {shows} shows" if shows > 1 else ""), "faint", wrap=True)
+        when = _("Today") if on == today else weekday_name(on.weekday())
+        title = label(f"{when} · {on.day} {month_name(on.month, short=True)}", "cardTitle")
+        detail = label(_n("Day complete · {n} episode", "Day complete · {n} episodes", count)
+                       + f" · {fmt_minutes(minutes)}"
+                       + (" · " + _n("{n} show", "{n} shows", shows) if shows > 1 else ""), "faint", wrap=True)
         if theme.COMPACT:
             col = vbox(spacing=0)
             col.addWidget(title)
@@ -690,9 +691,8 @@ class WeekPage(QWidget):
                 self.first_day = row
             if iso == celebrate and complete:
                 week_done = all(week.day_complete(d) for d in range(scheduler.PLAN_DAYS) if week.for_day(d))
-                title = "Week complete!" if week_done else "Day complete!"
-                sub = (f"{len(day_items)} episode{'s' if len(day_items) != 1 else ''} · "
-                       f"{fmt_minutes(day_minutes)}")
+                title = _("Week complete!") if week_done else _("Day complete!")
+                sub = _n("{n} episode", "{n} episodes", len(day_items)) + f" · {fmt_minutes(day_minutes)}"
                 self._play_celebration(row, title, sub)
         self.body.addStretch()
         self.area.verticalScrollBar().setValue(scroll)

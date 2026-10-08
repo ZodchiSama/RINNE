@@ -8,7 +8,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QPushButton, QWidget
 
 from .. import scheduler
-from ..i18n import _
+from ..i18n import _, _n
 from ..models import Anime
 from ..recommender import SERIES, rank
 from . import theme
@@ -89,7 +89,7 @@ class UpNextPage(QWidget):
         left.addWidget(t)
         if current.episodes_total:
             n = current.episodes_total - current.episodes_watched
-            left.addWidget(label(f"{n} episode{'s' if n != 1 else ''} left", "small"))
+            left.addWidget(label(_n("{n} episode left", "{n} episodes left", n), "small"))
         else:
             left.addWidget(label(progress_text(current), "small"))
         left.addWidget(progress(current))

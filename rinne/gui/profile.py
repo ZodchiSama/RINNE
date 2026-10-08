@@ -20,6 +20,7 @@ from .common import (
 )
 from .images import Cover, cache
 from .common import scroll_page
+from ..i18n import _, _n, strftime
 
 if TYPE_CHECKING:
     from .window import MainWindow
@@ -62,8 +63,9 @@ def when_text(node: dict, today: date | None = None) -> str:
         start = date(y, m, day)
         if start > today:
             n = (start - today).days
-            return f"Starts {start:%a %d %B %Y} (in {n} day{'s' if n != 1 else ''})"
-        return f"Started {start:%d %B %Y}"
+            return _n("Starts {date} (in {n} day)", "Starts {date} (in {n} days)", n,
+                      date=strftime(start, "%a %d %B %Y"))
+        return _("Started {date}").format(date=strftime(start, "%d %B %Y"))
     if y and m:
         return f"Expected {date(y, m, 1):%B %Y}"
     if node.get("season") and node.get("seasonYear"):

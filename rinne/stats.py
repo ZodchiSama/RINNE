@@ -8,6 +8,7 @@ from datetime import date, timedelta
 
 from .models import COMPLETED, DROPPED, WATCHING, Anime
 from .storage import State
+from .i18n import _, _n
 
 
 def record(state: State, anime: Anime, old: int, new: int, today: date | None = None) -> None:
@@ -140,8 +141,8 @@ def _goals(s: Stats, state: State, today: date, first: date) -> None:
 
 def recap_text(s: Stats) -> str:
     hours, mins = divmod(s.week_minutes, 60)
-    parts = [f"{s.week_episodes} episode{'s' if s.week_episodes != 1 else ''} this week"
-             + (f" ({hours}h {mins:02d}m)" if s.week_minutes else "")]
+    parts = [_n("{n} episode this week", "{n} episodes this week", s.week_episodes)
+             + (" (" + _("{hours}h {mins:02d}m").format(hours=hours, mins=mins) + ")" if s.week_minutes else "")]
     if s.finished_this_week:
         parts.append("finished " + ", ".join(s.finished_this_week[:3]))
     if s.streak >= 2:

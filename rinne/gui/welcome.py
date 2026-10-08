@@ -14,6 +14,7 @@ from . import icons, theme
 from .common import FlowLayout, Switch, button_row, card, clear, hbox, label, vbox
 from .common import asset
 from .settings import theme_card
+from ..i18n import _, _n
 
 if TYPE_CHECKING:
     from .window import MainWindow
@@ -249,7 +250,7 @@ class WelcomePage(QWidget):
             group = QButtonGroup(frame)
             current = s.daily_episodes[days[0]]
             for n in options:
-                b = QPushButton("Day off" if n == 0 else f"{n} episode{'s' if n != 1 else ''}")
+                b = QPushButton(_("Day off") if n == 0 else _n("{n} episode", "{n} episodes", n))
                 b.setObjectName("chip")
                 b.setCheckable(True)
                 b.setChecked(n == current)

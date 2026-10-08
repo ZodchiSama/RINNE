@@ -13,6 +13,7 @@ from .. import HOMEPAGE_URL, anilist, announcements, mal, models, net, scheduler
 from .profile import pick_title
 from ..logs import log
 from ..models import WATCHING, Anime
+from ..i18n import _, _n
 
 
 class ServicesMixin:
@@ -171,8 +172,8 @@ class ServicesMixin:
             for err in res["errors"][:5]:
                 log.warning("Sync: %s", err)
             self.save()
-            msg = f"Synced {len(batch)} change{'s' if len(batch) != 1 else ''}" + \
-                (f" · {len(res['errors'])} failed (see log)" if res["errors"] else "")
+            msg = _n("Synced {n} change", "Synced {n} changes", len(batch)) + \
+                (" · " + _("{n} failed (see log)").format(n=len(res["errors"])) if res["errors"] else "")
             self.statusBar().showMessage(msg, 6000)
             if on_result:
                 on_result(msg)
@@ -301,7 +302,8 @@ class ServicesMixin:
                 scheduler.replan(self.state, keep_today=True)  # ticks episodes watched elsewhere
                 if quiet:
                     self.statusBar().showMessage(
-                        f"Updated from {name}: {changed} show{'s' if changed != 1 else ''}", 8000)
+                        _n("Updated from {name}: {n} show", "Updated from {name}: {n} shows", changed, name=name),
+                        8000)
             self.save()
             self.refresh()
 
@@ -416,8 +418,8 @@ class ServicesMixin:
             if changed:
                 self.save()
                 self.refresh()
-                self.statusBar().showMessage(f"Russian titles added for {changed} show{'s' if changed != 1 else ''}",
-                                             5000)
+                self.statusBar().showMessage(
+                    _n("Russian titles added for {n} show", "Russian titles added for {n} shows", changed), 5000)
             elif self.statusBar().currentMessage().startswith("Fetching Russian titles"):
                 self.statusBar().clearMessage()
 

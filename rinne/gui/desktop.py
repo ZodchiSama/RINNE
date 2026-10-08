@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 from .. import DISPLAY_NAME, scheduler
 from ..discord_rpc import DiscordRPC, build_activity
 from ..models import CURRENTLY_AIRING, WATCHING
+from ..i18n import _, _n
 
 
 def app_icon() -> QIcon:
@@ -154,8 +155,9 @@ class DesktopMixin:
                         a = self.state.library.get(i.mal_id)
                         if a and a.name not in names:
                             names.append(a.name)
-                    self.notify("Today's plan", f"{len(todo)} episode{'s' if len(todo) != 1 else ''} to go: "
-                                + ", ".join(names[:4]) + ("…" if len(names) > 4 else ""))
+                    self.notify(_("Today's plan"), _n("{n} episode to go: {shows}", "{n} episodes to go: {shows}",
+                                                      len(todo), shows=", ".join(names[:4])
+                                                      + ("…" if len(names) > 4 else "")))
                 self.state.last_reminder = date.today().isoformat()
                 changed = True
         if s.notify_goals and now.weekday() == 5 and now.hour >= 20 and self.state.week:
@@ -165,9 +167,10 @@ class DesktopMixin:
                 left = [d for d in range(7) if week.for_day(d) and not week.day_complete(d)
                         and start + timedelta(days=d) <= now.date()]
                 if left:
-                    self.notify("Your week ends at midnight",
-                                f"{len(left)} unfinished day{'s' if len(left) != 1 else ''} will count as "
-                                "failed when the new week starts.")
+                    self.notify(_("Your week ends at midnight"),
+                                _n("{n} unfinished day will count as failed when the new week starts.",
+                                   "{n} unfinished days will count as failed when the new week starts.",
+                                   len(left)))
                 self.state.last_goal_reminder = week.week_start
                 changed = True
         if s.weekly_recap and now.weekday() == 5 and now.hour >= 19:  # Saturday evening: the week's last day

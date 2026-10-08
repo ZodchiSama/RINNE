@@ -11,7 +11,7 @@ from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPainterPath, Q
 from PySide6.QtWidgets import QFrame, QGridLayout, QToolTip, QWidget
 
 from .. import stats as stats_mod
-from ..i18n import _
+from ..i18n import _, _n, strftime
 from . import theme
 from .common import card, clear, fmt_minutes, hbox, label, page_margin, set_margins, vbox
 from .images import Cover
@@ -269,8 +269,8 @@ class StatsPage(QWidget):
         days = s.total_minutes / 60 / 24
         tiles = [
             self._tile(str(s.week_episodes), "Episodes in the last 7 days", fmt_minutes(s.week_minutes)),
-            self._tile(f"{s.streak} day{'s' if s.streak != 1 else ''}", "Current streak",
-                       f"Best: {s.best_streak} day{'s' if s.best_streak != 1 else ''}"),
+            self._tile(_n("{n} day", "{n} days", s.streak), _("Current streak"),
+                       _n("Best: {n} day", "Best: {n} days", s.best_streak)),
             self._tile(f"{s.total_episodes:,}", "Episodes watched, all time"),
             self._tile(f"{days:,.1f} days" if days >= 1 else fmt_minutes(s.total_minutes),
                        "Time watched, all time", f"{s.total_minutes // 60:,} hours"),
@@ -313,13 +313,16 @@ class StatsPage(QWidget):
 
         frame, lay = card(margins=18, spacing=10)
         lay.addWidget(label("Episodes per week", "h2"))
-        lay.addWidget(BarChart([(f"{d:%d %b}", n, f"Week of {d:%d %b}: {n} episode{'s' if n != 1 else ''}")
+        lay.addWidget(BarChart([(strftime(d, "%d %b"), n,
+                                 _n("Week of {date}: {n} episode", "Week of {date}: {n} episodes", n,
+                                    date=strftime(d, "%d %b")))
                                 for d, n in s.weekly]))
         self.body.addWidget(frame)
 
         frame, lay = card(margins=18, spacing=10)
         lay.addWidget(label("Last 30 days", "h2"))
-        lay.addWidget(BarChart([(f"{d.day}", n, f"{d:%a %d %b}: {n} episode{'s' if n != 1 else ''}")
+        lay.addWidget(BarChart([(f"{d.day}", n, _n("{date}: {n} episode", "{date}: {n} episodes", n,
+                                                    date=strftime(d, "%a %d %b")))
                                 for d, n in s.daily]))
         self.body.addWidget(frame)
 

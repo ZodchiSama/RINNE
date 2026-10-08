@@ -41,17 +41,28 @@ def _constant(node: ast.expr) -> str | None:
     return None
 
 
-def strings() -> list[str]:
+def strings() -> tuple[list[str], list[str]]:
+    """(plain strings, plural strings). Plurals are _n(singular, plural, n), keyed by the singular."""
     found: set[str] = set()
+    plurals: set[str] = set()
     for path in SRC.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), str(path))
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
+                if isinstance(node.func, ast.Name) and node.func.id == "_n" and node.args:
+                    text = _constant(node.args[0])
+                    if text:
+                        plurals.add(text)
+                    continue
                 for arg in _text_args(node):
                     text = _constant(arg)
                     if text:
                         found.add(text)
-    return sorted(found, key=str.lower)
+    sys.path.insert(0, str(ROOT))
+    from rinne.i18n import date_keys
+    found.update(date_keys())
+    found -= plurals
+    return sorted(found, key=str.lower), sorted(plurals, key=str.lower)
 
 
 def write(path: Path, data: dict) -> None:
@@ -59,8 +70,9 @@ def write(path: Path, data: dict) -> None:
 
 
 def main() -> int:
-    found = strings()
-    template = {"_language": "", **{s: "" for s in found}}
+    found, plurals = strings()
+    template = {"_language": "", **{s: "" for s in found}, **{s: [] for s in plurals}}
+    every = found + plurals
     tpath = LOCALE / "template.json"
     if "--check" in sys.argv:
         current = json.loads(tpath.read_text(encoding="utf-8")) if tpath.exists() else {}
@@ -70,17 +82,18 @@ def main() -> int:
         return 0
     LOCALE.mkdir(exist_ok=True)
     write(tpath, template)
-    print(f"{len(found)} strings → {tpath.relative_to(ROOT)}")
+    print(f"{len(every)} strings ({len(plurals)} with plural forms) → {tpath.relative_to(ROOT)}")
     for path in sorted(LOCALE.glob("*.json")):
         if path.name == "template.json":
             continue
         catalog = json.loads(path.read_text(encoding="utf-8"))
         merged = {"_language": catalog.get("_language", "")}
         merged.update({s: catalog.get(s, "") for s in found})
+        merged.update({s: catalog.get(s, []) for s in plurals})
         unused = [k for k in catalog if not k.startswith("_") and k not in merged]
-        done = sum(1 for s in found if merged[s])
+        done = sum(1 for s in every if merged[s])
         write(path, merged)
-        print(f"{path.name}: {done}/{len(found)} translated" + (f", dropped {len(unused)} unused" if unused else ""))
+        print(f"{path.name}: {done}/{len(every)} translated" + (f", dropped {len(unused)} unused" if unused else ""))
     return 0
 
 

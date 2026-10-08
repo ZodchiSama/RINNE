@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from .. import DISPLAY_NAME, __version__, artwork, i18n, mal, models, scheduler
-from ..i18n import _
+from ..i18n import _, _n
 from ..logs import log
 from ..models import COMPLETED, WATCHING, Anime
 from ..storage import load_state, save_state
@@ -282,7 +282,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         if badge_w is not None:
             badge_w.setText(str(left))
             badge_w.setVisible(left > 0)
-            badge_w.setToolTip(f"{left} episode{'s' if left != 1 else ''} left today")
+            badge_w.setToolTip(_n("{n} episode left today", "{n} episodes left today", left))
         watching = len(scheduler.current_rotation(self.state.library))
         b1 = self.nav_badges.get(1)
         if b1 is not None:
@@ -310,7 +310,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
             col.addWidget(label("TODAY", "sideSection"))
             col.addWidget(label("All caught up ✓" if items else
                                 ("Day off" if watching else "Nothing planned"), "cardTitle"))
-            col.addWidget(label(f"{watching} show{'s' if watching != 1 else ''} in rotation", "small"))
+            col.addWidget(label(_n("{n} show in rotation", "{n} shows in rotation", watching), "small"))
             fl.addLayout(col, 1)
         self.up_next_lay.addWidget(frame)
 
@@ -619,12 +619,13 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
                 days = [self.state.day_log.get((start + timedelta(days=d)).isoformat()) for d in range(7)]
                 done, failed = days.count("done"), days.count("failed")
                 if done or failed:
-                    summary = (f"Last week: {done} day{'s' if done != 1 else ''} complete, "
-                               f"{failed} failed.")
-                    self.statusBar().showMessage(f"New week! {summary}", 15000)
+                    summary = _n("Last week: {n} day complete, {failed} failed.",
+                                 "Last week: {n} days complete, {failed} failed.", done, failed=failed)
+                    self.statusBar().showMessage(_("New week! {summary}").format(summary=summary), 15000)
                     if self.state.settings.notify_goals:
                         planned = len(self.state.week.items) if self.state.week else 0
-                        self.notify("A new week begins", f"{summary} {planned} episodes planned this week.")
+                        self.notify(_("A new week begins"), summary + " " + _n(
+                            "{n} episode planned this week.", "{n} episodes planned this week.", planned))
             if refresh:
                 self.refresh()
         self._schedule_midnight()
