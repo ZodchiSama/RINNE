@@ -156,6 +156,9 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         QTimer.singleShot(5000, self._auto_update_check)
         QTimer.singleShot(8000, self.check_announcements)
         QTimer.singleShot(6000, self.pull_accounts)
+        self.offline = False
+        self._online_timer = QTimer(self, singleShot=True, timeout=self.check_online)
+        QTimer.singleShot(2000, self.check_online)
         self._pull_timer = QTimer(self, interval=3 * 60 * 60 * 1000, timeout=self.pull_accounts)
         self._pull_timer.start()
         QTimer.singleShot(1200, self._maybe_whats_new)
@@ -254,6 +257,14 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         self.update_btn.clicked.connect(self.open_update_page)
         self.update_btn.setVisible(bool(getattr(self, "update_info", None)))
         lay.addWidget(self.update_btn)
+        self.offline_btn = QPushButton("Offline · showing saved data")
+        self.offline_btn.setObjectName("offlineChip")
+        self.offline_btn.setCursor(Qt.PointingHandCursor)
+        self.offline_btn.setToolTip("No internet connection. Your plan and list work as usual; new details, "
+                                    "sync and updates resume when you're back online. Click to check again.")
+        self.offline_btn.clicked.connect(self.check_online)
+        self.offline_btn.setVisible(getattr(self, "offline", False))
+        lay.addWidget(self.offline_btn)
         foot = label(f"v{__version__}  ·  by <span style='color:{theme.ACCENT}; font-weight:700'>Zodchi</span>",
                      "faint", rich=True)
         foot.setAlignment(Qt.AlignCenter)

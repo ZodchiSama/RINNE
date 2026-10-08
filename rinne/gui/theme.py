@@ -202,6 +202,8 @@ def stylesheet() -> str:
     QToolButton#bnav:checked {{ color: {SOFT_TEXT}; background: {ACCENT_SOFT}; }}
     QPushButton#updateChip {{ background: {GREEN_BG}; color: {SUCCESS}; border: 1px solid {SUCCESS};
                               border-radius: {px(9)}px; padding: {px(6)}px; font-weight: 700; }}
+    QPushButton#offlineChip {{ background: {AMBER_BG}; color: {WARN}; border: 1px solid {WARN};
+                               border-radius: {px(9)}px; padding: {px(6)}px; font-weight: 700; }}
     QPushButton#watch {{ background: {ACCENT_SOFT}; color: {SOFT_TEXT}; border: none;
                          border-radius: {px(8)}px; padding: {px(5)}px {px(10)}px; font-size: {px(12)}px; }}
     QPushButton#watch:hover {{ background: {ACCENT}; color: {ON_ACCENT}; }}

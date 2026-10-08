@@ -41,6 +41,8 @@ def win(app, tmp_path, monkeypatch, request):
     def offline(*_a, **_k):
         raise urllib.error.URLError(socket.gaierror(-3, "Temporary failure in name resolution"))
     monkeypatch.setattr(urllib.request, "urlopen", offline)
+    from rinne import net
+    monkeypatch.setattr(net, "online", lambda timeout=3.0: True)
 
     shows = [show(1, "Frieren", episodes_watched=3, episodes_total=28),
              show(2, "Dandadan", episodes_watched=10),
@@ -336,3 +338,30 @@ def test_a_tick_can_be_undone(win, app):
     assert win.state.library[1].episodes_watched == before
     assert not win.toast.isVisible()
     assert not any(it.done for it in win.state.week.items if it.mal_id == 1 and it.day == today)
+
+
+def test_offline_chip_and_catching_up_when_back(win, app, monkeypatch):
+    import time
+
+    from rinne import net
+    state = {"up": False}
+    monkeypatch.setattr(net, "online", lambda timeout=3.0: state["up"])
+    pulled = []
+    monkeypatch.setattr(win, "pull_accounts", lambda: pulled.append(1))
+
+    def check():
+        win.check_online()
+        end = time.time() + 3
+        while time.time() < end and win._online_timer.isActive() is False:
+            app.processEvents()
+            time.sleep(0.01)
+        app.processEvents()
+
+    win._online_timer.stop()
+    check()
+    assert win.offline and win.offline_btn.isVisible() and "offline" in win.toast.text.text()
+    win._online_timer.stop()
+    state["up"] = True
+    check()
+    assert not win.offline and not win.offline_btn.isVisible()
+    assert pulled == [1] and win.toast.text.text() == "Back online"

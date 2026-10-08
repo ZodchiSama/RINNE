@@ -9,7 +9,7 @@ from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QFileDialog, QInputDialog, QMessageBox
 
-from .. import HOMEPAGE_URL, anilist, announcements, mal, models, scheduler, shikimori, sync, updates
+from .. import HOMEPAGE_URL, anilist, announcements, mal, models, net, scheduler, shikimori, sync, updates
 from .profile import pick_title
 from ..logs import log
 from ..models import WATCHING, Anime
@@ -237,6 +237,27 @@ class ServicesMixin:
 
         self._run(sync.anilist_viewer, (token,), done, with_progress=False, exclusive=False,
                   on_error=lambda msg: (on_result or (lambda m: QMessageBox.warning(self, "AniList", m)))(msg))
+
+    def check_online(self) -> None:
+        """Notice going offline (and coming back): every 2 minutes while offline, else every 15."""
+        def done(ok: bool) -> None:
+            was_offline, self.offline = self.offline, not ok
+            if hasattr(self, "offline_btn"):
+                self.offline_btn.setVisible(self.offline)
+            if self.offline and not was_offline:
+                log.info("Offline")
+                self.toast.show_message("You're offline. Rinne shows your saved data and catches up "
+                                        "when you're back online.", ms=8000)
+            elif was_offline and ok:
+                log.info("Back online")
+                self.toast.show_message("Back online", ms=3000)
+                self.pull_accounts()
+                self.schedule_sync()
+                if any(a.needs_enrichment for a in self.state.library.values()):
+                    self.run_enrich()
+            self._online_timer.start((2 if self.offline else 15) * 60 * 1000)
+
+        self._run(net.online, (), done, with_progress=False, exclusive=False, on_error=lambda _m: done(False))
 
     def pull_accounts(self) -> None:
         """Quietly bring in changes made on MyAnimeList / AniList (on startup and every few hours),

@@ -39,7 +39,7 @@ class ReplacementDialog(QDialog):
             for _, text in sug.reasons[:4]:
                 root.addWidget(label(f"•  {text}", "small", wrap=True))
             if any(a.mal_id == sug.anime.mal_id for a in added):
-                root.addWidget(badge("Added — it wasn't on your MAL list", "badgeAmber"),
+                root.addWidget(badge("Added — it wasn't on your list", "badgeAmber"),
                                alignment=Qt.AlignLeft)
         else:
             root.addWidget(label("There's no next season and nothing on your Plan to Watch list "
