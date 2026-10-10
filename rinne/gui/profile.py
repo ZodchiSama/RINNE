@@ -16,11 +16,13 @@ from ..i18n import _, _n, N_, season_name, strftime
 from ..models import CURRENTLY_AIRING, LIST_STATUSES, Anime, status_label
 from . import theme
 from .common import (
+    selectable,
     format_label,
     Clickable, FlowLayout, Switch, badge, button_row, card, clear, hbox, label, page_margin, progress,
     set_margins, vbox, watch_button,
 )
 from .images import Cover, cache
+from .share import share_menu
 from .common import scroll_page
 
 if TYPE_CHECKING:
@@ -244,11 +246,11 @@ class ProfilePage(QWidget):
                       alignment=Qt.AlignLeft if compact else Qt.AlignBottom)
         info = vbox(spacing=8)
         info.addStretch()
-        title = label(a.name, "h1", wrap=True)
+        title = selectable(label(a.name, "h1", wrap=True))  # select + Ctrl C
         info.addWidget(title)
         others = [t for t in a.all_titles() if t != a.name]
         if others:
-            info.addWidget(label("  ·  ".join(others[:3]), "muted", wrap=True))
+            info.addWidget(selectable(label("  ·  ".join(others[:3]), "muted", wrap=True)))
 
         chips = FlowLayout(spacing=6)
         facts = [format_label(a.media_type) if a.media_type else None]
@@ -317,6 +319,11 @@ class ProfilePage(QWidget):
             actions.addWidget(prog)
         if watch := watch_button(a):
             actions.addWidget(watch)
+        share_btn = QPushButton(_("Share ▾"))
+        share_btn.setObjectName("ghost")
+        share_btn.setToolTip(_("Copy a card with your progress, a link, or the title"))
+        share_btn.setMenu(share_menu(self.win, a, share_btn))
+        actions.addWidget(share_btn)
         mal_btn = QPushButton(_("MyAnimeList ↗"))
         mal_btn.setObjectName("ghost")
         mal_btn.clicked.connect(lambda: self.win.open_mal(a))
@@ -477,7 +484,7 @@ class ProfilePage(QWidget):
     def _synopsis(self, d: dict) -> QFrame:
         frame, lay = card(margins=18, spacing=10)
         lay.addWidget(label(_("Synopsis"), "h2"))
-        lay.addWidget(label(clean_description(d.get("description") or ""), "body", wrap=True, rich=True))
+        lay.addWidget(selectable(label(clean_description(d.get("description") or ""), "body", wrap=True, rich=True)))
         tags = list(d.get("genres") or []) + [t["name"] for t in d.get("tags") or []
                                               if t.get("rank", 0) >= 70 and not t.get("isMediaSpoiler")][:8]
         if tags:

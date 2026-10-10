@@ -204,6 +204,10 @@ class Settings:
     anilist_token: str = ""
     anilist_user: str = ""
     sync_anilist: bool = True
+    shikimori_token: dict = field(default_factory=dict)
+    shikimori_user: str = ""
+    shikimori_user_id: int = 0
+    sync_shikimori: bool = True
 
     def mal_api_client_id(self) -> str:
         from . import MAL_CLIENT_ID

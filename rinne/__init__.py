@@ -13,6 +13,10 @@ DISCORD_APP_ID = "1553831739510628383"
 MAL_CLIENT_ID = "66e1801e97640f29adf276a76c99eba6"  # myanimelist.net/apiconfig, app type "other", redirect MAL_REDIRECT below
 MAL_REDIRECT = "http://localhost:47811/callback"
 ANILIST_CLIENT_ID = "52457"  # anilist.co/settings/developer, redirect https://anilist.co/api/v2/oauth/pin
+# shikimori.io/oauth/applications: name "Rinne", redirect SHIKIMORI_REDIRECT below, scope user_rates
+SHIKIMORI_CLIENT_ID = ""
+SHIKIMORI_CLIENT_SECRET = ""
+SHIKIMORI_REDIRECT = "http://localhost:47811/shikimori"
 
 # Project links shown on the About page and used by the feedback dialog.
 # Leave a value empty to hide its button.

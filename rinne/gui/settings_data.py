@@ -27,9 +27,10 @@ class DataSections:
     win: MainWindow
 
     def _build_accounts(self, s: Settings) -> None:
-        from .. import ANILIST_CLIENT_ID
-        self._header("Accounts", "Connect MyAnimeList or AniList and Rinne keeps your list up to date: "
-                     "episodes you tick, status changes and scores are sent a few seconds later.")
+        from .. import ANILIST_CLIENT_ID, SHIKIMORI_CLIENT_ID, SHIKIMORI_CLIENT_SECRET
+        self._header("Accounts", "Connect MyAnimeList, AniList or Shikimori and Rinne keeps your list up to "
+                     "date both ways: episodes you tick, status changes and scores are sent a few seconds "
+                     "later, and changes you make there come back.")
         status_label = label("", "small", wrap=True)
 
         def result(msg) -> None:
@@ -39,6 +40,8 @@ class DataSections:
         for svc, name, user, connected, available, sync_attr in [
             ("mal", "MyAnimeList", s.mal_user, bool(s.mal_token), bool(s.mal_api_client_id()), "sync_mal"),
             ("anilist", "AniList", s.anilist_user, bool(s.anilist_token), bool(ANILIST_CLIENT_ID), "sync_anilist"),
+            ("shikimori", "Shikimori", s.shikimori_user, bool(s.shikimori_token),
+             bool(SHIKIMORI_CLIENT_ID and SHIKIMORI_CLIENT_SECRET), "sync_shikimori"),
         ]:
             self._group(name)
             if connected:
@@ -47,15 +50,17 @@ class DataSections:
                           "Only status, episodes watched and score are sent — for shows that change.", disc)
                 self._switch(_("Send my progress to {name}").format(name=name), "", sync_attr, kind="save")
             elif available:
-                go = self._button(_("Connect {name}").format(name=name), (lambda: self.win.connect_mal(result)) if svc == "mal"
-                                  else (lambda: self.win.connect_anilist(result)), primary=True)
-                how = (_("Opens MyAnimeList in your browser; approve Rinne and you're done.")
-                       if svc == "mal" else
-                       _("Opens AniList in your browser; approve Rinne, then paste the code it shows."))
+                connect = {"mal": self.win.connect_mal, "anilist": self.win.connect_anilist,
+                           "shikimori": self.win.connect_shikimori}[svc]
+                go = self._button(_("Connect {name}").format(name=name), lambda _c=False, f=connect: f(result),
+                                  primary=True)
+                how = {"mal": _("Opens MyAnimeList in your browser; approve Rinne and you're done."),
+                       "anilist": _("Opens AniList in your browser; approve Rinne, then paste the code it shows."),
+                       "shikimori": _("Opens Shikimori in your browser; approve Rinne and you're done.")}[svc]
                 self._row("Not connected", how, go)
             else:
                 self._row("Not available in this build", _("{name} sign-in hasn't been set up yet.").format(name=name), None)
-        if s.mal_token or s.anilist_token:
+        if s.mal_token or s.anilist_token or s.shikimori_token:
             self._group("Sync")
             self._row("Sync now", "Send any changes immediately instead of waiting a few seconds.",
                       self._button("Sync now", lambda: (status_label.setText(_("Syncing…")),

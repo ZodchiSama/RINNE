@@ -893,7 +893,7 @@ def test_shikimori_import_pages_maps_statuses_and_keeps_russian_titles(monkeypat
              "anime": {"id": 1, "name": "Cowboy Bebop", "russian": "Ковбой Бибоп", "kind": "tv", "episodes": 26,
                        "status": "released"}}],
     }
-    monkeypatch.setattr(shikimori, "_get", lambda path, params: pages[params["page"]])
+    monkeypatch.setattr(shikimori, "_get", lambda path, params, token="": pages[params["page"]])
     entries = {a.mal_id: a for a in shikimori.fetch_user_list("someone")}
     assert set(entries) == {52991, 21, 1}
     f = entries[52991]
@@ -946,3 +946,54 @@ def test_russian_plural_forms_and_dates():
         assert i18n.strftime(date(2026, 10, 7), "%a") == "Ср"
     finally:
         i18n.set_language("en")
+
+
+def test_shikimori_signin_push_and_refresh(monkeypatch):
+    """Sign-in through the local redirect with the client secret, then create-or-update entries."""
+    import threading, time as _time, urllib.parse, urllib.request as ur
+    from rinne import sync
+    calls = []
+
+    def fake_browser(url):
+        q = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+        assert q["scope"] == ["user_rates"] and q["redirect_uri"] == [sync.SHIKIMORI_REDIRECT]
+        cb = f"{q['redirect_uri'][0]}?code=xyz&state={q['state'][0]}"
+        threading.Timer(0.3, lambda: ur.urlopen(cb.replace("localhost", "127.0.0.1"), timeout=5).read()).start()
+        return True
+
+    entries = {}  # target_id -> rate id on the "server"
+
+    def fake_shiki(path, data=None, method="GET", token="", form=False):
+        calls.append((method, path.split("?")[0], data))
+        if path == "/oauth/token":
+            return {"access_token": "AT2" if data["grant_type"] == "refresh_token" else "AT",
+                    "refresh_token": "RT", "expires_in": 86400}
+        if path.startswith("/api/v2/user_rates?"):
+            target = int(urllib.parse.parse_qs(path.split("?")[1])["target_id"][0])
+            return [{"id": entries[target]}] if target in entries else []
+        if path == "/api/v2/user_rates" and method == "POST":
+            entries[data["user_rate"]["target_id"]] = 900
+            return {"id": 900}
+        return {}
+
+    monkeypatch.setattr(sync, "_shiki", fake_shiki)
+    tokens = sync.shikimori_authorize("cid", "secret", timeout=10, open_browser=fake_browser)
+    assert tokens["access_token"] == "AT"
+    exchange = next(c[2] for c in calls if c[1] == "/oauth/token")
+    assert exchange["code"] == "xyz" and exchange["client_secret"] == "secret"
+
+    a = show(52991, status=PLAN_TO_WATCH, episodes_watched=0)
+    sync.shikimori_push(tokens, 7, a)  # not on the list yet: created
+    a.status, a.episodes_watched, a.user_score = WATCHING, 3, 9
+    sync.shikimori_push(tokens, 7, a)  # now updated in place
+    writes = [(m, p, d) for m, p, d in calls if m in ("POST", "PATCH") and p != "/oauth/token"]
+    assert writes[0][0] == "POST" and writes[0][2]["user_rate"]["status"] == "planned"
+    assert writes[0][2]["user_rate"]["target_type"] == "Anime" and writes[0][2]["user_rate"]["user_id"] == 7
+    assert writes[1] == ("PATCH", "/api/v2/user_rates/900",
+                         {"user_rate": {"status": "watching", "episodes": 3, "score": 9}})
+
+    # An expired day-long token is refreshed during a sync run, and the new one handed back.
+    old = {"access_token": "AT", "refresh_token": "RT", "expires_at": _time.time() - 10}
+    res = sync.push_all([a], "", None, None, {"client_id": "cid", "client_secret": "secret",
+                                             "tokens": old, "user_id": 7})
+    assert res["shikimori"] == [52991] and res["shikimori_tokens"]["access_token"] == "AT2"

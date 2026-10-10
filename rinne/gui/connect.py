@@ -36,7 +36,7 @@ def connected_name(win: MainWindow, service: str) -> str:
 
 def any_connected(win: MainWindow) -> bool:
     s = win.state.settings
-    return bool(s.mal_token or s.anilist_token)
+    return bool(s.mal_token or s.anilist_token or s.shikimori_token)
 
 
 class ConnectDialog(QDialog):

@@ -414,3 +414,10 @@ def brand_pixmap(kind: str, size: int, widget: QWidget | None = None) -> QPixmap
     pix = QPixmap(asset(name)).scaledToHeight(round(size * dpr), Qt.SmoothTransformation)
     pix.setDevicePixelRatio(dpr)
     return pix
+
+
+def selectable(lbl: QLabel) -> QLabel:
+    """Let the text be selected with the mouse and copied with Ctrl C (links still open)."""
+    lbl.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard | Qt.LinksAccessibleByMouse)
+    lbl.setCursor(Qt.IBeamCursor)
+    return lbl

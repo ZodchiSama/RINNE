@@ -16,6 +16,9 @@ from ..logs import log
 from ..models import WATCHING, Anime
 
 
+SERVICE_NAMES = {"mal": "MyAnimeList", "anilist": "AniList", "shikimori": "Shikimori"}
+
+
 class ServicesMixin:
     """Mixed into MainWindow; uses its state, _run, save, refresh and notify."""
 
@@ -121,11 +124,16 @@ class ServicesMixin:
 
     # ------------------------------------------------------------------ account sync
 
-    def _sync_targets(self) -> tuple[dict | None, str | None]:
+    def _sync_targets(self) -> tuple[dict | None, str | None, dict | None]:
         s = self.state.settings
         mal_tokens = s.mal_token if (s.mal_token and s.sync_mal) else None
         al_token = s.anilist_token if (s.anilist_token and s.sync_anilist) else None
-        return mal_tokens, al_token
+        shiki = None
+        if s.shikimori_token and s.sync_shikimori:
+            from .. import SHIKIMORI_CLIENT_ID, SHIKIMORI_CLIENT_SECRET
+            shiki = {"client_id": SHIKIMORI_CLIENT_ID, "client_secret": SHIKIMORI_CLIENT_SECRET,
+                     "tokens": s.shikimori_token, "user_id": s.shikimori_user_id}
+        return mal_tokens, al_token, shiki
 
     def schedule_sync(self) -> None:
         if not hasattr(self, "_sync_timer"):
@@ -135,12 +143,12 @@ class ServicesMixin:
 
     def sync_now(self, on_result=None) -> None:
         """Push status / episodes / score changes to the connected accounts."""
-        mal_tokens, al_token = self._sync_targets()
-        if not (mal_tokens or al_token) or getattr(self, "_syncing", False):
+        mal_tokens, al_token, shiki = self._sync_targets()
+        if not (mal_tokens or al_token or shiki) or getattr(self, "_syncing", False):
             return
         lib, synced = self.state.library, self.state.synced
-        changes = {a.mal_id: a for svc in ("mal", "anilist")
-                   if (mal_tokens if svc == "mal" else al_token)
+        active = {"mal": mal_tokens, "anilist": al_token, "shikimori": shiki}
+        changes = {a.mal_id: a for svc, on in active.items() if on
                    for a in sync.pending_changes(lib, synced.get(svc, {}))}
         if not changes:
             if on_result:
@@ -152,7 +160,7 @@ class ServicesMixin:
         def done(res: dict) -> None:
             self._syncing = False
             s = self.state.settings
-            for svc in ("mal", "anilist"):
+            for svc in ("mal", "anilist", "shikimori"):
                 done_ids = set(res[svc])
                 if done_ids:
                     target = self.state.synced.setdefault(svc, {})
@@ -161,12 +169,11 @@ class ServicesMixin:
                             target[a.mal_id] = sync.snapshot(a)
             if res["mal_tokens"]:
                 s.mal_token = res["mal_tokens"]
+            if res.get("shikimori_tokens"):
+                s.shikimori_token = res["shikimori_tokens"]
             for svc in res["expired"]:
-                name = "MyAnimeList" if svc == "mal" else "AniList"
-                if svc == "mal":
-                    s.mal_token, s.mal_user = {}, ""
-                else:
-                    s.anilist_token, s.anilist_user = "", ""
+                name = SERVICE_NAMES[svc]
+                self._forget_account(svc)
                 self.notify(_("Reconnect {name}").format(name=name), _("Rinne's sign-in to {name} expired. Connect again in Settings → Accounts to keep syncing.").format(name=name))
             for err in res["errors"][:5]:
                 log.warning("Sync: %s", err)
@@ -184,7 +191,7 @@ class ServicesMixin:
             if on_result:
                 on_result(_("Sync failed: {msg}").format(msg=msg))
 
-        self._run(sync.push_all, (batch, self.state.settings.mal_api_client_id(), mal_tokens, al_token),
+        self._run(sync.push_all, (batch, self.state.settings.mal_api_client_id(), mal_tokens, al_token, shiki),
                   done, with_progress=False, exclusive=False, on_error=failed)
 
     def connect_mal(self, on_result=None) -> None:
@@ -267,23 +274,31 @@ class ServicesMixin:
             self.pull_account("mal", quiet=True)
         if s.anilist_token:
             self.pull_account("anilist", quiet=True)
+        if s.shikimori_token:
+            self.pull_account("shikimori", quiet=True)
 
     def pull_account(self, service: str, quiet: bool = False) -> None:
         """Bring in the list of a connected account (private entries too). `quiet`: in the
         background, saying something only if anything changed."""
         s = self.state.settings
-        name = "MyAnimeList" if service == "mal" else "AniList"
+        name = SERVICE_NAMES[service]
 
         def job(progress=None):
             if service == "mal":
                 tokens = sync.mal_valid_token(s.mal_api_client_id(), s.mal_token)
                 return tokens, mal.fetch_mal_list("@me", s.mal_api_client_id(), progress,
                                                   token=tokens["access_token"])
+            if service == "shikimori":
+                from .. import SHIKIMORI_CLIENT_ID, SHIKIMORI_CLIENT_SECRET
+                tokens = sync.shikimori_valid_token(SHIKIMORI_CLIENT_ID, SHIKIMORI_CLIENT_SECRET, s.shikimori_token)
+                return tokens, shikimori.fetch_user_list(s.shikimori_user, progress, token=tokens["access_token"])
             return None, anilist.fetch_user_list(s.anilist_user, progress, token=s.anilist_token)[0]
 
         def done(result) -> None:
             tokens, entries = result
-            if tokens:
+            if tokens and service == "shikimori":
+                s.shikimori_token = tokens
+            elif tokens:
                 s.mal_token = tokens
             lib = self.state.library
             before = {k: sync.snapshot(a) for k, a in lib.items()}
@@ -317,13 +332,46 @@ class ServicesMixin:
             self._run(job, (), done, on_error=failed)
 
     def disconnect_account(self, service: str) -> None:
+        self._forget_account(service)
+        self.state.synced.pop(service, None)
+        self.save()
+
+    def _forget_account(self, service: str) -> None:
         s = self.state.settings
         if service == "mal":
             s.mal_token, s.mal_user = {}, ""
+        elif service == "shikimori":
+            s.shikimori_token, s.shikimori_user, s.shikimori_user_id = {}, "", 0
         else:
             s.anilist_token, s.anilist_user = "", ""
-        self.state.synced.pop(service, None)
-        self.save()
+
+    def connect_shikimori(self, on_result=None) -> None:
+        """Sign in to Shikimori in the browser (local redirect, like MAL), then bring the list in."""
+        from .. import SHIKIMORI_CLIENT_ID, SHIKIMORI_CLIENT_SECRET
+        s = self.state.settings
+
+        def job():
+            tokens = sync.shikimori_authorize(SHIKIMORI_CLIENT_ID, SHIKIMORI_CLIENT_SECRET)
+            return tokens, sync.shikimori_whoami(tokens)
+
+        def done(result) -> None:
+            tokens, (user_id, name) = result
+            s.shikimori_token, s.shikimori_user, s.shikimori_user_id, s.sync_shikimori = tokens, name, user_id, True
+            if not s.shikimori_username:
+                s.shikimori_username = name
+            self.state.synced["shikimori"] = sync.baseline(self.state.library)
+            self.save()
+            self.statusBar().showMessage(_("Connected to Shikimori as {name}").format(name=name), 6000)
+            if on_result:
+                on_result(None)
+            self.pull_account("shikimori")
+
+        def failed(msg: str) -> None:
+            if on_result:
+                on_result(msg)
+
+        self.statusBar().showMessage(_("Waiting for you to approve Rinne on Shikimori (in your browser)…"))
+        self._run(job, (), done, with_progress=False, exclusive=False, on_error=failed)
 
     # ------------------------------------------------------------------ import
 

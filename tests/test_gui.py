@@ -406,3 +406,44 @@ def test_russian_interface_has_no_leftover_english(win, app):
         win.open_settings(section)
         app.processEvents()
         assert not _latin_words(win, win.settings_page), (section, sorted(_latin_words(win, win.settings_page))[:10])
+
+
+def test_sharing_a_show(win, app):
+    from PySide6.QtCore import Qt as _Qt
+    from PySide6.QtGui import QKeySequence
+    from PySide6.QtWidgets import QLabel
+
+    from rinne.gui import share
+    a = win.state.library[1]
+    a.anilist_id, a.user_score = 154587, 9
+    card = share.render_card(a)
+    assert (card.width(), card.height()) == (1200, 630)
+    sites = dict(share.links(a))
+    assert sites == {"MyAnimeList": "https://myanimelist.net/anime/1", "AniList": "https://anilist.co/anime/154587",
+                     "Shikimori": "https://shikimori.io/animes/1"}
+    assert share.share_text(a) == "Frieren — Watching · episode 3 of 28 · ★ 9/10\nhttps://myanimelist.net/anime/1"
+
+    share.copy_card(win, a)
+    assert not QApplication.clipboard().pixmap().isNull()
+    menu = share.share_menu(win, a)
+    menu.actions()[-1].trigger()  # Copy title
+    assert QApplication.clipboard().text() == "Frieren"
+
+    # Ctrl C on a selected poster in the Library copies its title.
+    win._go(2)
+    app.processEvents()
+    view = win.lib_page.view
+    row = next(r for r in range(win.lib_page.proxy.rowCount())
+               if win.lib_page.proxy.index(r, 0).data(_Qt.DisplayRole) == "Dandadan")
+    view.setCurrentIndex(win.lib_page.proxy.index(row, 0))
+    view.setFocus()
+    QApplication.clipboard().clear()
+    from PySide6.QtTest import QTest
+    QTest.keySequence(view, QKeySequence.Copy)
+    assert QApplication.clipboard().text() == "Dandadan"
+
+    # The profile's title can be selected and copied by hand.
+    win.open_profile(a)
+    app.processEvents()
+    titles = [w for w in win.profile_page.findChildren(QLabel) if w.text() == "Frieren"]
+    assert titles and titles[0].textInteractionFlags() & _Qt.TextSelectableByMouse

@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QModelIndex, QRect, QRectF, QSize, QSortFilterProxyModel, Qt
 from PySide6.QtGui import (
-    QColor, QFont, QFontMetrics, QPainter, QPainterPath, QPen, QStandardItem, QStandardItemModel,
+    QColor, QFont, QFontMetrics, QKeySequence, QPainter, QPainterPath, QPen, QShortcut, QStandardItem,
+    QStandardItemModel,
 )
 from PySide6.QtWidgets import (
     QAbstractItemView, QButtonGroup, QComboBox, QFrame, QGridLayout, QLineEdit, QListView, QMenu, QPushButton,
@@ -18,6 +19,7 @@ from ..models import LIST_STATUSES, PLAN_TO_WATCH, Anime, status_label
 from . import theme
 from .common import elide_lines, hbox, label, page_margin, progress_text, set_margins, vbox
 from .images import cache
+from .share import copy_text, share_menu
 
 if TYPE_CHECKING:
     from .window import MainWindow
@@ -200,6 +202,8 @@ class LibraryPage(QWidget):
         self.view.setContextMenuPolicy(Qt.CustomContextMenu)
         self.view.customContextMenuRequested.connect(self._menu)
         self.view.clicked.connect(lambda idx: self._open(idx))
+        copy = QShortcut(QKeySequence.Copy, self.view, context=Qt.WidgetShortcut)
+        copy.activated.connect(self._copy_title)  # Ctrl C on a poster copies its title
         self.view.viewport().installEventFilter(self)  # re-fit the grid when the view resizes
         root.addWidget(self.view, 1)
         self.hint = label("", "faint", wrap=True)
@@ -320,6 +324,10 @@ class LibraryPage(QWidget):
                            lambda: self.win.set_show_option(anime, paused=not anime.paused))
             menu.addAction(_("Unpin") if anime.pinned else _("Pin (an episode every day)"),
                            lambda: self.win.set_show_option(anime, pinned=not anime.pinned))
+        share = share_menu(self.win, anime, menu)
+        share.setTitle(_("Share"))
+        menu.addMenu(share)
+        menu.addAction(_("Copy title"), lambda: copy_text(self.win, anime.name, _("title")))
         menu.addSeparator()
         excl = menu.addAction(_("Never suggest this"))
         excl.setCheckable(True)
@@ -327,6 +335,11 @@ class LibraryPage(QWidget):
         excl.triggered.connect(lambda: self.win.toggle_excluded(anime))
         menu.addAction(_("Open on MyAnimeList"), lambda: self.win.open_mal(anime))
         menu.exec(self.view.viewport().mapToGlobal(pos))
+
+    def _copy_title(self) -> None:
+        anime = self._selected()
+        if anime:
+            copy_text(self.win, anime.name, _("title"))
 
     def _edit_progress(self) -> None:
         anime = self._selected()

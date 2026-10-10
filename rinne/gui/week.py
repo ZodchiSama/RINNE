@@ -25,6 +25,7 @@ from .common import (
     page_margin, progress, progress_text, scroll_page, set_margins, two_line_label, vbox, watch_button,
 )
 from .images import Cover
+from .share import share_menu
 
 if TYPE_CHECKING:
     from .window import MainWindow
@@ -529,6 +530,15 @@ class WeekPage(QWidget):
         self.celebrate: str | None = None  # ISO date of a day just completed: play the animation
         self._expanded: set[str] = set()  # completed days unfolded by hand
 
+    def _add_share_menu(self, widget: QWidget, anime: Anime) -> None:
+        """Right-click a card: share the show, or copy its title."""
+        def show_menu(pos) -> None:
+            menu = share_menu(self.win, anime, widget)
+            menu.insertAction(menu.actions()[0], menu.addAction(_("Open its profile"), lambda: self.win.open_profile(anime)))
+            menu.exec(widget.mapToGlobal(pos))
+        widget.setContextMenuPolicy(Qt.CustomContextMenu)
+        widget.customContextMenuRequested.connect(show_menu)
+
     def _unfold(self, iso: str) -> None:
         self._expanded.add(iso)
         self.refresh()
@@ -621,6 +631,7 @@ class WeekPage(QWidget):
             row = hbox(strip, 12)
             for a in watching_all:
                 wc = WatchingCard(a)
+                self._add_share_menu(wc, a)
                 wc.opened.connect(lambda a=a: self.win.open_profile(a))
                 row.addWidget(wc)
             row.addStretch()
@@ -678,6 +689,8 @@ class WeekPage(QWidget):
             for mal_id, entries in groups.items():
                 anime = state.library.get(mal_id)
                 show_card = ShowDayCard(anime, entries, on < today)
+                if anime:
+                    self._add_share_menu(show_card, anime)
                 if on >= today:
                     show_card.on = on  # draggable
                 show_card.toggled.connect(self.win.toggle_item)

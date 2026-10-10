@@ -34,7 +34,7 @@ _AIRING = {"released": FINISHED_AIRING, "ongoing": CURRENTLY_AIRING, "anons": NO
 _last_call = 0.0
 
 
-def _get(path: str, params: dict, retries: int = 3):
+def _get(path: str, params: dict, retries: int = 3, token: str = ""):
     """GET from the API. Shikimori asks for at most 5 requests a second and a User-Agent naming
     the app; 429s are retried after the delay it asks for."""
     global _last_call
@@ -44,7 +44,10 @@ def _get(path: str, params: dict, retries: int = 3):
         if gap < 0.25:
             time.sleep(0.25 - gap)
         _last_call = time.monotonic()
-        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
+        headers = {"User-Agent": USER_AGENT, "Accept": "application/json"}
+        if token:  # signed in: Shikimori wants the registered app name, and private lists open up
+            headers.update({"User-Agent": "Rinne", "Authorization": f"Bearer {token}"})
+        req = urllib.request.Request(url, headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 return json.loads(resp.read().decode("utf-8"))
@@ -56,15 +59,16 @@ def _get(path: str, params: dict, retries: int = 3):
     raise ImportError_("Shikimori is busy right now. Try again in a minute.")
 
 
-def fetch_user_list(nickname: str, progress=None) -> list[Anime]:
-    """A user's anime list. Russian titles come along (title_ru)."""
+def fetch_user_list(nickname: str, progress=None, token: str = "") -> list[Anime]:
+    """A user's anime list (private too, with the owner's `token`). Russian titles come along."""
     nickname = nickname.strip()
     if progress:
         progress(0, 0, f"Fetching {nickname}'s Shikimori list…")
     rates, page = [], 1
     while True:
         try:
-            batch = _get(f"users/{urllib.parse.quote(nickname)}/anime_rates", {"limit": PAGE, "page": page})
+            batch = _get(f"users/{urllib.parse.quote(nickname)}/anime_rates", {"limit": PAGE, "page": page},
+                         token=token)
         except urllib.error.HTTPError as e:
             if e.code == 404:
                 raise ImportError_(f"There's no Shikimori user called “{nickname}”.") from e
