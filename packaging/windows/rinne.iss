@@ -52,5 +52,7 @@ Name: "{autodesktop}\Rinne"; Filename: "{app}\Rinne.exe"; AppUserModelID: "Zodch
 
 [Run]
 Filename: "{app}\Rinne.exe"; Description: "{cm:LaunchProgram,Rinne}"; Flags: nowait postinstall skipifsilent
+; After an in-app update (a silent install), start Rinne again.
+Filename: "{app}\Rinne.exe"; Flags: nowait; Check: WizardSilent
 
 ; Your library and settings (%APPDATA%\rinne) are kept on uninstall.

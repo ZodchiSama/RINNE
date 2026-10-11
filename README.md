@@ -28,8 +28,9 @@ By **Zodchi** · [MIT License](LICENSE)
 - **Connect MyAnimeList, AniList or Shikimori:** your list comes in, private entries too, and
   stays in sync both ways: ticked episodes, status changes and scores are sent for you, and
   changes you make there come back to Rinne.
-- **Share a show:** a card with your progress and score to paste into Discord or anywhere,
-  links to MyAnimeList, AniList or Shikimori, or just the title.
+- **Share a show or your week:** a card with your progress and score (or your week's days,
+  episodes and time) to paste into Discord or anywhere, links to MyAnimeList, AniList or
+  Shikimori, or just the title.
 - **English or Russian**, with show titles in Russian too (from Shikimori), and lists importable
   from Shikimori.
 - **Show profiles** with synopsis, cast and voice actors, related entries, upcoming seasons and
@@ -73,8 +74,10 @@ cd RINNE
 To update later: `git pull && ./install.sh`.
 
 Rinne checks GitHub for new versions once a day. When one is out it shows the release notes once,
-sends a notification, and keeps an **Update** button in the sidebar (Settings → General). After
-updating, a one-time *What's new* window lists the changes, and they stay in Settings → About.
+sends a notification, and keeps an **Update** button in the sidebar (Settings → General). The
+AppImage and both Windows versions update themselves in place: Rinne downloads the new version,
+checks it against the release's checksum, and restarts into it. After updating, a one-time
+*What's new* window lists the changes, and they stay in Settings → About.
 
 ## Getting your list in
 
@@ -128,7 +131,8 @@ time, press **Sync now**, or bring your list in again.
 - **Sharing:** a profile's **Share** button (or right-click a show in the Library or on Your Week)
   copies or saves a card image with your progress and score, copies a MyAnimeList, AniList or
   Shikimori link, a short text, or the title. On a profile you can also select the title or
-  synopsis and copy it.
+  synopsis and copy it. **Share week** on Your Week makes a card of your week, and finishing a
+  whole week offers one too.
 - **Stats:** your daily goals (days complete and failed, success rate, a grid of recent weeks),
   episodes per week and per day, streaks, top genres and all-time totals.
 - **Notifications** (Settings → Notifications): new episodes, a daily reminder, a Saturday

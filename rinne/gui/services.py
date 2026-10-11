@@ -45,7 +45,8 @@ class ServicesMixin:
                     self.notify(_("Rinne {version} is available").format(version=rel['version']), _("Open Rinne to see what's new."))
                 if not manual:
                     from .dialogs import UpdateDialog
-                    UpdateDialog(rel, self.open_update_page, self).exec()
+                    UpdateDialog(rel, self.install_update, self,
+                                 in_place=bool(updates.pick_asset(rel, updates.install_kind()))).exec()
             if on_result:
                 on_result(rel, None)
 
@@ -74,6 +75,43 @@ class ServicesMixin:
     def open_update_page(self) -> None:
         info = getattr(self, "update_info", None)
         QDesktopServices.openUrl(QUrl(info["url"] if info else HOMEPAGE_URL))
+
+    def install_update(self) -> None:
+        """Download the new version, check it, put it in place and restart into it. Copies that
+        can't update themselves (source installs) open the release page instead."""
+        rel = getattr(self, "update_info", None)
+        kind = updates.install_kind()
+        asset = updates.pick_asset(rel, kind) if rel else None
+        if not asset:
+            self.open_update_page()
+            return
+
+        def done(path) -> None:
+            if kind == "windows-installer":
+                ok = QMessageBox.question(self, _("Update ready"), _("Rinne {version} is downloaded. Install it now? "
+                                          "Rinne closes and opens again when it's done.").format(version=rel["version"]))
+            else:
+                ok = QMessageBox.question(self, _("Update ready"), _("Rinne {version} is installed. Restart now to "
+                                          "use it?").format(version=rel["version"]))
+            if kind != "windows-installer" or ok == QMessageBox.Yes:
+                try:
+                    command = updates.apply_update(kind, path)
+                except OSError as e:
+                    log.warning("Update failed: %s", e)
+                    QMessageBox.warning(self, _("Update failed"), str(e))
+                    return
+                log.info("Updated to %s (%s)", rel["version"], kind)
+                if ok == QMessageBox.Yes:
+                    updates.launch(command)
+                    self.quit_app()
+
+        def failed(msg: str) -> None:
+            log.warning("Update download failed: %s", msg)
+            QMessageBox.warning(self, _("Update failed"),
+                                _("The update couldn't be downloaded: {error}").format(error=msg))
+
+        self.statusBar().showMessage(_("Downloading Rinne {version}…").format(version=rel["version"]))
+        self._run(updates.download, (asset,), done, cancellable=True, on_error=failed)
 
     # ------------------------------------------------------------------ new seasons
 

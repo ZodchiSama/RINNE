@@ -25,7 +25,7 @@ from .common import (
     page_margin, progress, progress_text, scroll_page, set_margins, two_line_label, vbox, watch_button,
 )
 from .images import Cover
-from .share import share_menu
+from .share import share_menu, week_share_menu
 
 if TYPE_CHECKING:
     from .window import MainWindow
@@ -587,10 +587,15 @@ class WeekPage(QWidget):
         replan.setToolTip(_("Plan the rest of this week again from today. Earlier days stay as they are (Ctrl R)"))
         replan.clicked.connect(self.win.replan_fresh)
         self.replan_btn = replan
+        share_btn = QPushButton(_("Share week ▾"))
+        share_btn.setObjectName("ghost")
+        share_btn.setToolTip(_("A card of your week: the days you completed, episodes and time"))
+        share_btn.setMenu(week_share_menu(self.win, share_btn))
         if theme.COMPACT:  # buttons on their own (wrapping) row below the title
             self.body.addLayout(head)
-            self.body.addWidget(button_row(settings_btn, replan))
+            self.body.addWidget(button_row(share_btn, settings_btn, replan))
         else:
+            head.addWidget(share_btn)
             head.addWidget(settings_btn)
             head.addWidget(replan)
             self.body.addLayout(head)

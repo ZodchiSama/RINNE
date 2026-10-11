@@ -190,3 +190,147 @@ def share_menu(win: MainWindow, anime: Anime, parent=None) -> QMenu:
     menu.addAction(_("Copy as text"), lambda: copy_text(win, share_text(anime), _("text")))
     menu.addAction(_("Copy title"), lambda: copy_text(win, anime.name, _("title")))
     return menu
+
+
+# --------------------------------------------------------------------------- your week
+
+
+def week_summary(state, today=None) -> dict:
+    """This week's numbers for the week card: episodes and minutes watched, day results, shows."""
+    from datetime import date, timedelta
+    today = today or date.today()
+    week = state.week
+    start = date.fromisoformat(week.week_start) if week else today - timedelta(days=(today.weekday() + 1) % 7)
+    days, shows, eps, minutes = [], [], 0, 0
+    for d in range(7):
+        on = start + timedelta(days=d)
+        items = week.for_day(d) if week else []
+        if week and week.day_complete(d):
+            days.append("done")
+        elif items and on < today:
+            days.append("open")
+        elif items:
+            days.append("today" if on == today else "upcoming")
+        else:
+            days.append("none")
+        for it in items:
+            if it.done:
+                eps += 1
+                a = state.library.get(it.mal_id)
+                if a is not None:
+                    minutes += a.minutes_per_episode
+                    if a not in shows:
+                        shows.append(a)
+    planned = sum(1 for k in days if k != "none")
+    return {"start": start, "end": start + timedelta(days=6), "days": days, "episodes": eps,
+            "minutes": minutes, "shows": shows, "complete": days.count("done"), "planned": planned}
+
+
+def render_week_card(state, today=None) -> QPixmap:
+    """A 1200×630 card of your week: the days you completed, episodes and time, and the shows."""
+    from ..i18n import _n, strftime, weekday_name
+    from .common import fmt_minutes
+    w = week_summary(state, today)
+    pix = QPixmap(CARD_W, CARD_H)
+    p = QPainter(pix)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.setRenderHint(QPainter.SmoothPixmapTransform)
+    bg = QLinearGradient(0, 0, 0, CARD_H)
+    bg.setColorAt(0, BG_TOP)
+    bg.setColorAt(1, BG_BOTTOM)
+    p.fillRect(pix.rect(), bg)
+    mark = QPixmap(asset("mark-dark.png"))
+    if not mark.isNull():
+        p.setOpacity(0.10)
+        p.drawPixmap(QRectF(CARD_W - 760 * 0.62, (CARD_H - 760) / 2, 760, 760), mark, QRectF(mark.rect()))
+        p.setOpacity(1.0)
+
+    def font(size, weight=QFont.Normal, italic=False):
+        f = QFont()
+        f.setPixelSize(size)
+        f.setWeight(weight)
+        f.setItalic(italic)
+        return f
+
+    x, y, width = 70, 64, CARD_W - 140
+    done_all = w["planned"] and w["complete"] == w["planned"]
+    p.setFont(font(54, QFont.Bold))
+    p.setPen(TEXT)
+    p.drawText(QRectF(x, y, width, 70), Qt.AlignLeft | Qt.AlignVCenter,
+               _("Week complete!") if done_all else _("My week in anime"))
+    y += 74
+    p.setFont(font(26))
+    p.setPen(MUTED)
+    p.drawText(QRectF(x, y, width, 36), Qt.AlignLeft | Qt.AlignVCenter,
+               f"{strftime(w['start'], '%d %B')} – {strftime(w['end'], '%d %B %Y')}".lstrip("0"))
+    y += 64
+
+    # The seven days.
+    gap, size = 14, 104
+    colors = {"done": QColor("#34d399"), "open": QColor("#fbbf24"), "today": GRAD_A}
+    for d, kind in enumerate(w["days"]):
+        r = QRectF(x + d * (size + gap), y, size, size)
+        path = QPainterPath()
+        path.addRoundedRect(r, 18, 18)
+        p.fillPath(path, QColor(255, 255, 255, 16))
+        if kind in colors:
+            p.setPen(QPen(colors[kind], 3))
+            p.drawPath(path)
+        p.setPen(MUTED if kind == "none" else TEXT)
+        p.setFont(font(20, QFont.DemiBold))
+        p.drawText(QRectF(r.left(), r.top() + 12, size, 28), Qt.AlignCenter, weekday_name((d + 6) % 7, short=True))
+        mark_text = {"done": "✓", "open": "!", "today": "•", "upcoming": "·", "none": "–"}[kind]
+        p.setPen(colors.get(kind, MUTED))
+        p.setFont(font(40, QFont.Bold))
+        p.drawText(QRectF(r.left(), r.top() + 38, size, 56), Qt.AlignCenter, mark_text)
+    y += size + 30
+
+    # The numbers, in a row.
+    cols = [(_n("{n} episode", "{n} episodes", w["episodes"]), TEXT),
+            (fmt_minutes(w["minutes"]), SOFT),
+            (_("{done} of {planned} days complete").format(done=w["complete"], planned=w["planned"]), MUTED)]
+    col_w = width / 3
+    for n, (text, color) in enumerate(cols):
+        f = font(34, QFont.Bold if n < 2 else QFont.Normal)
+        p.setFont(f)
+        p.setPen(color)
+        p.drawText(QRectF(x + n * col_w, y, col_w - 20, 46), Qt.AlignLeft | Qt.AlignVCenter,
+                   QFontMetrics(f).elidedText(text, Qt.ElideRight, int(col_w - 20)))
+    y += 74
+
+    # Posters of the shows watched this week.
+    pw, ph_ = 76, 108
+    for n, a in enumerate(w["shows"][:12]):
+        p.drawPixmap(x + n * (pw + 12), y, cache().cover(a.image_url, a.name, pw, ph_, 10))
+
+    # Footer, as on the show card.
+    small = QPixmap(asset("mark-simple-dark.png"))
+    fy = CARD_H - 64
+    if not small.isNull():
+        p.drawPixmap(QRectF(x, fy - 4, 44, 44), small, QRectF(small.rect()))
+    p.setFont(font(28, QFont.Bold))
+    p.setPen(TEXT)
+    p.drawText(QRectF(x + 58, fy, 400, 36), Qt.AlignLeft | Qt.AlignVCenter, DISPLAY_NAME.upper())
+    p.setFont(font(22, italic=True))
+    p.setPen(MUTED)
+    p.drawText(QRectF(x + 180, fy, width - 180, 36), Qt.AlignLeft | Qt.AlignVCenter, _("輪廻 · anime planner"))
+    p.end()
+    return pix
+
+
+def week_share_menu(win: MainWindow, parent=None) -> QMenu:
+    menu = QMenu(parent or win)
+
+    def copy() -> None:
+        QApplication.clipboard().setPixmap(render_week_card(win.state))
+        win.toast.show_message(_("Card copied — paste it into Discord or anywhere else"), ms=3500)
+
+    def save() -> None:
+        path, _filter = QFileDialog.getSaveFileName(win, _("Save card"), str(Path.home() / "rinne-week.png"),
+                                                    _("PNG image (*.png)"))
+        if path:
+            render_week_card(win.state).save(path, "PNG")
+            win.toast.show_message(_("Card saved"), ms=2500)
+    menu.addAction(_("Copy as image"), copy)
+    menu.addAction(_("Save image…"), save)
+    return menu

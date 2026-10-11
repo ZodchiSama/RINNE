@@ -461,3 +461,18 @@ def test_stale_installed_icons_are_refreshed(win, tmp_path, monkeypatch):
     win.refresh_installed_icons()
     assert old.read_bytes() == open(asset("icon-256.png"), "rb").read()
     assert not (base / "48x48" / "apps" / "rinne.png").exists()
+
+
+def test_week_card(win, app):
+    from datetime import timedelta
+
+    from rinne.gui import share
+    from rinne.models import ScheduleItem
+    start = date.fromisoformat(win.state.week.week_start)
+    win.state.week.items = [ScheduleItem(d, m, 1, done=(d < 2 or (d == 2 and m == 1))) for d in range(7) for m in (1, 2)]
+    w = share.week_summary(win.state, start + timedelta(days=3))
+    assert w["days"] == ["done", "done", "open", "today", "upcoming", "upcoming", "upcoming"]
+    assert (w["episodes"], w["complete"], w["planned"]) == (5, 2, 7)
+    assert {a.mal_id for a in w["shows"]} == {1, 2}
+    card = share.render_week_card(win.state, start + timedelta(days=3))
+    assert (card.width(), card.height()) == (1200, 630)

@@ -114,7 +114,7 @@ class WhatsNewDialog(_FitHeight, QDialog):
 class UpdateDialog(_FitHeight, QDialog):
     """A newer release is out: its notes, and a way to get it."""
 
-    def __init__(self, release: dict, on_download, parent=None):
+    def __init__(self, release: dict, on_download, parent=None, in_place: bool = False):
         from .. import __version__
         super().__init__(parent)
         self.setWindowTitle(_("Update available"))
@@ -142,7 +142,7 @@ class UpdateDialog(_FitHeight, QDialog):
         later = QPushButton(_("Later"))
         later.setObjectName("ghost")
         later.clicked.connect(self.reject)
-        get = QPushButton(_("Download"))
+        get = QPushButton(_("Update now") if in_place else _("Download"))
         get.setObjectName("primary")
         get.clicked.connect(lambda: (on_download(), self.accept()))
         row = QHBoxLayout()

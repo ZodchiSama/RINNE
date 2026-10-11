@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QPushButton, QSizePolicy, QStackedWidget, QToolButton, QWidget,
 )
 
-from .. import DISPLAY_NAME, __version__, artwork, i18n, mal, models, scheduler
+from .. import DISPLAY_NAME, __version__, artwork, i18n, mal, models, scheduler, updates
 from ..i18n import _, _n, strftime
 from ..logs import log
 from ..models import COMPLETED, WATCHING, Anime
@@ -162,6 +162,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         self._pull_timer.start()
         QTimer.singleShot(1200, self._maybe_whats_new)
         QTimer.singleShot(3000, self.refresh_installed_icons)
+        QTimer.singleShot(4000, updates.cleanup_old_portable)
 
     def _maybe_whats_new(self) -> None:
         """Once after an update: this version's notes, front and centre."""
@@ -249,7 +250,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         self.update_btn = QPushButton("")
         self.update_btn.setObjectName("updateChip")
         self.update_btn.setCursor(Qt.PointingHandCursor)
-        self.update_btn.clicked.connect(self.open_update_page)
+        self.update_btn.clicked.connect(self.install_update)
         self.update_btn.setVisible(bool(getattr(self, "update_info", None)))
         lay.addWidget(self.update_btn)
         self.offline_btn = QPushButton(_("Offline · showing saved data"))
@@ -634,14 +635,23 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         mal_id, episode, ticked = item.mal_id, item.episode, not item.done
         event = scheduler.toggle_item(self.state, item)
         week = self.state.week
+        week_done = False
         if not was_complete and week and week.day_complete(day):
             on = date.fromisoformat(week.week_start) + timedelta(days=day)
             self.week_page.celebrate = on.isoformat()
             self.statusBar().showMessage(_("{on} complete!").format(on=strftime(on, '%A')), 5000)
+            week_done = all(week.day_complete(d) for d in range(7) if week.for_day(d))
         self.save()
         self.refresh()
         if event.finished:
             self._on_finished(event.finished)  # a finale moves the series on; no undo for that
+            return
+        if week_done:
+            from .share import render_week_card
+            self.toast.show_message(_("Week complete! Share it?"), _("Copy card"), lambda: (
+                QApplication.clipboard().setPixmap(render_week_card(self.state)),
+                self.toast.show_message(_("Card copied — paste it into Discord or anywhere else"), ms=3500)),
+                ms=9000)
             return
         anime = self.state.library.get(mal_id)
         self.toast.show_message(_("{value} · episode {episode} {value2}").format(value=anime.name if anime else 'Episode', episode=episode, value2='watched' if ticked else 'unticked'), _("Undo"),

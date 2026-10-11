@@ -1014,3 +1014,38 @@ def test_pull_applies_only_what_changed_on_that_account():
     mal_now[0].episodes_watched = 3  # but a real edit on MAL since then is applied
     assert sync.changed_on_account(mal_now, mal_baseline) == mal_now
     assert sync.changed_on_account([show(2)], mal_baseline)[0].mal_id == 2  # new on the account: applied
+
+
+def test_in_app_update_picks_verifies_and_swaps(tmp_path, monkeypatch):
+    import hashlib, io
+    from rinne import updates
+    rel = {"version": "9.0.0", "assets": [
+        {"name": "Rinne-9.0.0-x86_64.AppImage", "url": "https://x/a", "size": 5, "digest": ""},
+        {"name": "Rinne-9.0.0-x86_64.AppImage.zsync", "url": "https://x/z", "size": 1, "digest": ""},
+        {"name": "Rinne-Setup-9.0.0.exe", "url": "https://x/s", "size": 1, "digest": ""},
+        {"name": "Rinne-Portable-9.0.0.exe", "url": "https://x/p", "size": 1, "digest": ""}]}
+    assert updates.pick_asset(rel, "appimage")["url"] == "https://x/a"
+    assert updates.pick_asset(rel, "windows-installer")["url"] == "https://x/s"
+    assert updates.pick_asset(rel, "windows-portable")["url"] == "https://x/p"
+    assert updates.pick_asset(rel, "") is None  # source installs open the release page
+
+    payload = b"NEWAI"
+
+    class Resp(io.BytesIO):
+        headers = {"Content-Length": str(len(payload))}
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    monkeypatch.setattr(updates.urllib.request, "urlopen", lambda req, timeout=60: Resp(payload))
+    good = dict(rel["assets"][0], digest="sha256:" + hashlib.sha256(payload).hexdigest())
+    path = updates.download(good)
+    assert path.read_bytes() == payload
+    with pytest.raises(OSError):  # a tampered or broken download is refused
+        updates.download(dict(good, digest="sha256:" + "0" * 64))
+
+    current = tmp_path / "Rinne.AppImage"
+    current.write_bytes(b"OLD")
+    monkeypatch.setenv("APPIMAGE", str(current))
+    monkeypatch.setattr(updates, "managed_by", lambda: "")
+    assert updates.install_kind() == "appimage"
+    assert updates.apply_update("appimage", path) == [str(current)]
+    assert current.read_bytes() == payload and current.stat().st_mode & 0o111  # same path, executable
