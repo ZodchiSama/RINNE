@@ -76,6 +76,17 @@
     <keyword>watchlist</keyword>
   </keywords>
   <releases>
+    <release version="1.1.2" date="2026-10-11">
+      <description>
+        <p>Shikimori sync and sharing.</p>
+        <ul>
+          <li>Connect Shikimori: your list syncs both ways, like MyAnimeList and AniList</li>
+          <li>Share a show or your week as a card, or copy a link, text or title</li>
+          <li>Updates install themselves, checked against the release</li>
+          <li>Discord shows the Rinne logo again</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.1.1" date="2026-10-08">
       <description>
         <p>A new look: a new logo and app icon, the Wheel of Reincarnation.</p>

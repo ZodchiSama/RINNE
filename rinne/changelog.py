@@ -4,6 +4,15 @@ Notes wrapped in N_ are translated when shown."""
 from .i18n import N_
 
 CHANGELOG: list[tuple[str, str, list[str]]] = [
+    ("1.1.2", N_("Shikimori sync and sharing"), [
+        N_("Connect Shikimori in Settings → Accounts: your list syncs both ways, like MyAnimeList and AniList"),
+        N_("Share a show as a card with your progress and score, or as a link, text or title"),
+        N_("Share your week: a card of the days you completed, episodes and time"),
+        N_("Select a title or synopsis and press Ctrl C to copy it"),
+        N_("Updates install themselves: Rinne downloads, checks and restarts into the new version"),
+        N_("Discord shows the Rinne logo again, and a “Get Rinne” button"),
+        N_("A stale entry on one account no longer undoes newer progress from another"),
+    ]),
     ("1.1.1", N_("A new look"), [
         N_("New logo: the Wheel of Reincarnation, an arrow chasing its own tail"),
         N_("New app icon, clear at every size from the tray to the desktop"),
