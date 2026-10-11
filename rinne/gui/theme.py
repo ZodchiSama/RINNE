@@ -60,7 +60,6 @@ PALETTES: dict[str, dict] = {
                 "dropped": "#cc1105", "plan_to_watch": "#8a3a8a"},
     ),
 }
-THEMES = list(PALETTES)
 
 # Active palette values (overwritten by _load()).
 BG = SIDEBAR = SURFACE = SURFACE_2 = SURFACE_3 = BORDER = TEXT = BODY = MUTED = FAINT = ""

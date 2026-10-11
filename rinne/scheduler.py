@@ -363,7 +363,7 @@ def plan_start(state: State) -> date | None:
 
 
 def mark_watched_items(state: State) -> None:
-    """Tick planned episodes you've already watched (on another day, in MAL/AniList, …)."""
+    """Tick planned episodes you've already watched (on another day, or on MAL / AniList / Shikimori)."""
     if state.week:
         for it in state.week.items:
             a = state.library.get(it.mal_id)

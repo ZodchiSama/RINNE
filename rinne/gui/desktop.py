@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import os
 import shutil
+import sys
 import time
 from datetime import date, datetime, timedelta
+from pathlib import Path
 
 from PySide6.QtCore import QProcess, QTimer
 from PySide6.QtGui import QAction, QIcon
@@ -13,6 +16,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 from .. import DISPLAY_NAME, scheduler
 from ..discord_rpc import DiscordRPC, build_activity
 from ..i18n import _, _n
+from ..logs import log
 from ..models import CURRENTLY_AIRING, WATCHING
 
 
@@ -90,6 +94,33 @@ class DesktopMixin:
         self._quitting = True
         self.close()
         QApplication.instance().quit()
+
+    # ------------------------------------------------------------------ desktop icon
+
+    def refresh_installed_icons(self) -> None:
+        """install.sh copies the app icon into your desktop's icon folder. After an update with a new
+        icon those copies go stale, so the menu and taskbar keep the old one; refresh them."""
+        if not sys.platform.startswith("linux"):
+            return
+        from .common import asset
+        base = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "icons" / "hicolor"
+        changed = False
+        for size in (16, 24, 32, 48, 64, 128, 256, 512):
+            installed = base / f"{size}x{size}" / "apps" / "rinne.png"
+            ours = Path(asset(f"icon-{size}.png"))
+            try:
+                if installed.exists() and ours.exists() and installed.read_bytes() != ours.read_bytes():
+                    shutil.copyfile(ours, installed)
+                    changed = True
+            except OSError as e:
+                log.warning("Couldn't refresh the installed icon %s: %s", installed, e)
+        if changed:
+            log.info("Refreshed the installed app icons")
+            os.utime(base)  # icon themes notice a changed folder
+            for tool, args in (("gtk-update-icon-cache", ["-f", "-t", str(base)]),
+                               ("kbuildsycoca6", []), ("kbuildsycoca5", [])):
+                if shutil.which(tool):
+                    QProcess.startDetached(tool, args)
 
     # ------------------------------------------------------------------ notifications
 

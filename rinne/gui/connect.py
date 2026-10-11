@@ -40,7 +40,8 @@ def any_connected(win: MainWindow) -> bool:
 
 
 class ConnectDialog(QDialog):
-    """Connect MyAnimeList or AniList (or re-import from a connected one)."""
+    """Connect MyAnimeList or AniList (or re-import from a connected one). Shikimori, less widely
+    used, is connected from Settings → Accounts."""
 
     def __init__(self, win: MainWindow):
         super().__init__(win)

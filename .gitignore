@@ -7,3 +7,6 @@ dist/
 
 # PyInstaller output
 *.spec
+
+# Editor workspaces
+*.code-workspace

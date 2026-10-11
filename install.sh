@@ -36,7 +36,7 @@ Exec="$here/.venv/bin/rinne"
 Icon=rinne
 Terminal=false
 Categories=AudioVideo;Video;
-Keywords=anime;mal;myanimelist;anilist;schedule;watchlist;
+Keywords=anime;mal;myanimelist;anilist;shikimori;schedule;watchlist;planner;
 StartupWMClass=rinne
 EOF
 

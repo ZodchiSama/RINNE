@@ -41,7 +41,7 @@ def why(state: State, anime: Anime, today: date | None = None) -> list[str]:
         elif anime.added_by_app:
             out.append(_("Added by the app as the next season of a show you finished"))
         else:
-            out.append(_("It's on your Watching list on MyAnimeList"))
+            out.append(_("It's on your Watching list"))
         out.extend(r for r in o.get("reasons", []) if not r.startswith("Next in the series"))
         out.extend(_schedule_lines(state, anime, today))
         nxt = scheduler.preview_next(state, anime, today)

@@ -46,6 +46,13 @@ def run(report: str | None) -> int:
             raise FileNotFoundError(", ".join(missing))
         return "icons and logo found"
 
+    def translations():
+        from . import i18n
+        langs = i18n.available()
+        if "ru" not in langs:
+            raise FileNotFoundError("rinne/locale/ru.json is missing")
+        return ", ".join(langs.values())
+
     def tls():
         if not QSslSocket.supportsSsl():
             raise RuntimeError(f"no TLS backend (available: {QSslSocket.availableBackends()})")
@@ -69,6 +76,7 @@ def run(report: str | None) -> int:
         return f"main window opened (showing {page})"
 
     check("bundled assets", assets)
+    check("translations", translations)
     check("TLS support", tls)
     check("HTTPS to AniList", https)
     check("main window", window)

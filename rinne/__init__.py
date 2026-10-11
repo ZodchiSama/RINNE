@@ -1,4 +1,4 @@
-"""Rinne — a weekly anime schedule built from your MyAnimeList list, that follows each series."""
+"""Rinne — a weekly anime planner for your MyAnimeList, AniList or Shikimori list, that follows each series."""
 
 __version__ = "1.1.1"
 APP_NAME = "rinne"  # data/cache folder and desktop-entry name
@@ -14,8 +14,8 @@ MAL_CLIENT_ID = "66e1801e97640f29adf276a76c99eba6"  # myanimelist.net/apiconfig,
 MAL_REDIRECT = "http://localhost:47811/callback"
 ANILIST_CLIENT_ID = "52457"  # anilist.co/settings/developer, redirect https://anilist.co/api/v2/oauth/pin
 # shikimori.io/oauth/applications: name "Rinne", redirect SHIKIMORI_REDIRECT below, scope user_rates
-SHIKIMORI_CLIENT_ID = ""
-SHIKIMORI_CLIENT_SECRET = ""
+SHIKIMORI_CLIENT_ID = "D01UY_KwenUYYaElJHqraYzFmacyMLH4-CqRyXom3MA"
+SHIKIMORI_CLIENT_SECRET = "Me8m1sDeVOH9hfG6GOtp8PRSRrgI3eik3wyNwZKxr0U"
 SHIKIMORI_REDIRECT = "http://localhost:47811/shikimori"
 
 # Project links shown on the About page and used by the feedback dialog.

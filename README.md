@@ -5,13 +5,13 @@
 
 <p align="center">A desktop anime planner for Linux and Windows.</p>
 
-Rinne turns your **MyAnimeList** or **AniList** list into a weekly watch plan. When a show ends,
-its next season is reborn in its place, even if it isn't on your list yet, and Rinne tells you
-why. Tick episodes as you watch and your MAL or AniList account stays up to date.
+Rinne turns your **MyAnimeList**, **AniList** or **Shikimori** list into a weekly watch plan. When
+a show ends, its next season is reborn in its place, even if it isn't on your list yet, and Rinne
+tells you why. Tick episodes as you watch and your account stays up to date.
 
 By **Zodchi** · [MIT License](LICENSE)
 
-<p align="center"><img src="docs/screenshots/week.png" alt="Your Week: a 7-day plan with a card per show" width="860"></p>
+<p align="center"><img src="docs/screenshots/week.png" alt="Your Week: the week's plan with a card per show" width="860"></p>
 
 ## Features
 
@@ -25,9 +25,11 @@ By **Zodchi** · [MIT License](LICENSE)
   and give each weekday its own amount of episodes or minutes.
 - **Airing shows** are scheduled as episodes come out, and you catch up if you fall behind.
 - **New seasons** of shows you've watched are announced, and can be added automatically.
-- **Connect MyAnimeList or AniList:** your list comes in, private entries too, and stays in sync
-  both ways: ticked episodes, status changes and scores are sent for you, and changes you make
-  there come back to Rinne.
+- **Connect MyAnimeList, AniList or Shikimori:** your list comes in, private entries too, and
+  stays in sync both ways: ticked episodes, status changes and scores are sent for you, and
+  changes you make there come back to Rinne.
+- **Share a show:** a card with your progress and score to paste into Discord or anywhere,
+  links to MyAnimeList, AniList or Shikimori, or just the title.
 - **English or Russian**, with show titles in Russian too (from Shikimori), and lists importable
   from Shikimori.
 - **Show profiles** with synopsis, cast and voice actors, related entries, upcoming seasons and
@@ -68,6 +70,8 @@ cd RINNE
 ./install.sh          # virtual environment, `rinne` command, icon and app-menu entry
 ```
 
+To update later: `git pull && ./install.sh`.
+
 Rinne checks GitHub for new versions once a day. When one is out it shows the release notes once,
 sends a notification, and keeps an **Update** button in the sidebar (Settings → General). After
 updating, a one-time *What's new* window lists the changes, and they stay in Settings → About.
@@ -96,11 +100,12 @@ Re-importing is safe: progress you tracked in Rinne is never rolled back by an o
 
 ## Account sync
 
-Once you're connected (from **Connect** in the sidebar or **Settings → Accounts**), the episodes
-you tick, status changes and scores are sent a few seconds later, and only for shows that
-changed. Changes you make on MyAnimeList or AniList themselves come back to Rinne on startup and
-every few hours, and planned episodes you watched elsewhere are ticked for you. Sign-ins are stored only on your computer. Turn sending off per service at any time,
-press **Sync now**, or bring your list in again from the Connect window.
+Connect MyAnimeList or AniList from **Connect** in the sidebar, and any of the three, Shikimori
+included, from **Settings → Accounts**. The episodes you tick, status changes and scores are then
+sent a few seconds later, and only for shows that changed. Changes you make on those sites come
+back to Rinne on startup and every few hours, and planned episodes you watched elsewhere are
+ticked for you. Sign-ins are stored only on your computer. Turn sending off per service at any
+time, press **Sync now**, or bring your list in again.
 
 ## Using Rinne
 
@@ -119,7 +124,11 @@ press **Sync now**, or bring your list in again from the Connect window.
   - **Pace:** a fixed number of episodes a day.
 - **Up Next:** newly announced seasons, and what takes over each show when it ends.
 - **Library:** your whole list as posters. Filter, search, sort, and right-click for quick
-  changes.
+  changes. **Ctrl C** copies the selected show's title.
+- **Sharing:** a profile's **Share** button (or right-click a show in the Library or on Your Week)
+  copies or saves a card image with your progress and score, copies a MyAnimeList, AniList or
+  Shikimori link, a short text, or the title. On a profile you can also select the title or
+  synopsis and copy it.
 - **Stats:** your daily goals (days complete and failed, success rate, a grid of recent weeks),
   episodes per week and per day, streaks, top genres and all-time totals.
 - **Notifications** (Settings → Notifications): new episodes, a daily reminder, a Saturday
@@ -171,8 +180,9 @@ A pop-up shows what comes next and why. Automatic replacement can be turned off 
 
 - Your list, plan and settings live in `~/.local/share/rinne/` (Windows: `%APPDATA%\rinne`),
   with a cache in `~/.cache/rinne/` (Windows: `%LOCALAPPDATA%\rinne`).
-- Rinne talks only to AniList, MyAnimeList/Jikan, ani.zip, GitHub (update check) and, if it's
-  running, your local Discord app. There's no telemetry.
+- Rinne talks only to AniList, MyAnimeList/Jikan, Shikimori, ani.zip, GitHub (update check) and,
+  if it's running, your local Discord app. Your list goes only to accounts you connect. There's no
+  telemetry.
 - A log file (`rinne.log` in the data folder) helps with bug reports. **Settings → About** can
   open it, and the feedback form can attach the last lines.
 

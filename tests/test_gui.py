@@ -447,3 +447,17 @@ def test_sharing_a_show(win, app):
     app.processEvents()
     titles = [w for w in win.profile_page.findChildren(QLabel) if w.text() == "Frieren"]
     assert titles and titles[0].textInteractionFlags() & _Qt.TextSelectableByMouse
+
+
+def test_stale_installed_icons_are_refreshed(win, tmp_path, monkeypatch):
+    """Icons install.sh copied into the desktop's icon folder are replaced when the app's icon changes;
+    sizes that were never installed aren't created."""
+    from rinne.gui.common import asset
+    base = tmp_path / "data" / "icons" / "hicolor"
+    old = base / "256x256" / "apps" / "rinne.png"
+    old.parent.mkdir(parents=True)
+    old.write_bytes(b"old icon")
+    monkeypatch.setattr("rinne.gui.desktop.QProcess.startDetached", lambda *a: True)
+    win.refresh_installed_icons()
+    assert old.read_bytes() == open(asset("icon-256.png"), "rb").read()
+    assert not (base / "48x48" / "apps" / "rinne.png").exists()

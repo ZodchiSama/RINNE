@@ -89,7 +89,7 @@ class Anime:
     excluded: bool = False  # user said "never suggest this"
     started_on: str = ""  # ISO date the scheduler promoted it to Watching
     finished_on: str = ""
-    added_by_app: bool = False  # e.g. a sequel pulled in that wasn't on the MAL list
+    added_by_app: bool = False  # e.g. a sequel pulled in that wasn't on your list
     # Per-show planning controls
     paused: bool = False  # stays on Watching but isn't scheduled
     pinned: bool = False  # gets an episode every day, before other shows

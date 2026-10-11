@@ -41,7 +41,7 @@ class UpNextPage(QWidget):
         titles = vbox(spacing=2)
         titles.addWidget(label(_("Up Next"), "h1"))
         titles.addWidget(label(_("What takes over when each show finishes. The next season always "
-                               "comes first — even if it isn't on your MAL list yet."), "muted", wrap=True))
+                               "comes first — even if it isn't on your list yet."), "muted", wrap=True))
         self.body.addLayout(titles)
 
         news = getattr(self.win, "announcements", None) or []

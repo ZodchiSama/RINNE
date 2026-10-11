@@ -150,7 +150,8 @@ class AboutSection:
             _("Everything — your library, progress and settings — stays on this computer."),
             _("No analytics or tracking. Rinne sends your list only to accounts you connect."),
             _("To show details it looks up shows by ID on AniList, and fan art via ani.zip / TheTVDB."),
-            _("MyAnimeList is contacted only when you import by username or connect your account."),
+            _("MyAnimeList, AniList and Shikimori get your list only if you connect them (and Shikimori is "
+              "asked for Russian titles if you choose them)."),
             _("Discord Rich Presence talks only to the Discord app on your computer, and can be turned off."),
         ]:
             pl.addWidget(label(f"•  {line}", "small", wrap=True))
@@ -162,6 +163,7 @@ class AboutSection:
             ("AniList", "Show details, titles, relations, cast and airing dates", "https://anilist.co"),
             ("MyAnimeList", _("Your list (export file or API)"), "https://myanimelist.net"),
             ("ani.zip / TheTVDB", _("Full-HD fan art for backgrounds and banners"), "https://thetvdb.com"),
+            ("Shikimori", _("Russian titles, and your list if you import or connect it"), "https://shikimori.io"),
             ("Jikan", _("Fallback details from MyAnimeList"), "https://jikan.moe"),
         ]:
             self._row(name, what, self._button("Visit", lambda u=url: QDesktopServices.openUrl(QUrl(u))))

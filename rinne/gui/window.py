@@ -161,6 +161,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         self._pull_timer = QTimer(self, interval=3 * 60 * 60 * 1000, timeout=self.pull_accounts)
         self._pull_timer.start()
         QTimer.singleShot(1200, self._maybe_whats_new)
+        QTimer.singleShot(3000, self.refresh_installed_icons)
 
     def _maybe_whats_new(self) -> None:
         """Once after an update: this version's notes, front and centre."""
@@ -452,12 +453,6 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         if not name or name == theme.current:
             return
         self.state.settings.theme = name
-        self._restyle()
-
-    def set_backdrop(self, on: bool) -> None:
-        if on == theme.BACKDROP:
-            return
-        self.state.settings.backdrop = on
         self._restyle()
 
     def _restyle(self) -> None:
@@ -794,7 +789,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
             Step(_("Replan from today"), _("Fell behind or changed your mind? Plan the rest of the week again from "
                  "today. Earlier days stay as they are."), lambda: getattr(self.week_page, "replan_btn", None), week),
             Step(_("Up Next"), _("What takes over when each show ends. The next season always comes first — "
-                 "even if it isn't on your MAL list yet — otherwise the best pick from Plan to Watch."),
+                 "even if it isn't on your list yet — otherwise the best pick from Plan to Watch."),
                  lambda: self.nav_target(1)),
             Step(_("Library"), _("Your whole list as posters. Click any show for its profile: why it's on your "
                  "list, cast & voice actors, and new seasons coming up."), lambda: self.nav_target(2)),
@@ -812,9 +807,6 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         self._tour = TourOverlay(self.centralWidget(), steps)
         self._tour.finished.connect(lambda: self._nav_to(0))
         self._tour.start()
-
-    def import_username_direct(self, username: str, client_id: str) -> None:
-        self._run(mal.fetch_mal_list, (username, client_id), self._finish_import)
 
     def settings_changed(self, kind: str = "save") -> None:
         """Called by the Settings page after it changes a setting."""

@@ -10,7 +10,7 @@
   </developer>
   <description>
     <p>
-      Rinne turns your MyAnimeList or AniList list into a 7-day watch plan. When a show ends,
+      Rinne turns your MyAnimeList, AniList or Shikimori list into a weekly watch plan. When a show ends,
       its next season takes its place automatically, even if it isn't on your list yet, and
       Rinne explains why.
     </p>
@@ -18,7 +18,8 @@
       <li>A Sunday-to-Saturday plan built from the shows you're watching, with daily goals to complete</li>
       <li>Follows every series: sequels replace finished seasons, and new seasons are announced</li>
       <li>Drag shows between days, pause or pin a show, and catch up on airing shows</li>
-      <li>Optional two-way sync of your progress with MyAnimeList and AniList</li>
+      <li>Optional two-way sync of your progress with MyAnimeList, AniList and Shikimori</li>
+      <li>Share cards of what you're watching, with your progress and score</li>
       <li>Stats, a weekly recap and a calendar file for your calendar app</li>
       <li>Show profiles with cast, voice actors and where to watch</li>
       <li>Themes, a full-HD background slideshow and Discord Rich Presence</li>
@@ -27,7 +28,7 @@
   <launchable type="desktop-id">rinne.desktop</launchable>
   <screenshots>
     <screenshot type="default">
-      <caption>Your Week: the 7-day plan</caption>
+      <caption>Your Week: the week's plan</caption>
       <image>https://raw.githubusercontent.com/ZodchiSama/RINNE/main/docs/screenshots/week.png</image>
     </screenshot>
     <screenshot>

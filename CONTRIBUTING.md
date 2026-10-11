@@ -29,9 +29,9 @@ Run the tests before sending a pull request. They're offscreen and never touch t
 | `rinne/recommender.py` | What replaces a finished show, and why |
 | `rinne/anilist.py`, `mal.py`, `artwork.py` | Metadata sources (AniList first, MAL/Jikan as fallbacks) |
 | `rinne/shikimori.py` | Shikimori list import and Russian titles |
-| `rinne/sync.py` | Sending progress back to MyAnimeList and AniList |
+| `rinne/sync.py` | Account sign-in and sending progress to MyAnimeList, AniList and Shikimori |
 | `rinne/stats.py`, `calendar_export.py`, `announcements.py` | Stats, the .ics file, new-season checks |
-| `rinne/gui/window.py` | The main window; `services.py` has updates, sync and imports |
+| `rinne/gui/window.py` | The main window; `services.py` has updates, sync and imports; `share.py` the share cards and links |
 | `rinne/gui/week.py`, `upnext.py`, `library.py`, `stats_page.py`, `profile.py` | The pages |
 | `rinne/gui/settings.py` (+ `settings_data.py`, `settings_about.py`) | The Settings page |
 | `tests/test_core.py`, `tests/test_gui.py` | Logic tests and interface tests |

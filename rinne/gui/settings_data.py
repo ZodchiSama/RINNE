@@ -46,8 +46,10 @@ class DataSections:
             self._group(name)
             if connected:
                 disc = self._button("Disconnect", lambda _=False, v=svc: (self.win.disconnect_account(v), self.refresh()))
+                again = self._button("Bring in my list again", lambda _c=False, v=svc: self.win.pull_account(v))
                 self._row(_("Connected as {value}").format(value=user or _('your account')),
-                          "Only status, episodes watched and score are sent — for shows that change.", disc)
+                          "Only status, episodes watched and score are sent — for shows that change.",
+                          button_row(again, disc))
                 self._switch(_("Send my progress to {name}").format(name=name), "", sync_attr, kind="save")
             elif available:
                 connect = {"mal": self.win.connect_mal, "anilist": self.win.connect_anilist,
@@ -72,7 +74,7 @@ class DataSections:
     # ------------------------------------------------------------------ Library & Data
 
     def _build_data(self, s: Settings) -> None:
-        self._header("Library & Data", "Your MyAnimeList connection, caches and backups.")
+        self._header("Library & Data", "Imports, caches and backups. Accounts are under Accounts.")
         self._group("MyAnimeList")
         user = QLineEdit(s.mal_username)
         user.setMinimumWidth(theme.px(240))

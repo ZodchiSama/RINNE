@@ -79,7 +79,7 @@ def follow_series(finished: Anime, get: Getter, today: date,
             title = node.relation_titles.get(str(sid)) or _("MAL #{sid}").format(sid=sid)
             placeholder = Anime(mal_id=sid, title=title, added_by_app=True)
             return placeholder, [_("Next in the series after {name}").format(name=finished.name),
-                                 _("Not on your MAL list yet — it will be added")]
+                                 _("Not on your list yet — it will be added")]
         if cand.status == COMPLETED:
             skipped.append(cand.name)
             node = cand

@@ -267,7 +267,7 @@ class ServicesMixin:
         self._run(net.online, (), done, with_progress=False, exclusive=False, on_error=lambda _m: done(False))
 
     def pull_accounts(self) -> None:
-        """Quietly bring in changes made on MyAnimeList / AniList (on startup and every few hours),
+        """Quietly bring in changes made on MyAnimeList / AniList / Shikimori (on startup and every few hours),
         so watching or editing there shows up here too."""
         s = self.state.settings
         if s.mal_token:
