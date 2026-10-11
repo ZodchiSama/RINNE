@@ -61,6 +61,14 @@ def baseline(library: dict[int, Anime]) -> dict[int, list]:
     return {a.mal_id: snapshot(a) for a in library.values()}
 
 
+def changed_on_account(account: list[Anime], previous: dict[int, list]) -> list[Anime]:
+    """The account's entries that changed there since Rinne last synced with it (or are new to it).
+    Only these are applied on a pull: an entry the account hasn't touched must not overwrite newer
+    progress from Rinne or from another account (a show dropped on MAL years ago but watched now on
+    Shikimori would otherwise flip back to Dropped on every pull)."""
+    return [a for a in account if previous.get(a.mal_id) != snapshot(a)]
+
+
 def after_pull(library: dict[int, Anime], account: list[Anime], previous: dict[int, list]) -> dict[int, list]:
     """The sync baseline after bringing in an account's list: what the account holds now.
     Anything newer in Rinne (a tick not sent yet, progress made offline) still differs, so it's

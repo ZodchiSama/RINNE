@@ -518,7 +518,10 @@ def test_discord_rpc_handshake_and_activity(tmp_path, monkeypatch):
     assert received[0] == (0, {"v": 1, "client_id": "123456789"})
     sent = received[1][1]["args"]["activity"]
     assert sent["type"] == 3 and sent["assets"]["large_image"] == "https://x/c.jpg"
-    assert sent["buttons"][0]["url"].endswith("/52991")
+    assert sent["buttons"][0]["url"].endswith("/52991") and sent["buttons"][1]["label"] == "Get Rinne"
+    assert sent["assets"]["small_image"].startswith("https://")  # the logo needs no Discord-portal upload
+    caught_up = discord_rpc.build_activity(None, "All caught up", "")
+    assert caught_up["assets"]["large_image"] == discord_rpc.LOGO_URL
     assert not discord_rpc.DiscordRPC("not-a-number").connect()
 
 
@@ -997,3 +1000,17 @@ def test_shikimori_signin_push_and_refresh(monkeypatch):
     res = sync.push_all([a], "", None, None, {"client_id": "cid", "client_secret": "secret",
                                              "tokens": old, "user_id": 7})
     assert res["shikimori"] == [52991] and res["shikimori_tokens"]["access_token"] == "AT2"
+
+
+def test_pull_applies_only_what_changed_on_that_account():
+    """A stale Dropped on one account doesn't undo watching the show through another."""
+    from rinne import sync
+    lib = {1: show(1, status=WATCHING, episodes_watched=5)}
+    mal_baseline = {1: ["dropped", 2, 0]}  # what Rinne last saw on MAL, years ago
+    mal_now = [show(1, status=DROPPED, episodes_watched=2)]  # MAL still says that
+    assert sync.changed_on_account(mal_now, mal_baseline) == []  # nothing changed there: not applied
+    base = sync.after_pull(lib, mal_now, mal_baseline)
+    assert [a.mal_id for a in sync.pending_changes(lib, base)] == [1]  # Rinne's Watching is sent to MAL
+    mal_now[0].episodes_watched = 3  # but a real edit on MAL since then is applied
+    assert sync.changed_on_account(mal_now, mal_baseline) == mal_now
+    assert sync.changed_on_account([show(2)], mal_baseline)[0].mal_id == 2  # new on the account: applied

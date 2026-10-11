@@ -302,15 +302,21 @@ class ServicesMixin:
                 s.mal_token = tokens
             lib = self.state.library
             before = {k: sync.snapshot(a) for k, a in lib.items()}
+            previous = self.state.synced.get(service, {})
+            fresh = sync.changed_on_account(entries, previous)
+            fresh_ids = {a.mal_id for a in fresh}
+            for a in entries:  # untouched there: keep Rinne's values, but take a Russian title along
+                if a.mal_id not in fresh_ids and a.title_ru and a.mal_id in lib:
+                    lib[a.mal_id].title_ru = a.title_ru
             if quiet:
-                added, _updated = mal.merge_import(lib, entries)
+                added, _updated = mal.merge_import(lib, fresh)
                 if added:
                     self.run_enrich()
             else:
-                self._finish_import(entries)
+                self._finish_import(fresh)
             # What the account holds is now the starting point for sync: the import isn't sent
             # back, but anything newer in Rinne still is.
-            self.state.synced[service] = sync.after_pull(lib, entries, self.state.synced.get(service, {}))
+            self.state.synced[service] = sync.after_pull(lib, entries, previous)
             changed = sum(1 for k, a in lib.items() if before.get(k) != sync.snapshot(a))
             if changed:
                 scheduler.replan(self.state, keep_today=True)  # ticks episodes watched elsewhere

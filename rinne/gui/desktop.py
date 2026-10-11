@@ -231,14 +231,14 @@ class DesktopMixin:
                                   buttons=False, started=self._started_at)
         if nxt:
             anime, ep = nxt
-            total = f" of {anime.episodes_total}" if anime.episodes_total else ""
+            total = _(" of {episodes_total}").format(episodes_total=anime.episodes_total) if anime.episodes_total else ""
             return build_activity(anime.name, anime.name, _("Up next: episode {ep}{total} · {progress}").format(ep=ep, total=total, progress=progress),
                                   anime.image_url if s.discord_show_cover else "", anime.mal_id,
                                   s.discord_buttons, self._started_at)
         return build_activity(None, _("All caught up today ✓") if items else _("Planning the week"),
                               _n("{n} episode in this week's plan", "{n} episodes in this week's plan",
                   len(self.state.week.items) if self.state.week else 0),
-                              buttons=False, started=self._started_at)
+                              buttons=s.discord_buttons, started=self._started_at)
 
     def schedule_presence(self) -> None:
         if getattr(self, "_presence_timer", None) is not None and self.state.settings.discord_enabled:

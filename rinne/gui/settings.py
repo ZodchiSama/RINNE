@@ -449,7 +449,8 @@ class SettingsPage(DataSections, AboutSection, QWidget):
 
         self._group("What to show")
         self._switch("Show cover art", "Uses the show's cover as the large image.", "discord_show_cover", kind="discord")
-        self._switch("Show a “View on MyAnimeList” button", "", "discord_buttons", kind="discord")
+        self._switch("Show buttons", "“View on MyAnimeList” for the show and “Get Rinne”. Discord shows "
+                     "them to people who look at your profile, never to you.", "discord_buttons", kind="discord")
         self._switch("Private mode", "Hide show titles — only shows how much of today's plan you've watched.",
                      "discord_private", kind="discord")
 

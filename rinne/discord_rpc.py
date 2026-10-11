@@ -166,10 +166,17 @@ class DiscordRPC:
         self.sock = None
 
 
+# The app icon as a web image: Discord shows https images directly, so the logo needs no upload to the
+# Discord developer portal and always matches the current icon.
+LOGO_URL = "https://raw.githubusercontent.com/ZodchiSama/RINNE/main/rinne/assets/icon-512.png"
+PROJECT_URL = "https://github.com/ZodchiSama/RINNE"
+
+
 def build_activity(show_title: str | None, details: str, state: str, cover_url: str = "",
                    mal_id: int = 0, buttons: bool = True, started: float | None = None,
-                   logo_key: str = "rinne") -> dict:
-    """A "Watching" activity. Discord accepts https image URLs as asset keys."""
+                   logo_key: str = LOGO_URL) -> dict:
+    """A "Watching" activity. Discord accepts https image URLs as asset keys. Buttons (at most two)
+    are shown to people looking at your profile; Discord never shows them to you."""
     act: dict = {"type": ACTIVITY_WATCHING, "details": details[:128] or "Rinne", "state": state[:128] or None,
                  "assets": {}, "timestamps": {"start": int(started or time.time())}}
     if cover_url.startswith("https://"):
@@ -180,8 +187,9 @@ def build_activity(show_title: str | None, details: str, state: str, cover_url: 
     else:
         act["assets"]["large_image"] = logo_key
         act["assets"]["large_text"] = "Rinne — weekly anime planner"
-    if buttons and mal_id:
-        act["buttons"] = [{"label": "View on MyAnimeList", "url": f"https://myanimelist.net/anime/{mal_id}"}]
+    if buttons:
+        act["buttons"] = ([{"label": "View on MyAnimeList", "url": f"https://myanimelist.net/anime/{mal_id}"}]
+                          if mal_id else []) + [{"label": "Get Rinne", "url": PROJECT_URL}]
     if act["state"] is None:
         del act["state"]
     return act
