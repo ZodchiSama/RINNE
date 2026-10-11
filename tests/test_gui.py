@@ -449,6 +449,7 @@ def test_sharing_a_show(win, app):
     assert titles and titles[0].textInteractionFlags() & _Qt.TextSelectableByMouse
 
 
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="desktop icon folders are a Linux thing")
 def test_stale_installed_icons_are_refreshed(win, tmp_path, monkeypatch):
     """Icons install.sh copied into the desktop's icon folder are replaced when the app's icon changes;
     sizes that were never installed aren't created."""

@@ -1048,4 +1048,6 @@ def test_in_app_update_picks_verifies_and_swaps(tmp_path, monkeypatch):
     monkeypatch.setattr(updates, "managed_by", lambda: "")
     assert updates.install_kind() == "appimage"
     assert updates.apply_update("appimage", path) == [str(current)]
-    assert current.read_bytes() == payload and current.stat().st_mode & 0o111  # same path, executable
+    assert current.read_bytes() == payload  # same path, so app-menu entries keep working
+    if sys.platform != "win32":
+        assert current.stat().st_mode & 0o111  # and executable
