@@ -346,7 +346,8 @@ def apply_replacement(
 
 
 def toggle_item(state: State, item: ScheduleItem, today: date | None = None) -> ProgressEvent:
-    """Check/uncheck a scheduled episode, update progress, and replan the rest of the week."""
+    """Check/uncheck a scheduled episode and update progress. The plan itself stays as it is: a tick
+    must not reshuffle other days. (Finishing a show replans, once its replacement is chosen.)"""
     today = today or date.today()
     anime = state.library[item.mal_id]
     item.done = not item.done
@@ -354,8 +355,56 @@ def toggle_item(state: State, item: ScheduleItem, today: date | None = None) -> 
         event = set_progress(state, anime, max(anime.episodes_watched, item.episode), today)
     else:
         event = set_progress(state, anime, min(anime.episodes_watched, item.episode - 1), today)
-    replan(state, today, keep_today=True)  # today's list stays put while you work through it
+    mark_watched_items(state)  # earlier episodes of the show, if you skipped ahead
+    update_day_log(state)
     return event
+
+
+def _day_iso(state: State, day: int) -> str:
+    return (date.fromisoformat(state.week.week_start) + timedelta(days=day)).isoformat()
+
+
+def day_failed(state: State, day: int) -> bool:
+    """The day was given up: its episodes were rescheduled (or the week ended with it unfinished)."""
+    return bool(state.week) and state.day_log.get(_day_iso(state, day)) == "failed"
+
+
+def day_done(state: State, day: int) -> bool:
+    """Everything planned for the day is ticked, and it wasn't given up first."""
+    return bool(state.week) and state.week.day_complete(day) and not day_failed(state, day)
+
+
+def missed_days(state: State, today: date | None = None) -> list[int]:
+    """Earlier days of this week with episodes still unticked (not yet rescheduled)."""
+    today = today or date.today()
+    week = state.week
+    if not week or not week.calendar:
+        return []
+    start = date.fromisoformat(week.week_start)
+    return [d for d in range(PLAN_DAYS) if start + timedelta(days=d) < today
+            and any(not i.done for i in week.for_day(d))]
+
+
+def reschedule_missed(state: State, today: date | None = None) -> int:
+    """Move the unticked episodes of earlier days into today and the rest of the week. Those days
+    count as failed (rescheduling doesn't dodge the weekly goal); manual moves and reorders from
+    today on are cleared so the rest of the week is shared out evenly again. Returns how many
+    episodes moved."""
+    today = today or date.today()
+    week = state.week
+    days = missed_days(state, today)
+    if not days:
+        return 0
+    start = date.fromisoformat(week.week_start)
+    moved = [i for i in week.items if i.day in days and not i.done]
+    week.items = [i for i in week.items if not (i.day in days and not i.done)]
+    for d in days:
+        state.day_log[(start + timedelta(days=d)).isoformat()] = "failed"
+    iso = today.isoformat()
+    state.moves = [m for m in state.moves if m.get("from", "") < iso and m.get("to", "") < iso]
+    state.day_order = {k: v for k, v in state.day_order.items() if k < iso}
+    replan(state, today)
+    return len(moved)
 
 
 def plan_start(state: State) -> date | None:
@@ -379,6 +428,8 @@ def update_day_log(state: State) -> None:
     start = date.fromisoformat(week.week_start)
     for day in range(PLAN_DAYS):
         iso = (start + timedelta(days=day)).isoformat()
+        if state.day_log.get(iso) == "failed":
+            continue  # rescheduled: it stays failed
         if week.day_complete(day):
             state.day_log[iso] = "done"
         elif state.day_log.get(iso) == "done":
@@ -397,8 +448,8 @@ def roll_week(state: State, today: date | None = None) -> bool:
         return False
     for day in range(PLAN_DAYS):
         items = week.for_day(day)
-        if items:
-            iso = (start + timedelta(days=day)).isoformat()
+        iso = (start + timedelta(days=day)).isoformat()
+        if items and state.day_log.get(iso) != "failed":
             state.day_log[iso] = "done" if all(i.done for i in items) else "failed"
     return True
 
@@ -417,11 +468,6 @@ def replan(state: State, today: date | None = None, keep_today: bool = False) ->
         keep_today = False
     state.week = build_week(state, first, (today - first).days + (1 if keep_today else 0))
     update_day_log(state)
-
-
-def fresh_plan(state: State, today: date | None = None) -> None:
-    """Replan the rest of the week from today (earlier days are kept)."""
-    replan(state, today)
 
 
 def plan_expired(state: State, today: date | None = None) -> bool:

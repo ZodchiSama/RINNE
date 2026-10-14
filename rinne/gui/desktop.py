@@ -196,6 +196,7 @@ class DesktopMixin:
             if week.calendar and self.state.last_goal_reminder != week.week_start:
                 start = date.fromisoformat(week.week_start)
                 left = [d for d in range(7) if week.for_day(d) and not week.day_complete(d)
+                        and not scheduler.day_failed(self.state, d)
                         and start + timedelta(days=d) <= now.date()]
                 if left:
                     self.notify(_("Your week ends at midnight"),

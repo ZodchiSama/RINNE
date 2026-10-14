@@ -278,8 +278,16 @@ def test_unfinished_day_waits_and_its_episodes_are_not_planned_twice():
     eps = [i.episode for i in st.week.items]
     assert len(eps) == len(set(eps))  # no episode planned twice
     assert st.day_log == {}  # nothing fails until the week is over
-    scheduler.fresh_plan(st, wednesday)  # "Replan from today" keeps earlier days
-    assert [(i.episode, i.done) for i in st.week.for_day(0)] == [(1, True), (2, False)]
+    # Reschedule missed episodes: the unwatched ones move forward, and those days count as failed.
+    assert scheduler.missed_days(st, wednesday) == [0, 1]
+    moved = scheduler.reschedule_missed(st, wednesday)
+    assert moved == 3  # Sunday's episode 2 and Monday's two
+    assert [(i.episode, i.done) for i in st.week.for_day(0)] == [(1, True)]
+    assert st.day_log == {WEEK_START.isoformat(): "failed", (WEEK_START + timedelta(days=1)).isoformat(): "failed"}
+    assert not scheduler.day_done(st, 0)  # only its ticked episode is left, but it stays failed
+    later = [i.episode for i in st.week.items if i.day >= 2]
+    assert later[:3] == [2, 3, 4] and len(later) == len(set(later))  # picked up where you left off
+    assert scheduler.missed_days(st, wednesday) == []
 
 
 def test_completed_days_are_logged_and_unticking_forgets_them():
@@ -1051,3 +1059,16 @@ def test_in_app_update_picks_verifies_and_swaps(tmp_path, monkeypatch):
     assert current.read_bytes() == payload  # same path, so app-menu entries keep working
     if sys.platform != "win32":
         assert current.stat().st_mode & 0o111  # and executable
+
+
+def test_ticking_a_later_day_leaves_the_rest_of_the_plan_alone():
+    """Ticking Friday's episode used to reshuffle Friday and Saturday (the shows on them changed)."""
+    st = make_state(show(1, status=WATCHING, episodes_total=50), show(2, status=WATCHING, episodes_total=50),
+                    show(3, status=WATCHING, episodes_total=50), daily_episodes=[3] * 7)
+    wednesday = WEEK_START + timedelta(days=3)
+    scheduler.replan(st, wednesday)
+    before = [(i.day, i.mal_id, i.episode) for i in st.week.items]
+    friday = next(i for i in st.week.items if i.day == 5)
+    scheduler.toggle_item(st, friday, wednesday)
+    assert [(i.day, i.mal_id, i.episode) for i in st.week.items] == before
+    assert friday.done

@@ -117,8 +117,10 @@ time, press **Sync now**, or bring your list in again.
   can be undone from the message that appears). When a day is
   done it folds into a one-line summary (**Show** opens it again). Earlier days you didn't
   finish stay open, marked *Unfinished*. **Drag** a show onto another day to move it, or within
-  a day to reorder. Use **−** / **+** to change a day's amount. **Replan from today** (Ctrl R)
-  plans the rest of the week again.
+  a day to reorder. Use **−** / **+** to change a day's amount. Ticking an episode only marks it:
+  the rest of your week stays as planned. If earlier days are left unfinished, **Reschedule missed
+  episodes** (Ctrl R) moves their episodes into today and the rest of the week; those days count
+  as failed.
 - **Click any show** to open its profile. You'll see why it's in your plan, its episodes, cast
   and voice actors, related entries and upcoming seasons, and where to watch it. **Your plan for
   this show** has the per-show controls:

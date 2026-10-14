@@ -477,3 +477,27 @@ def test_week_card(win, app):
     assert {a.mal_id for a in w["shows"]} == {1, 2}
     card = share.render_week_card(win.state, start + timedelta(days=3))
     assert (card.width(), card.height()) == (1200, 630)
+
+
+def test_reschedule_missed_button(win, app):
+
+    from rinne import scheduler
+    start = date.fromisoformat(win.state.week.week_start)
+    today = (date.today() - start).days
+    win._go(0)
+    app.processEvents()
+    if today == 0:  # Sunday: there are no earlier days this week to miss
+        assert win.week_page.replan_btn is None
+        return
+    # Plan the week as if made on Sunday and left untouched since.
+    scheduler.replan(win.state, start)
+    win.refresh()
+    app.processEvents()
+    btn = win.week_page.replan_btn
+    assert btn is not None and btn.isVisible()
+    btn.click()
+    app.processEvents()
+    assert scheduler.missed_days(win.state) == []
+    assert win.state.day_log[start.isoformat()] == "failed"
+    assert win.week_page.replan_btn is None  # nothing left to reschedule
+    assert "Moved" in win.toast.text.text()

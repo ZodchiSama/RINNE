@@ -592,11 +592,16 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         self.refresh()
 
     def replan_fresh(self) -> None:
-        """Plan the rest of the week again from today; earlier days are kept."""
-        scheduler.fresh_plan(self.state)
+        """Reschedule missed episodes: unwatched episodes of earlier days move into the rest of the
+        week (Ctrl R and the button on Your Week)."""
+        moved = scheduler.reschedule_missed(self.state)
+        if not moved:
+            self.toast.show_message(_("Nothing to reschedule: no earlier day is unfinished"), ms=3000)
+            return
         self.save()
         self.refresh()
-        self.statusBar().showMessage(_("Replanned the rest of the week"), 5000)
+        self.toast.show_message(_n("Moved {n} episode into the rest of the week",
+                                   "Moved {n} episodes into the rest of the week", moved), ms=5000)
 
     def _check_rollover(self, refresh: bool = True) -> None:
         """A new day can change the plan; a new week (Sunday 00:00) settles the old one."""
@@ -631,16 +636,16 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
     def toggle_item(self, idx: int) -> None:
         week = self.state.week
         item = week.items[idx]
-        day, was_complete = item.day, week.day_complete(item.day)
+        day, was_complete = item.day, scheduler.day_done(self.state, item.day)
         mal_id, episode, ticked = item.mal_id, item.episode, not item.done
         event = scheduler.toggle_item(self.state, item)
         week = self.state.week
         week_done = False
-        if not was_complete and week and week.day_complete(day):
+        if not was_complete and week and scheduler.day_done(self.state, day):
             on = date.fromisoformat(week.week_start) + timedelta(days=day)
             self.week_page.celebrate = on.isoformat()
             self.statusBar().showMessage(_("{on} complete!").format(on=strftime(on, '%A')), 5000)
-            week_done = all(week.day_complete(d) for d in range(7) if week.for_day(d))
+            week_done = all(scheduler.day_done(self.state, d) for d in range(7) if week.for_day(d))
         self.save()
         self.refresh()
         if event.finished:
@@ -796,8 +801,9 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
                  "day's episodes and the day is checked off. Use − / + to watch more or less on a day, drag a "
                  "show to another day, and click any card to open the show's profile."),
                  lambda: getattr(self.week_page, "first_day", None), week),
-            Step(_("Replan from today"), _("Fell behind or changed your mind? Plan the rest of the week again from "
-                 "today. Earlier days stay as they are."), lambda: getattr(self.week_page, "replan_btn", None), week),
+            Step(_("Fell behind?"), _("If earlier days are left unfinished, Reschedule missed episodes moves "
+                 "their episodes into today and the rest of the week. Those days count as failed."),
+                 lambda: getattr(self.week_page, "replan_btn", None), week),
             Step(_("Up Next"), _("What takes over when each show ends. The next season always comes first — "
                  "even if it isn't on your list yet — otherwise the best pick from Plan to Watch."),
                  lambda: self.nav_target(1)),

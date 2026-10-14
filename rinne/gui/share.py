@@ -10,7 +10,7 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import QApplication, QFileDialog, QMenu
 
-from .. import DISPLAY_NAME
+from .. import DISPLAY_NAME, scheduler
 from ..i18n import _
 from ..models import Anime, status_label
 from .common import asset
@@ -205,7 +205,9 @@ def week_summary(state, today=None) -> dict:
     for d in range(7):
         on = start + timedelta(days=d)
         items = week.for_day(d) if week else []
-        if week and week.day_complete(d):
+        if week and scheduler.day_failed(state, d):
+            days.append("failed")
+        elif week and scheduler.day_done(state, d):
             days.append("done")
         elif items and on < today:
             days.append("open")
@@ -267,7 +269,7 @@ def render_week_card(state, today=None) -> QPixmap:
 
     # The seven days.
     gap, size = 14, 104
-    colors = {"done": QColor("#34d399"), "open": QColor("#fbbf24"), "today": GRAD_A}
+    colors = {"done": QColor("#34d399"), "open": QColor("#fbbf24"), "today": GRAD_A, "failed": QColor("#fb7185")}
     for d, kind in enumerate(w["days"]):
         r = QRectF(x + d * (size + gap), y, size, size)
         path = QPainterPath()
@@ -279,7 +281,7 @@ def render_week_card(state, today=None) -> QPixmap:
         p.setPen(MUTED if kind == "none" else TEXT)
         p.setFont(font(20, QFont.DemiBold))
         p.drawText(QRectF(r.left(), r.top() + 12, size, 28), Qt.AlignCenter, weekday_name((d + 6) % 7, short=True))
-        mark_text = {"done": "✓", "open": "!", "today": "•", "upcoming": "·", "none": "–"}[kind]
+        mark_text = {"done": "✓", "open": "!", "failed": "✕", "today": "•", "upcoming": "·", "none": "–"}[kind]
         p.setPen(colors.get(kind, MUTED))
         p.setFont(font(40, QFont.Bold))
         p.drawText(QRectF(r.left(), r.top() + 38, size, 56), Qt.AlignCenter, mark_text)

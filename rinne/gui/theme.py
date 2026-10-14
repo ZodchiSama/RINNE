@@ -279,12 +279,14 @@ def stylesheet() -> str:
     #weekDay {{ background: {surface}; border: 1px solid {BORDER}; border-radius: {px(12)}px; }}
     #weekDay[state="done"] {{ background: {GREEN_BG}; border-color: {SUCCESS}; }}
     #weekDay[state="unfinished"] {{ background: {AMBER_BG}; border-color: {WARN}; }}
+    #weekDay[state="failed"] {{ background: {rgba(DANGER, 0.12)}; border-color: {DANGER}; }}
     #weekDay[state="today"] {{ border: 2px solid {ACCENT}; background: {today_bg}; }}
     #weekDay[state="off"] {{ background: transparent; }}
     #weekDayName {{ color: {MUTED}; font-size: {px(11)}px; font-weight: 700; letter-spacing: 1px; }}
     #weekDayMark {{ font-size: {px(16)}px; font-weight: 800; }}
     #weekDay[state="done"] #weekDayMark {{ color: {SUCCESS}; }}
     #weekDay[state="unfinished"] #weekDayMark {{ color: {WARN}; }}
+    #weekDay[state="failed"] #weekDayMark {{ color: {DANGER}; }}
     #weekDay[state="off"] #weekDayMark, #weekDay[state="off"] #weekDayName {{ color: {FAINT}; }}
     #episode {{ background: {surface_2}; border-radius: {px(10)}px; border: 1px solid transparent; }}
     #episode:hover, #card[clickable="true"]:hover {{ border: 1px solid {ACCENT}; }}
@@ -297,6 +299,7 @@ def stylesheet() -> str:
     #badge {{ background: {ACCENT_SOFT}; color: {SOFT_TEXT}; {small_badge} }}
     #badgeGreen {{ background: {GREEN_BG}; color: {SUCCESS}; {small_badge} }}
     #badgeAmber {{ background: {AMBER_BG}; color: {WARN}; {small_badge} }}
+    #badgeRed {{ background: {rgba(DANGER, 0.16)}; color: {DANGER}; {small_badge} }}
     #chipLabel {{ background: {CHIP}; color: {TEXT}; border-radius: {px(7)}px;
                   padding: {px(3)}px {px(9)}px; font-size: {px(12)}px; font-weight: 600; }}
     #statValue {{ font-size: {px(22)}px; font-weight: 800; }}

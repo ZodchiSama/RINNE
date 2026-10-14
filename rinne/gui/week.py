@@ -255,6 +255,10 @@ class DayRow(QFrame):
             b.setToolTip(_("Still waiting to be finished. Days left unfinished when the week ends "
                          "count as failed in Stats."))
             lay.addWidget(b)
+        elif status == "failed":
+            b = badge(_("Rescheduled"), "badgeRed")
+            b.setToolTip(_("Its unwatched episodes were moved to later days. The day counts as failed."))
+            lay.addWidget(b)
         elif status == "complete":
             lay.addWidget(badge(_("✓ Complete"), "badgeGreen"))
             fold = QToolButton(text=_("Fold"))
@@ -492,7 +496,9 @@ def week_strip(state, start: date, today: date) -> QWidget:
     for day in range(scheduler.PLAN_DAYS):
         on = start + timedelta(days=day)
         items = week.for_day(day) if week else []
-        if week and week.day_complete(day):
+        if week and scheduler.day_failed(state, day):
+            kind, mark, tip = "failed", "✕", _("Rescheduled: counts as failed")
+        elif week and scheduler.day_done(state, day):
             kind, mark, tip = "done", "✓", _("Complete")
         elif on < today and items:
             kind, mark, tip = "unfinished", "!", _("Unfinished: still waiting")
@@ -582,11 +588,16 @@ class WeekPage(QWidget):
         settings_btn = QPushButton(_("Customize days"))
         settings_btn.setObjectName("ghost")
         settings_btn.clicked.connect(lambda: self.win.open_settings("schedule"))
-        replan = QPushButton(_("Replan from today"))
+        # Only when earlier days have unwatched episodes: move them into the rest of the week.
+        missed = sum(1 for i in (week.items if week else []) if i.day in scheduler.missed_days(state, today)
+                     and not i.done)
+        replan = QPushButton(_n("Reschedule {n} missed episode", "Reschedule {n} missed episodes", missed))
         replan.setObjectName("primary")
-        replan.setToolTip(_("Plan the rest of this week again from today. Earlier days stay as they are (Ctrl R)"))
+        replan.setToolTip(_("Move the unwatched episodes of earlier days into today and the rest of the week. "
+                            "Those days count as failed (Ctrl R)."))
         replan.clicked.connect(self.win.replan_fresh)
-        self.replan_btn = replan
+        replan.setVisible(missed > 0)
+        self.replan_btn = replan if missed else None
         share_btn = QPushButton(_("Share week ▾"))
         share_btn.setObjectName("ghost")
         share_btn.setToolTip(_("A card of your week: the days you completed, episodes and time"))
@@ -669,7 +680,8 @@ class WeekPage(QWidget):
             day_items = [(n, i) for n, i in enumerate(items) if i.day == day]
             if on < today and not day_items:
                 continue  # nothing happened that day; keep today near the top
-            complete = bool(week) and week.day_complete(day)
+            complete = scheduler.day_done(state, day)
+            failed = scheduler.day_failed(state, day)
             day_minutes = mins(i for _idx, i in day_items)
             day_shows = len({i.mal_id for _idx, i in day_items})
             if complete and iso not in self._expanded and iso != celebrate:
@@ -677,7 +689,7 @@ class WeekPage(QWidget):
                 done.unfold.connect(lambda iso=iso: self._unfold(iso))
                 self.body.addWidget(done)
                 continue
-            status = "complete" if complete else ("unfinished" if on < today else "")
+            status = "complete" if complete else ("failed" if failed else ("unfinished" if on < today else ""))
             row = DayRow(on.weekday(), on, today, s.day_amount(on.weekday()), s.plan_by == EPISODES,
                          day_minutes, len(day_items), status=status)
             if complete:
@@ -715,7 +727,7 @@ class WeekPage(QWidget):
             if self.first_day is None:
                 self.first_day = row
             if iso == celebrate and complete:
-                week_done = all(week.day_complete(d) for d in range(scheduler.PLAN_DAYS) if week.for_day(d))
+                week_done = all(scheduler.day_done(state, d) for d in range(scheduler.PLAN_DAYS) if week.for_day(d))
                 title = _("Week complete!") if week_done else _("Day complete!")
                 sub = _n("{n} episode", "{n} episodes", len(day_items)) + f" · {fmt_minutes(day_minutes)}"
                 self._play_celebration(row, title, sub)
