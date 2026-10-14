@@ -4,6 +4,10 @@ Notes wrapped in N_ are translated when shown."""
 from .i18n import N_
 
 CHANGELOG: list[tuple[str, str, list[str]]] = [
+    ("1.1.3", N_("Catching up"), [
+        N_("Reschedule missed episodes: unfinished earlier days move their episodes into the rest of the week"),
+        N_("Ticking an episode no longer reshuffles the days after it"),
+    ]),
     ("1.1.2", N_("Shikimori sync and sharing"), [
         N_("Connect Shikimori in Settings → Accounts: your list syncs both ways, like MyAnimeList and AniList"),
         N_("Share a show as a card with your progress and score, or as a link, text or title"),
