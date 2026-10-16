@@ -276,7 +276,7 @@ class WelcomePage(QWidget):
         themes, tl = card(margins=18, spacing=10)
         tl.addWidget(label(_("Theme"), "h2"))
         flow = FlowLayout(spacing=10)
-        for key, pal in theme.PALETTES.items():
+        for key, pal in theme.available_themes(self.win.state.settings.theme).items():
             flow.addWidget(theme_card(key, pal, key == theme.current,
                                       lambda k=key: (self.win.set_theme(k), self.refresh()),
                                       width=140 if theme.COMPACT else 156))

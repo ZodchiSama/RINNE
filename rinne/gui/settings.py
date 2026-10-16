@@ -271,7 +271,7 @@ class SettingsPage(DataSections, AboutSection, QWidget):
         self._header("Appearance", "Themes, the background slideshow and interface size.")
         self._group("Theme")
         flow = FlowLayout(spacing=12)
-        for key, pal in theme.PALETTES.items():
+        for key, pal in theme.available_themes(self.win.state.settings.theme).items():
             flow.addWidget(theme_card(key, pal, key == theme.current, lambda k=key: self._pick_theme(k),
                                       width=150 if theme.COMPACT else 190))
         host = QWidget()
