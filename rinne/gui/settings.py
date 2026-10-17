@@ -413,8 +413,6 @@ class SettingsPage(DataSections, AboutSection, QWidget):
         self._switch("Keep a calendar file up to date",
                      _("Rinne rewrites <code>{value}</code> whenever the plan changes. Subscribe to it in your calendar app to always see this week's plan.").format(value=str(calendar_path()).replace('/', '/&#8203;')),
                      "calendar_file", kind="calendar")
-        self.body.addWidget(self._button("Replan from today", self.win.replan_fresh, primary=True),
-                            alignment=Qt.AlignLeft)
 
     # ------------------------------------------------------------------ Notifications
 

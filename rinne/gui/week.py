@@ -106,7 +106,7 @@ class ShowDayCard(QFrame):
             if it.note:
                 tips.append(it.note)
             if missed and not it.done:
-                tips.append(_("Missed — tick it if you watched it, or it'll be rescheduled on replan"))
+                tips.append(_("Missed — tick it if you watched it; the day counts as failed if it's unfinished when the week ends"))
             row_w.setToolTip("\n".join(tips))
             if it.done and not all_done:
                 fx = QGraphicsOpacityEffect(row_w)
@@ -588,27 +588,16 @@ class WeekPage(QWidget):
         settings_btn = QPushButton(_("Customize days"))
         settings_btn.setObjectName("ghost")
         settings_btn.clicked.connect(lambda: self.win.open_settings("schedule"))
-        # Only when earlier days have unwatched episodes: move them into the rest of the week.
-        missed = sum(1 for i in (week.items if week else []) if i.day in scheduler.missed_days(state, today)
-                     and not i.done)
-        replan = QPushButton(_n("Reschedule {n} missed episode", "Reschedule {n} missed episodes", missed))
-        replan.setObjectName("primary")
-        replan.setToolTip(_("Move the unwatched episodes of earlier days into today and the rest of the week. "
-                            "Those days count as failed (Ctrl R)."))
-        replan.clicked.connect(self.win.replan_fresh)
-        replan.setVisible(missed > 0)
-        self.replan_btn = replan if missed else None
         share_btn = QPushButton(_("Share week ▾"))
         share_btn.setObjectName("ghost")
         share_btn.setToolTip(_("A card of your week: the days you completed, episodes and time"))
         share_btn.setMenu(week_share_menu(self.win, share_btn))
         if theme.COMPACT:  # buttons on their own (wrapping) row below the title
             self.body.addLayout(head)
-            self.body.addWidget(button_row(share_btn, settings_btn, replan))
+            self.body.addWidget(button_row(share_btn, settings_btn))
         else:
             head.addWidget(share_btn)
             head.addWidget(settings_btn)
-            head.addWidget(replan)
             self.body.addLayout(head)
 
         items = week.items if week else []

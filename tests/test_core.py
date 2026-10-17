@@ -278,16 +278,7 @@ def test_unfinished_day_waits_and_its_episodes_are_not_planned_twice():
     eps = [i.episode for i in st.week.items]
     assert len(eps) == len(set(eps))  # no episode planned twice
     assert st.day_log == {}  # nothing fails until the week is over
-    # Reschedule missed episodes: the unwatched ones move forward, and those days count as failed.
-    assert scheduler.missed_days(st, wednesday) == [0, 1]
-    moved = scheduler.reschedule_missed(st, wednesday)
-    assert moved == 3  # Sunday's episode 2 and Monday's two
-    assert [(i.episode, i.done) for i in st.week.for_day(0)] == [(1, True)]
-    assert st.day_log == {WEEK_START.isoformat(): "failed", (WEEK_START + timedelta(days=1)).isoformat(): "failed"}
-    assert not scheduler.day_done(st, 0)  # only its ticked episode is left, but it stays failed
-    later = [i.episode for i in st.week.items if i.day >= 2]
-    assert later[:3] == [2, 3, 4] and len(later) == len(set(later))  # picked up where you left off
-    assert scheduler.missed_days(st, wednesday) == []
+
 
 
 def test_completed_days_are_logged_and_unticking_forgets_them():
@@ -1072,3 +1063,19 @@ def test_ticking_a_later_day_leaves_the_rest_of_the_plan_alone():
     scheduler.toggle_item(st, friday, wednesday)
     assert [(i.day, i.mal_id, i.episode) for i in st.week.items] == before
     assert friday.done
+
+
+def test_replanning_never_puts_an_episode_before_one_ticked_early():
+    """Monster: 36 ticked early on Friday, then a replan put 37 on Thursday, ahead of it."""
+    st = make_state(show(1, status=WATCHING, episodes_total=74, episodes_watched=34),
+                    show(2, status=WATCHING, episodes_total=50), daily_episodes=[2] * 7)
+    sunday = WEEK_START
+    scheduler.replan(st, sunday)
+    thursday = sunday + timedelta(days=4)
+    friday_ep = next(i for i in st.week.items if i.mal_id == 1 and i.day == 5)
+    scheduler.toggle_item(st, friday_ep, thursday)  # watched ahead
+    scheduler.replan(st, thursday)  # any replan (a day amount changed, a show finished…)
+    eps = sorted((i.day, i.episode) for i in st.week.items if i.mal_id == 1)
+    assert [e for _d, e in eps] == sorted(e for _d, e in eps)  # day order follows episode order
+    later = [d for d, e in eps if e > friday_ep.episode]
+    assert all(d >= 5 for d in later)

@@ -176,7 +176,7 @@ class AboutSection:
         grid.setColumnStretch(1, 1)
         for n, (k, what) in enumerate([
             ("Ctrl 1 / 2 / 3 / 4", _("Your Week / Up Next / Library / Stats")), ("Ctrl ,", _("Settings")),
-            ("Ctrl R", _("Reschedule missed episodes")), ("Ctrl O", _("Import MAL export file")),
+            ("Ctrl O", _("Import MAL export file")),
             ("Ctrl I", _("Import by MAL username")), ("Ctrl + / − / 0", _("Zoom in / out / reset")),
             ("Ctrl Q", _("Quit")),
         ]):

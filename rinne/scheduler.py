@@ -109,7 +109,16 @@ def build_week(state: State, week_start: date, from_day: int = 0) -> WeekPlan:
             item.note = f"Finale — next up: {nxt.anime.name}" if nxt else "Finale"
             rotation.remove(show)
 
+    # An episode ticked early on a later day: the show's next episodes go on that day or after,
+    # never before it (which would put episode 37 ahead of a watched 36).
+    floor: dict[int, int] = {}
+    for it in kept:
+        if it.done and it.day >= from_day:
+            floor[it.mal_id] = max(floor.get(it.mal_id, 0), it.day)
+
     def can_watch(show: Anime, on: date) -> bool:
+        if (on - week_start).days < floor.get(show.mal_id, 0):
+            return False
         available = show.episodes_available(on)
         return available is None or show.episodes_watched < available
 
@@ -372,39 +381,6 @@ def day_failed(state: State, day: int) -> bool:
 def day_done(state: State, day: int) -> bool:
     """Everything planned for the day is ticked, and it wasn't given up first."""
     return bool(state.week) and state.week.day_complete(day) and not day_failed(state, day)
-
-
-def missed_days(state: State, today: date | None = None) -> list[int]:
-    """Earlier days of this week with episodes still unticked (not yet rescheduled)."""
-    today = today or date.today()
-    week = state.week
-    if not week or not week.calendar:
-        return []
-    start = date.fromisoformat(week.week_start)
-    return [d for d in range(PLAN_DAYS) if start + timedelta(days=d) < today
-            and any(not i.done for i in week.for_day(d))]
-
-
-def reschedule_missed(state: State, today: date | None = None) -> int:
-    """Move the unticked episodes of earlier days into today and the rest of the week. Those days
-    count as failed (rescheduling doesn't dodge the weekly goal); manual moves and reorders from
-    today on are cleared so the rest of the week is shared out evenly again. Returns how many
-    episodes moved."""
-    today = today or date.today()
-    week = state.week
-    days = missed_days(state, today)
-    if not days:
-        return 0
-    start = date.fromisoformat(week.week_start)
-    moved = [i for i in week.items if i.day in days and not i.done]
-    week.items = [i for i in week.items if not (i.day in days and not i.done)]
-    for d in days:
-        state.day_log[(start + timedelta(days=d)).isoformat()] = "failed"
-    iso = today.isoformat()
-    state.moves = [m for m in state.moves if m.get("from", "") < iso and m.get("to", "") < iso]
-    state.day_order = {k: v for k, v in state.day_order.items() if k < iso}
-    replan(state, today)
-    return len(moved)
 
 
 def plan_start(state: State) -> date | None:

@@ -523,7 +523,6 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
             (("Ctrl+0",), lambda: self.set_zoom(1.0)),
             (("Ctrl+O",), lambda: self.import_manually("file")),
             (("Ctrl+I",), lambda: self.import_manually("mal")),
-            (("Ctrl+R",), self.replan_fresh),
             (("Ctrl+,",), lambda: self.open_settings()),
             (("Ctrl+Q",), self.quit_app),
             (("Ctrl+1",), lambda: self._nav_to(0)),
@@ -590,18 +589,6 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         scheduler.replan(self.state)
         self.save()
         self.refresh()
-
-    def replan_fresh(self) -> None:
-        """Reschedule missed episodes: unwatched episodes of earlier days move into the rest of the
-        week (Ctrl R and the button on Your Week)."""
-        moved = scheduler.reschedule_missed(self.state)
-        if not moved:
-            self.toast.show_message(_("Nothing to reschedule: no earlier day is unfinished"), ms=3000)
-            return
-        self.save()
-        self.refresh()
-        self.toast.show_message(_n("Moved {n} episode into the rest of the week",
-                                   "Moved {n} episodes into the rest of the week", moved), ms=5000)
 
     def _check_rollover(self, refresh: bool = True) -> None:
         """A new day can change the plan; a new week (Sunday 00:00) settles the old one."""
@@ -801,9 +788,6 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
                  "day's episodes and the day is checked off. Use − / + to watch more or less on a day, drag a "
                  "show to another day, and click any card to open the show's profile."),
                  lambda: getattr(self.week_page, "first_day", None), week),
-            Step(_("Fell behind?"), _("If earlier days are left unfinished, Reschedule missed episodes moves "
-                 "their episodes into today and the rest of the week. Those days count as failed."),
-                 lambda: getattr(self.week_page, "replan_btn", None), week),
             Step(_("Up Next"), _("What takes over when each show ends. The next season always comes first — "
                  "even if it isn't on your list yet — otherwise the best pick from Plan to Watch."),
                  lambda: self.nav_target(1)),
