@@ -75,6 +75,12 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         models.title_language = self.state.settings.title_language
         s = self.state.settings
         theme.seasonal_switch(s)  # Halloween in October; your own theme back in November
+        # A sync baseline without a sign-in means it expired (Disconnect deletes the baseline);
+        # before 1.1.5 that wasn't recorded, so nothing reminded you to reconnect.
+        tokens = {"mal": s.mal_token, "anilist": s.anilist_token, "shikimori": s.shikimori_token}
+        for svc, token in tokens.items():
+            if self.state.synced.get(svc) and not token:
+                s.expired_accounts.setdefault(svc, "")
         theme.apply(QApplication.instance(), s.zoom, s.theme, s.backdrop)
         self._jobs: list[tuple[QThread, Worker]] = []
         self._exclusive: tuple[QThread, Worker] | None = None
@@ -162,6 +168,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         self._pull_timer = QTimer(self, interval=3 * 60 * 60 * 1000, timeout=self.pull_accounts)
         self._pull_timer.start()
         QTimer.singleShot(1200, self._maybe_whats_new)
+        QTimer.singleShot(5000, self.remind_expired)  # a sign-in that stopped working
         QTimer.singleShot(3000, self.refresh_installed_icons)
         QTimer.singleShot(4000, updates.cleanup_old_portable)
 

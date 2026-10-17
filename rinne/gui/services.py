@@ -210,9 +210,7 @@ class ServicesMixin:
             if res.get("shikimori_tokens"):
                 s.shikimori_token = res["shikimori_tokens"]
             for svc in res["expired"]:
-                name = SERVICE_NAMES[svc]
-                self._forget_account(svc)
-                self.notify(_("Reconnect {name}").format(name=name), _("Rinne's sign-in to {name} expired. Connect again in Settings → Accounts to keep syncing.").format(name=name))
+                self._account_expired(svc)
             for err in res["errors"][:5]:
                 log.warning("Sync: %s", err)
             self.save()
@@ -242,7 +240,7 @@ class ServicesMixin:
         def done(result) -> None:
             tokens, name = result
             s.mal_token, s.mal_user, s.sync_mal = tokens, name, True
-            self.state.synced["mal"] = sync.baseline(self.state.library)
+            self._keep_or_reset_baseline("mal", name)
             self.save()
             self.statusBar().showMessage(_("Connected to MyAnimeList as {name}").format(name=name), 6000)
             if on_result:
@@ -273,7 +271,7 @@ class ServicesMixin:
             s.anilist_token, s.anilist_user, s.sync_anilist = token, name, True
             if not s.anilist_username:
                 s.anilist_username = name
-            self.state.synced["anilist"] = sync.baseline(self.state.library)
+            self._keep_or_reset_baseline("anilist", name)
             self.save()
             self.statusBar().showMessage(_("Connected to AniList as {name}").format(name=name), 6000)
             if on_result:
@@ -322,6 +320,12 @@ class ServicesMixin:
         name = SERVICE_NAMES[service]
 
         def job(progress=None):
+            try:
+                return fetch(progress)
+            except (sync.AuthExpired, mal.SignInRejected):
+                return "expired", None
+
+        def fetch(progress):
             if service == "mal":
                 tokens = sync.mal_valid_token(s.mal_api_client_id(), s.mal_token)
                 return tokens, mal.fetch_mal_list("@me", s.mal_api_client_id(), progress,
@@ -334,6 +338,9 @@ class ServicesMixin:
 
         def done(result) -> None:
             tokens, entries = result
+            if tokens == "expired":
+                self._account_expired(service)
+                return
             if tokens and service == "shikimori":
                 s.shikimori_token = tokens
             elif tokens:
@@ -380,6 +387,39 @@ class ServicesMixin:
         self.state.synced.pop(service, None)
         self.save()
 
+    def _account_expired(self, service: str) -> None:
+        """The sign-in stopped working: drop it, remember whose it was, and say so where it's seen."""
+        s = self.state.settings
+        user = {"mal": s.mal_user, "anilist": s.anilist_user, "shikimori": s.shikimori_user}[service]
+        s.expired_accounts[service] = user
+        self._forget_account(service)
+        self.save()
+        name = SERVICE_NAMES[service]
+        self.notify(_("Reconnect {name}").format(name=name), _("Rinne's sign-in to {name} expired. Connect again in Settings → Accounts to keep syncing.").format(name=name))
+        self.remind_expired()
+
+    def remind_expired(self) -> None:
+        """An in-app message while a sign-in is expired (on startup, and when it happens)."""
+        expired = self.state.settings.expired_accounts
+        if not expired:
+            return
+        name = SERVICE_NAMES[next(iter(expired))]
+        self.toast.show_message(
+            _("Your {name} sign-in expired, so it isn't being updated. Nothing is lost: reconnect and "
+              "Rinne sends what changed.").format(name=name),
+            _("Reconnect"), lambda: self.open_settings("accounts"), ms=15000)
+
+    def _keep_or_reset_baseline(self, service: str, name: str) -> None:
+        """Connecting: start from the current list, unless it's the same account coming back after an
+        expired sign-in. Then keep what it last received, so changes made meanwhile are sent.
+        (Disconnect deletes the baseline, so one left without a sign-in means it expired; versions
+        before 1.1.5 didn't record whose account it was.)"""
+        s = self.state.settings
+        prev = s.expired_accounts.pop(service, None)
+        same = not prev or prev.lower() == name.lower()
+        if not (same and self.state.synced.get(service)):
+            self.state.synced[service] = sync.baseline(self.state.library)
+
     def _forget_account(self, service: str) -> None:
         s = self.state.settings
         if service == "mal":
@@ -403,7 +443,7 @@ class ServicesMixin:
             s.shikimori_token, s.shikimori_user, s.shikimori_user_id, s.sync_shikimori = tokens, name, user_id, True
             if not s.shikimori_username:
                 s.shikimori_username = name
-            self.state.synced["shikimori"] = sync.baseline(self.state.library)
+            self._keep_or_reset_baseline("shikimori", name)
             self.save()
             self.statusBar().showMessage(_("Connected to Shikimori as {name}").format(name=name), 6000)
             if on_result:

@@ -84,7 +84,8 @@ def _corner(dpr: float) -> QPixmap:
     p.setRenderHint(QPainter.Antialiasing)
 
     # Harvest moon with a soft halo.
-    moon = QPointF(w - 135, 78)
+    # High in the corner, partly above the window, so page descriptions never run across it.
+    moon = QPointF(w - 120, 14)
     halo = QRadialGradient(moon, 210)
     halo.setColorAt(0.0, QColor(255, 150, 60, 70))
     halo.setColorAt(0.45, QColor(255, 120, 40, 22))
@@ -124,10 +125,10 @@ def _corner(dpr: float) -> QPixmap:
         p.drawPath(web)
 
     # A spider dropping in front of the moon, and bats.
-    _spider(p, moon.x() - 14, 0, moon.y() + 22, 14)
-    _bat(p, moon.x() + 22, moon.y() - 22, 40, SILHOUETTE, -8)  # across the moon
-    for cx, cy, span, tilt in ((w - 330, 46, 40, 10), (w - 430, 112, 30, -12),
-                               (w - 260, 170, 30, 6), (w - 530, 60, 22, 14)):
+    _spider(p, moon.x() - 30, 0, moon.y() + 34, 13)
+    _bat(p, moon.x() + 26, moon.y() + 4, 38, SILHOUETTE, -8)  # across the moon
+    for cx, cy, span, tilt in ((w - 300, 34, 36, 10), (w - 410, 14, 26, -12),
+                               (w - 230, 64, 26, 6), (w - 520, 40, 20, 14)):
         _bat(p, cx, cy, span, QColor(70, 40, 86, 210), tilt)
     p.end()
     _cache[key] = pix

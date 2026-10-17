@@ -54,8 +54,14 @@ class DataSections:
             elif available:
                 connect = {"mal": self.win.connect_mal, "anilist": self.win.connect_anilist,
                            "shikimori": self.win.connect_shikimori}[svc]
-                go = self._button(_("Connect {name}").format(name=name), lambda _c=False, f=connect: f(result),
-                                  primary=True)
+                expired = svc in s.expired_accounts
+                go = self._button(_("Reconnect {name}").format(name=name) if expired
+                                  else _("Connect {name}").format(name=name),
+                                  lambda _c=False, f=connect: f(result), primary=True)
+                if expired:
+                    self._row(_("Sign-in expired"), _("{name} isn't being updated. Nothing is lost: reconnect "
+                                                      "and Rinne sends everything that changed since.").format(name=name), go)
+                    continue
                 how = {"mal": _("Opens MyAnimeList in your browser; approve Rinne and you're done."),
                        "anilist": _("Opens AniList in your browser; approve Rinne, then paste the code it shows."),
                        "shikimori": _("Opens Shikimori in your browser; approve Rinne and you're done.")}[svc]

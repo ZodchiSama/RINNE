@@ -12,7 +12,7 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 QtWidgets = pytest.importorskip("PySide6.QtWidgets")
 
-from PySide6.QtCore import QEvent, QMimeData, QPointF, Qt  # noqa: E402
+from PySide6.QtCore import QEvent, QMimeData, QPointF, Qt, QThread  # noqa: E402
 from PySide6.QtGui import QDropEvent  # noqa: E402
 from PySide6.QtWidgets import QAbstractScrollArea, QApplication, QWidget  # noqa: E402
 
@@ -479,3 +479,40 @@ def test_week_card(win, app):
     assert {a.mal_id for a in w["shows"]} == {1, 2}
     card = share.render_week_card(win.state, start + timedelta(days=3))
     assert (card.width(), card.height()) == (1200, 630)
+
+
+def test_expired_sign_in_is_shown_and_reconnecting_sends_what_changed(win, app, monkeypatch):
+    """Oct 14: MAL's sign-in expired, Rinne dropped it with one easy-to-miss notification, and a
+    reconnect would have reset the baseline, so the ticks made meanwhile were never sent."""
+    from rinne import mal, sync
+    s = win.state.settings
+    s.mal_token, s.mal_user = {"access_token": "x", "refresh_token": "y", "expires_at": 9e12}, "Zodchi"
+    win.state.synced["mal"] = sync.baseline(win.state.library)
+
+    def rejected(*a, **k):
+        raise mal.SignInRejected("expired")
+    monkeypatch.setattr(mal, "fetch_mal_list", rejected)
+    win.pull_account("mal", quiet=True)
+    for _i in range(50):
+        app.processEvents()
+        if not s.mal_token:
+            break
+        QThread.msleep(20)
+    assert not s.mal_token and s.expired_accounts == {"mal": "Zodchi"}
+    assert win.toast.isVisible() and "MyAnimeList" in win.toast.text.text()
+
+    win.state.library[1].episodes_watched += 1  # watched while disconnected
+    win._keep_or_reset_baseline("mal", "zodchi")  # same account comes back
+    assert [a.mal_id for a in sync.pending_changes(win.state.library, win.state.synced["mal"])] == [1]
+    assert s.expired_accounts == {}
+
+    s.expired_accounts = {"mal": "Zodchi"}
+    win._keep_or_reset_baseline("mal", "someone_else")  # a different account starts fresh
+    assert sync.pending_changes(win.state.library, win.state.synced["mal"]) == []
+
+    win.state.library[1].episodes_watched += 1  # expired under 1.1.4: no record of whose it was
+    win._keep_or_reset_baseline("mal", "zodchi")
+    assert [a.mal_id for a in sync.pending_changes(win.state.library, win.state.synced["mal"])] == [1]
+    win.disconnect_account("mal")  # Disconnect forgets the baseline: connecting again starts fresh
+    win._keep_or_reset_baseline("mal", "zodchi")
+    assert sync.pending_changes(win.state.library, win.state.synced["mal"]) == []

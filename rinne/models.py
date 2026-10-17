@@ -208,6 +208,9 @@ class Settings:
     shikimori_user: str = ""
     shikimori_user_id: int = 0
     sync_shikimori: bool = True
+    # Accounts whose sign-in expired: service -> the user it was ("" if unknown). Reconnecting
+    # the same account keeps the sync baseline, so changes made meanwhile are still sent.
+    expired_accounts: dict = field(default_factory=dict)
 
     def mal_api_client_id(self) -> str:
         from . import MAL_CLIENT_ID

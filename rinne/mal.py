@@ -61,6 +61,10 @@ class ImportError_(Exception):
     """Raised when an import cannot be completed (bad file, network, auth)."""
 
 
+class SignInRejected(ImportError_):
+    """MAL refused a signed-in request: the sign-in expired or was revoked."""
+
+
 def _text(el: ET.Element, tag: str, default: str = "") -> str:
     child = el.find(tag)
     return (child.text or default).strip() if child is not None and child.text else default
@@ -132,6 +136,8 @@ def _get_json(url: str, headers: dict[str, str] | None = None, retries: int = 3)
                 time.sleep(delay)
                 delay *= 2
                 continue
+            if e.code in (401, 403) and "Authorization" in (headers or {}):
+                raise SignInRejected("Your MyAnimeList sign-in expired.") from e
             if e.code in (401, 403):
                 raise ImportError_("MAL rejected the request — check your Client ID.") from e
             if e.code == 404:
