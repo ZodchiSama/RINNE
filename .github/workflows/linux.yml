@@ -68,3 +68,29 @@ jobs:
           files: |
             dist/Rinne-*-x86_64.AppImage
             dist/Rinne-*-x86_64.AppImage.zsync
+
+      # Only the newest release is kept: once this one has all four files (the Windows workflow
+      # uploads its two separately), every older release is deleted. Tags are kept.
+      - name: Remove older releases
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          for i in $(seq 1 60); do
+            n=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets | length')
+            [ "$n" -ge 4 ] && break
+            echo "Waiting for the Windows files ($n of 4 attached)…"
+            sleep 30
+          done
+          if [ "$n" -lt 4 ]; then
+            echo "The release is incomplete after 30 minutes; keeping the older releases."
+            exit 0
+          fi
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName -q '.[].tagName' |
+            while read -r old; do
+              if [ "$old" != "$TAG" ]; then
+                echo "Deleting release $old"
+                gh release delete "$old" --repo "$GITHUB_REPOSITORY" --yes
+              fi
+            done

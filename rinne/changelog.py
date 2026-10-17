@@ -4,6 +4,10 @@ Notes wrapped in N_ are translated when shown."""
 from .i18n import N_
 
 CHANGELOG: list[tuple[str, str, list[str]]] = [
+    ("1.1.5", N_("Back in sync"), [
+        N_("When a sign-in to MyAnimeList, AniList or Shikimori expires, Rinne says so until you reconnect, and reconnecting sends everything that changed in the meantime"),
+        N_("Halloween theme: the moon sits higher, so page descriptions stay readable"),
+    ]),
     ("1.1.4", N_("Spooky season"), [
         N_("A Halloween theme for October, switched on for you: a harvest moon, cobwebs, bats and a spider. Your own theme comes back in November"),
         N_("Settings' section list stays readable over the background slideshow"),
