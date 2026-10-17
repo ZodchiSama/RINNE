@@ -66,7 +66,7 @@ PALETTES: dict[str, dict] = {
         BG="#120d17", SIDEBAR="#160f1c", SURFACE="#1d1424", SURFACE_2="#281b31", SURFACE_3="#35243f",
         BORDER="#2e2036", TEXT="#efe6da", BODY="#d9ccbf", MUTED="#a8949f", FAINT="#6e5a68",
         ACCENT="#ff8a2b", ACCENT_2="#e2483d", ACCENT_HOVER="#ff9d4d", ACCENT_2_HOVER="#ec5d52",
-        ACCENT_SOFT="#3a2218", SOFT_TEXT="#ffc38f", ON_ACCENT="#1a0f0a", H1="#efe6da",
+        ACCENT_SOFT="#3a2218", SOFT_TEXT="#ffc38f", ON_ACCENT="#1a0f0a", H1="#ffb15e",
         SUCCESS="#8fd16f", DANGER="#ff6b6b", WARN="#ffb347",
         GREEN_BG="#1f2b17", AMBER_BG="#3a2614", TODAY_BG="#241622", ACCENT_CARD="#2a1720",
         CHIP="rgba(255,236,214,0.07)", SCROLL_HOVER="#4a3352",
@@ -84,44 +84,25 @@ def available_themes(current_theme: str = "", today=None) -> dict[str, dict]:
             if not p.get("seasonal") or p["seasonal"] == month or k == current_theme}
 
 
-def _cobweb() -> str:
-    """A faint cobweb anchored in the top-right corner (Halloween theme), drawn once and cached.
-    Returns its path for the stylesheet, or "" if it can't be made."""
-    from PySide6.QtCore import QPointF, Qt
-    from PySide6.QtGui import QPainter, QPainterPath, QPen, QPixmap
-    from ..storage import cache_dir
-    path = cache_dir() / "theme" / "cobweb-v2.png"
-    if not path.exists():
-        import math
-        size = 300
-        pix = QPixmap(size, size)
-        pix.fill(Qt.transparent)
-        p = QPainter(pix)
-        p.setRenderHint(QPainter.Antialiasing)
-        corner = QPointF(size, 0)
-        spokes = [math.radians(a) for a in (92, 108, 124, 140, 157, 173, 178)]
-        p.setPen(QPen(QColor(239, 230, 218, 26), 1.1))
-        for a in spokes:
-            p.drawLine(corner, QPointF(size + math.cos(a) * size * 1.25, math.sin(a) * size * 1.25))
-        # Threads between the spokes, sagging a little toward the corner.
-        p.setPen(QPen(QColor(239, 230, 218, 20), 1.0))
-        for ring in (46, 92, 140, 190, 242):
-            web = QPainterPath()
-            for i, a in enumerate(spokes):
-                pt = QPointF(size + math.cos(a) * ring, math.sin(a) * ring)
-                if i == 0:
-                    web.moveTo(pt)
-                    continue
-                prev = spokes[i - 1]
-                mid = (a + prev) / 2
-                sag = ring * 0.86
-                web.quadTo(QPointF(size + math.cos(mid) * sag, math.sin(mid) * sag), pt)
-            p.drawPath(web)
-        p.end()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        if not pix.save(str(path)):
-            return ""
-    return str(path).replace("\\", "/")
+def seasonal_switch(settings, today=None) -> None:
+    """In a seasonal theme's month, switch to it once a year (you can switch away again); when the
+    month is over, put back the theme you had before."""
+    from datetime import date
+    today = today or date.today()
+    for key, pal in PALETTES.items():
+        month = pal.get("seasonal")
+        if not month:
+            continue
+        tag = f"{today.year}-{key}"
+        if today.month == month and settings.seasonal_theme_shown != tag:
+            settings.seasonal_theme_shown = tag
+            if settings.theme != key:
+                settings.theme_before_season = settings.theme
+                settings.theme = key
+        elif today.month != month and settings.theme == key and settings.theme_before_season:
+            settings.theme = settings.theme_before_season
+            settings.theme_before_season = ""
+
 
 # Active palette values (overwritten by _load()).
 BG = SIDEBAR = SURFACE = SURFACE_2 = SURFACE_3 = BORDER = TEXT = BODY = MUTED = FAINT = ""
@@ -223,7 +204,8 @@ def stylesheet() -> str:
     r = px(12)
     # With the slideshow backdrop, pages are see-through and cards are frosted glass.
     glass = BACKDROP
-    page_bg = "transparent" if glass else BG
+    # Seasonal themes paint decorations on the window background, so pages let it show through.
+    page_bg = "transparent" if glass or current == "halloween" else BG
     a = 0.80 if DARK else 0.86
     surface = rgba(SURFACE, a) if glass else SURFACE
     surface_2 = rgba(SURFACE_2, min(1, a + 0.08)) if glass else SURFACE_2
@@ -234,13 +216,10 @@ def stylesheet() -> str:
     grad_hover = f"qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {ACCENT_HOVER}, stop:1 {ACCENT_2_HOVER})"
     small_badge = (f"border-radius: {px(6)}px; padding: {px(1)}px {px(6)}px; "
                    f"font-size: {px(11)}px; font-weight: 700;")
-    web = _cobweb() if current == "halloween" else ""
-    page_art = (f"background-image: url({web}); background-position: top right; background-repeat: no-repeat;"
-                if web else "")
     return f"""
     * {{ outline: none; }}
     QMainWindow, QDialog {{ background: {BG}; }}
-    #page {{ background: {page_bg}; {page_art} }}
+    #page {{ background: {page_bg}; }}
     QWidget {{ color: {TEXT}; }}
     QToolTip {{ background: {SURFACE_3}; color: {TEXT}; border: 1px solid {BORDER};
                 padding: {px(6)}px {px(8)}px; border-radius: {px(6)}px; }}
@@ -379,9 +358,12 @@ def stylesheet() -> str:
     #tourCounter {{ color: {ACCENT}; font-size: {px(11)}px; font-weight: 800; letter-spacing: 1px; }}
     #settingRow {{ background: {surface}; border: 1px solid {BORDER}; border-radius: {px(10)}px; }}
     #settingTitle {{ font-weight: 700; font-size: {px(14)}px; }}
+    /* Settings' section list: on the slideshow it gets a frosted panel like the sidebar, or
+       light pictures behind it make the text unreadable. */
+    #settingsSide {{ background: {sidebar if glass else page_bg}; {f"border-right: 1px solid {BORDER};" if glass else ""} }}
     QPushButton#subnav {{
         text-align: left; padding: {px(9)}px {px(14)}px; border: none; border-radius: {px(9)}px;
-        background: transparent; color: {MUTED}; font-weight: 600;
+        background: transparent; color: {BODY if glass else MUTED}; font-weight: 600;
     }}
     QPushButton#subnav:hover {{ background: {surface_2}; color: {TEXT}; }}
     QPushButton#subnav:checked {{ background: {ACCENT_SOFT}; color: {SOFT_TEXT}; }}

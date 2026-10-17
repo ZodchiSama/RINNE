@@ -1,6 +1,6 @@
 """Rinne — a weekly anime planner for your MyAnimeList, AniList or Shikimori list, that follows each series."""
 
-__version__ = "1.1.3"
+__version__ = "1.1.4"
 APP_NAME = "rinne"  # data/cache folder and desktop-entry name
 DISPLAY_NAME = "Rinne"
 LEGACY_APP_NAMES = ("smart-watchlist",)  # older folder names, migrated on first run

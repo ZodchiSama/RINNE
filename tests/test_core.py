@@ -1079,3 +1079,19 @@ def test_replanning_never_puts_an_episode_before_one_ticked_early():
     assert [e for _d, e in eps] == sorted(e for _d, e in eps)  # day order follows episode order
     later = [d for d, e in eps if e > friday_ep.episode]
     assert all(d >= 5 for d in later)
+
+
+def test_halloween_theme_once_a_year_and_your_theme_back_after():
+    from rinne.gui import theme
+    s = Settings(theme="yotsuba")
+    theme.seasonal_switch(s, date(2026, 10, 3))
+    assert s.theme == "halloween"
+    s.theme = "dark"  # switched away: not forced again this year
+    theme.seasonal_switch(s, date(2026, 10, 20))
+    assert s.theme == "dark"
+    s.theme = "halloween"
+    theme.seasonal_switch(s, date(2026, 11, 1))
+    assert s.theme == "yotsuba"  # season over: the theme you had before
+    theme.seasonal_switch(s, date(2027, 10, 1))
+    assert s.theme == "halloween" and s.theme_before_season == "yotsuba"
+    assert "halloween" not in theme.available_themes("midnight", date(2026, 11, 2))

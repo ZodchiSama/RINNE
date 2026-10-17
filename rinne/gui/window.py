@@ -74,6 +74,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         i18n.set_language(self.state.settings.language)  # before any widget is built
         models.title_language = self.state.settings.title_language
         s = self.state.settings
+        theme.seasonal_switch(s)  # Halloween in October; your own theme back in November
         theme.apply(QApplication.instance(), s.zoom, s.theme, s.backdrop)
         self._jobs: list[tuple[QThread, Worker]] = []
         self._exclusive: tuple[QThread, Worker] | None = None

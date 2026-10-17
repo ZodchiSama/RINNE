@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QEasingCurve, QSize, Qt, QTimer, QVariantAnimation
+from PySide6.QtCore import QEasingCurve, QRectF, QSize, Qt, QTimer, QVariantAnimation
 from PySide6.QtGui import QLinearGradient, QPainter, QPixmap
 from PySide6.QtWidgets import QWidget
 
@@ -120,8 +120,13 @@ class Backdrop(QWidget):
         p.setRenderHint(QPainter.SmoothPixmapTransform)
         r = self.rect()
         p.fillRect(r, theme.qcolor(theme.BG))
-        if not self.enabled:
-            return
+        if self.enabled:
+            self._paint_slides(p, r)
+        if theme.current == "halloween":
+            from .seasonal_art import paint_halloween
+            paint_halloween(p, QRectF(r), self.devicePixelRatioF() or 1.0)
+
+    def _paint_slides(self, p: QPainter, r) -> None:
         for url, opacity in ((self.previous, 1.0 - self.t), (self.current, self.t)):
             pix = self._pixmap(url)
             if pix is None or opacity <= 0.01:

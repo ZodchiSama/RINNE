@@ -216,6 +216,8 @@ class Settings:
     title_language: str = ROMAJI
     language: str = "auto"  # interface language: "auto" (system), "en", or a rinne/locale catalog
     theme: str = "midnight"
+    seasonal_theme_shown: str = ""  # "2026-halloween": switched to it once this year already
+    theme_before_season: str = ""  # put back when the season is over
     backdrop: bool = False  # slideshow of today's shows behind the window
     slide_seconds: int = 9
     backdrop_dim: int = 1  # 0 light, 1 medium, 2 strong

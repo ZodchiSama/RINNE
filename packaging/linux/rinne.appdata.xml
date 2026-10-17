@@ -76,6 +76,16 @@
     <keyword>watchlist</keyword>
   </keywords>
   <releases>
+    <release version="1.1.4" date="2026-10-17">
+      <description>
+        <ul>
+          <li>A Halloween theme for October, switched on for you: a harvest moon, cobwebs, bats and a spider. Your own theme comes back in November</li>
+          <li>Settings&#39; section list stays readable over the background slideshow</li>
+          <li>The Reschedule button is gone for now: unfinished days simply wait until the week ends</li>
+          <li>Planning never puts an episode ahead of one you ticked early on a later day</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.1.3" date="2026-10-14">
       <description>
         <ul>

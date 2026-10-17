@@ -37,7 +37,7 @@ By **Zodchi** · [MIT License](LICENSE)
   where to watch.
 - **Stats** and a weekly recap, plus a **calendar file** for Google Calendar, Thunderbird and
   others.
-- **Themes** (Midnight, Dark, Light, Yotsuba), a full-HD background slideshow of today's shows,
+- **Themes** (Midnight, Dark, Light, Yotsuba, and Halloween in October), a full-HD background slideshow of today's shows,
   and **Discord Rich Presence** with no setup.
 
 | | |
@@ -118,9 +118,8 @@ time, press **Sync now**, or bring your list in again.
   done it folds into a one-line summary (**Show** opens it again). Earlier days you didn't
   finish stay open, marked *Unfinished*. **Drag** a show onto another day to move it, or within
   a day to reorder. Use **−** / **+** to change a day's amount. Ticking an episode only marks it:
-  the rest of your week stays as planned. If earlier days are left unfinished, **Reschedule missed
-  episodes** (Ctrl R) moves their episodes into today and the rest of the week; those days count
-  as failed.
+  the rest of your week stays as planned, and episodes you watch ahead are never planned out of
+  order.
 - **Click any show** to open its profile. You'll see why it's in your plan, its episodes, cast
   and voice actors, related entries and upcoming seasons, and where to watch it. **Your plan for
   this show** has the per-show controls:

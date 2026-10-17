@@ -4,6 +4,12 @@ Notes wrapped in N_ are translated when shown."""
 from .i18n import N_
 
 CHANGELOG: list[tuple[str, str, list[str]]] = [
+    ("1.1.4", N_("Spooky season"), [
+        N_("A Halloween theme for October, switched on for you: a harvest moon, cobwebs, bats and a spider. Your own theme comes back in November"),
+        N_("Settings' section list stays readable over the background slideshow"),
+        N_("The Reschedule button is gone for now: unfinished days simply wait until the week ends"),
+        N_("Planning never puts an episode ahead of one you ticked early on a later day"),
+    ]),
     ("1.1.3", N_("Catching up"), [
         N_("Reschedule missed episodes: unfinished earlier days move their episodes into the rest of the week"),
         N_("Ticking an episode no longer reshuffles the days after it"),

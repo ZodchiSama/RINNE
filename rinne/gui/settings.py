@@ -84,7 +84,7 @@ class SettingsPage(DataSections, AboutSection, QWidget):
         root = hbox(self, 0)
 
         side = self.side = QFrame()
-        side.setObjectName("page")
+        side.setObjectName("settingsSide")
         side_lay = vbox(side, 4, 24)
         side_lay.addWidget(label(_("Settings"), "h1"))
         side_lay.addSpacing(theme.px(10))
