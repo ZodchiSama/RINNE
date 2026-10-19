@@ -8,7 +8,7 @@ from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QGridLayout, QLabel
 
-from .. import DISPLAY_NAME, __version__, updates
+from .. import DISPLAY_NAME, EXPERIMENTAL_BUILD, __version__, build_name, updates
 from ..i18n import _
 from ..models import Settings
 from ..logs import log_path
@@ -40,7 +40,8 @@ class AboutSection:
         info.addStretch()
         info.addWidget(label(DISPLAY_NAME, "h1"))
         row = hbox(spacing=8)
-        row.addWidget(badge(_("v{version}").format(version=__version__)))
+        row.addWidget(badge(build_name(), "badgeAmber") if EXPERIMENTAL_BUILD
+                      else badge(_("v{version}").format(version=__version__)))
         row.addWidget(badge(_(CHANGELOG[0][1]), "badgeGreen"))
         row.addWidget(label(_("by {AUTHOR}").format(AUTHOR=AUTHOR), "credit"))
         row.addStretch()

@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QSpinBox, QTimeEdit, QWidget,
 )
 
-from .. import i18n
+from .. import i18n, lineup
 from ..i18n import _, N_, weekday_name
 from ..models import EPISODES, MINUTES, TITLE_LANGUAGES, WEEKDAYS, Settings
 from . import theme
@@ -383,6 +383,39 @@ class SettingsPage(DataSections, AboutSection, QWidget):
         cap.valueChanged.connect(lambda v: self._set("max_eps_per_show_per_day", v, "replan"))
         self._row("Episodes of one show per day",
                   "Kept when possible. Exceeded only to fill a day when you're watching few shows.", cap)
+
+        self._group("Watching list")
+        size = QSpinBox(minimum=1, maximum=30, value=s.lineup_size)
+        self._row("Shows on Watching at a time",
+                  "How many shows Build my Watching list keeps on Watching.", size)
+        split = QComboBox()
+        split.setMinimumWidth(theme.px(170))
+
+        def fill_split() -> None:
+            split.blockSignals(True)
+            split.clear()
+            n = s.lineup_size
+            split.addItem(_("Automatic ({n})").format(n=lineup.auto_split(n)[0]), lineup.AUTO)
+            for k in range(n + 1):
+                split.addItem(str(k), k)
+            split.setCurrentIndex(max(0, split.findData(min(s.lineup_airing, n) if s.lineup_airing != lineup.AUTO
+                                                        else lineup.AUTO)))
+            split.blockSignals(False)
+
+        fill_split()
+        size.valueChanged.connect(lambda v: (self._set("lineup_size", v), fill_split()))
+        split.currentIndexChanged.connect(lambda _i: self._set("lineup_airing", split.currentData()))
+        self._row("Of those, currently airing",
+                  "Automatic: the best shows win, with at most about two in five airing, since they only give "
+                  "an episode or so a week. A number is a target: a slot nothing good fits goes to the other kind.",
+                  split)
+        self._switch("Seasonal picks",
+                     "Favour genres that fit the time of year, not the season a show aired: horror and the "
+                     "supernatural in October, cosy and festive shows in December, sports and adventure in summer.",
+                     "seasonal_picks")
+        self._row("Build my Watching list", "Go through your whole list and pick the shows to watch now. You "
+                  "see the new list before anything changes.",
+                  button_row(self._button("Build…", self.win.build_lineup)))
 
         self._group("When a show finishes")
         self._switch("Start the next season automatically",

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rinne"
-version = "1.1.5"
+version = "1.1.6"
 description = "Rinne — a weekly anime planner for MyAnimeList, AniList and Shikimori that follows each series"
 requires-python = ">=3.10"
 license = "MIT"

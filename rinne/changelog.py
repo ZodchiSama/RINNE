@@ -4,6 +4,16 @@ Notes wrapped in N_ are translated when shown."""
 from .i18n import N_
 
 CHANGELOG: list[tuple[str, str, list[str]]] = [
+    ("1.1.6", N_("Overtime"), [
+        N_("Overtime: if a week ends with unfinished days and you completed at least one, you get all of Sunday to finish and save them, with the new week just below"),
+        N_("Build my Watching list: Rinne goes through your whole list and picks the shows to watch now. Choose how many, and how many currently airing"),
+        N_("Seasonal picks: the list builder favours what fits the time of year, like horror and the supernatural in October"),
+        N_("Today's plan stays put: a sync or a status change no longer reshuffles the episodes planned for today"),
+        N_("Opening Rinne while it's already running (e.g. in the tray) brings up its window instead of starting a second copy"),
+        N_("Shows AniList doesn't have, such as fan-made OVAs, no longer cause sync errors"),
+        N_("Fixed a rare crash while saving, and one after signing in from Settings → Accounts"),
+        N_("Halloween theme: buttons stay readable over the moon"),
+    ]),
     ("1.1.5", N_("Back in sync"), [
         N_("When a sign-in to MyAnimeList, AniList or Shikimori expires, Rinne says so until you reconnect, and reconnecting sends everything that changed in the meantime"),
         N_("Halloween theme: the moon sits higher, so page descriptions stay readable"),

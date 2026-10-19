@@ -122,7 +122,8 @@ class GoalGrid(QWidget):
     """Daily goals for the last weeks: one row per week (Sunday → Saturday), one cell per day.
     Complete days get a ✓, failed ones an ✕, so the grid doesn't rely on colour alone."""
 
-    LABELS = {"done": N_("Complete"), "failed": N_("Failed"), "open": N_("Not finished yet"),
+    LABELS = {"done": N_("Complete"), "saved": N_("Saved in Overtime"), "failed": N_("Failed"),
+              "open": N_("Not finished yet"),
               "none": N_("Nothing planned"), "future": N_("Coming up")}
 
     def __init__(self, weeks: list[tuple[date, list[str]]], parent=None):
@@ -156,7 +157,7 @@ class GoalGrid(QWidget):
         for d, name in enumerate(weekday_name((k + 6) % 7, short=True) for k in range(7)):  # Sun … Sat
             r = self._cell_rect(-1, d)
             p.drawText(r, Qt.AlignCenter, name)
-        fill = {"done": theme.SUCCESS, "failed": theme.DANGER, "open": theme.AMBER_BG,
+        fill = {"done": theme.SUCCESS, "saved": theme.WARN, "failed": theme.DANGER, "open": theme.AMBER_BG,
                 "none": theme.SURFACE_2, "future": None}
         for w, (start, states) in enumerate(self.weeks):
             p.setPen(QColor(theme.MUTED))
@@ -175,9 +176,9 @@ class GoalGrid(QWidget):
                 if self.hover == (w, d):
                     p.setPen(QPen(QColor(theme.TEXT), 2))
                 p.drawRoundedRect(r, theme.px(6), theme.px(6))
-                mark = {"done": "✓", "failed": "✕", "open": "!"}.get(st)
+                mark = {"done": "✓", "saved": "✓", "failed": "✕", "open": "!"}.get(st)
                 if mark:
-                    p.setPen(QColor(theme.SURFACE if st in ("done", "failed") else theme.WARN))
+                    p.setPen(QColor(theme.SURFACE if st in ("done", "saved", "failed") else theme.WARN))
                     p.drawText(r, Qt.AlignCenter, mark)
         p.end()
 
@@ -283,12 +284,16 @@ class StatsPage(QWidget):
 
         frame, lay = card(margins=18, spacing=10)
         lay.addWidget(label(_("Daily goals"), "h2"))
-        lay.addWidget(label(_("A day is complete when you tick everything planned for it. Days still unfinished "
-                            "when the week restarts (00:00 Sunday) count as failed."), "faint", wrap=True))
+        lay.addWidget(label(_("A day is complete when you tick everything planned for it. If you completed at "
+                            "least one day, days still unfinished when the week restarts (00:00 Sunday) get "
+                            "a day of Overtime: finish them on Sunday to save them, or they count as failed."),
+                            "faint", wrap=True))
         goals = (vbox if theme.COMPACT else hbox)(spacing=18)
         nums = vbox(spacing=8)
         rate = s.goal_rate
-        for value, caption in [(s.days_done, _("Days complete")), (s.days_failed, _("Days failed")),
+        done_caption = (_n("Days complete ({n} saved in Overtime)", "Days complete ({n} saved in Overtime)",
+                           s.days_saved) if s.days_saved else _("Days complete"))
+        for value, caption in [(s.days_done, done_caption), (s.days_failed, _("Days failed")),
                                (f"{rate:.0%}" if rate is not None else "—", _("Success rate")),
                                (f"{s.goal_streak}", _("Complete in a row (best {best_goal_streak})").format(best_goal_streak=s.best_goal_streak))]:
             line = hbox(spacing=8)
@@ -299,7 +304,7 @@ class StatsPage(QWidget):
         goals.addLayout(nums)
         grid_col = vbox(spacing=6)
         grid_col.addWidget(GoalGrid(s.goal_weeks))
-        grid_col.addWidget(label(_("✓ complete · ✕ failed · ! not finished yet · dashed: coming up"), "faint", wrap=True))
+        grid_col.addWidget(label(_("✓ complete · amber ✓ saved in Overtime · ✕ failed · ! not finished yet · dashed: coming up"), "faint", wrap=True))
         goals.addLayout(grid_col, 1)
         lay.addLayout(goals)
         self.body.addWidget(frame)

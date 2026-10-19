@@ -40,7 +40,8 @@ class Stats:
     recent: list[dict] = field(default_factory=list)  # latest history entries, newest first
     # Daily goals: a day is complete when everything planned for it is ticked, and failed if the
     # week ended (00:00 Sunday) with something left.
-    days_done: int = 0
+    days_done: int = 0  # including days saved in overtime
+    days_saved: int = 0
     days_failed: int = 0
     goal_streak: int = 0  # completed days in a row (days with nothing planned don't count)
     best_goal_streak: int = 0
@@ -114,26 +115,33 @@ def compute(state: State, today: date | None = None) -> Stats:
 
 def _goals(s: Stats, state: State, today: date, first: date) -> None:
     log = state.day_log
-    s.days_done = sum(1 for v in log.values() if v == "done")
+    s.days_saved = sum(1 for v in log.values() if v == "saved")
+    s.days_done = sum(1 for v in log.values() if v == "done") + s.days_saved
     s.days_failed = sum(1 for v in log.values() if v == "failed")
     run = 0
     for iso in sorted(log):
-        run = run + 1 if log[iso] == "done" else 0
+        run = run + 1 if log[iso] in ("done", "saved") else 0
         s.best_goal_streak = max(s.best_goal_streak, run)
     s.goal_streak = run
     week = state.week
     week_start = date.fromisoformat(week.week_start) if week and week.calendar else None
+    ot = state.overtime
+    ot_start = date.fromisoformat(ot.week_start) if ot else None
+    from .scheduler import overtime_days  # (scheduler imports stats lazily too)
+    ot_open = set(overtime_days(state)) if ot else set()
     for k in range(7, -1, -1):
         start = first - timedelta(weeks=k)
         states = []
         for d in range(7):
             on = start + timedelta(days=d)
-            if log.get(on.isoformat()) in ("done", "failed"):
+            if log.get(on.isoformat()) in ("done", "saved", "failed"):
                 states.append(log[on.isoformat()])
             elif on > today:
                 states.append("future")
             elif week_start == start and week.for_day(d):
                 states.append("open")  # this week, not finished yet: it can still be
+            elif ot_start == start and d in ot_open:
+                states.append("open")  # last week, still open in Overtime
             else:
                 states.append("none")
         s.goal_weeks.append((start, states))

@@ -277,7 +277,8 @@ def stylesheet() -> str:
     QPushButton:disabled {{ color: {FAINT}; }}
     QPushButton#primary {{ background: {grad}; border: none; color: {ON_ACCENT}; }}
     QPushButton#primary:hover {{ background: {grad_hover}; }}
-    QPushButton#ghost {{ background: {rgba(SURFACE, 0.5) if glass else "transparent"};
+    QPushButton#ghost {{ background: {rgba(SURFACE, 0.85) if current == "halloween" else
+                                      rgba(SURFACE, 0.5) if glass else "transparent"};
                          border: 1px solid {BORDER}; }}
     QPushButton#ghost:hover {{ background: {surface_2}; }}
     QPushButton#chip {{
@@ -356,6 +357,7 @@ def stylesheet() -> str:
     QPushButton#link:hover {{ color: {TEXT}; text-decoration: underline; }}
     #tourBubble {{ background: {SURFACE}; border: 1px solid {ACCENT}; border-radius: {px(14)}px; }}
     #tourCounter {{ color: {ACCENT}; font-size: {px(11)}px; font-weight: 800; letter-spacing: 1px; }}
+    #overtime {{ background: {surface}; border: 1px solid {WARN}; border-radius: {px(12)}px; }}
     #settingRow {{ background: {surface}; border: 1px solid {BORDER}; border-radius: {px(10)}px; }}
     #settingTitle {{ font-weight: 700; font-size: {px(14)}px; }}
     /* Settings' section list: on the slideshow it gets a frosted panel like the sidebar, or

@@ -198,7 +198,14 @@ class DesktopMixin:
                 left = [d for d in range(7) if week.for_day(d) and not week.day_complete(d)
                         and not scheduler.day_failed(self.state, d)
                         and start + timedelta(days=d) <= now.date()]
-                if left:
+                earned = any(scheduler.day_done(self.state, d) for d in range(7))
+                if left and earned:
+                    self.notify(_("Your week ends at midnight"),
+                                _n("{n} day is unfinished. You completed a day this week, so you get Overtime: "
+                                   "all of tomorrow to finish it.",
+                                   "{n} days are unfinished. You completed a day this week, so you get Overtime: "
+                                   "all of tomorrow to finish them.", len(left)))
+                elif left:
                     self.notify(_("Your week ends at midnight"),
                                 _n("{n} unfinished day will count as failed when the new week starts.",
                                    "{n} unfinished days will count as failed when the new week starts.",

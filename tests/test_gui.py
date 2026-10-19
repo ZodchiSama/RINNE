@@ -481,6 +481,28 @@ def test_week_card(win, app):
     assert (card.width(), card.height()) == (1200, 630)
 
 
+def test_build_my_watching_list_previews_then_applies(win, app, monkeypatch):
+    from rinne.gui import lineup_dialog
+    shown = {}
+
+    def run(dlg):
+        shown["ok"] = dlg.ok.text()
+        dlg.size.setValue(2)  # 3 watching → 2: the lowest-ranked one moves to On Hold
+        app.processEvents()
+        shown["hold"] = [a.title for a in dlg.result.hold]
+        dlg.accept()
+        return True
+    monkeypatch.setattr(lineup_dialog.LineupDialog, "exec", run)
+    win.build_lineup()
+    app.processEvents()
+    lib = win.state.library
+    watching = [a for a in lib.values() if a.status == "watching"]
+    assert len(watching) == 2 and shown["hold"] == ["Ao no Hako"]  # unstarted, so it goes first
+    assert all(lib[i].status == "on_hold" for i, a in lib.items() if a.title in shown["hold"])
+    assert win.state.settings.lineup_size == 2
+    assert all(it.mal_id in {a.mal_id for a in watching} for it in win.state.week.items)
+
+
 def test_expired_sign_in_is_shown_and_reconnecting_sends_what_changed(win, app, monkeypatch):
     """Oct 14: MAL's sign-in expired, Rinne dropped it with one easy-to-miss notification, and a
     reconnect would have reset the baseline, so the ticks made meanwhile were never sent."""
@@ -516,3 +538,77 @@ def test_expired_sign_in_is_shown_and_reconnecting_sends_what_changed(win, app, 
     win.disconnect_account("mal")  # Disconnect forgets the baseline: connecting again starts fresh
     win._keep_or_reset_baseline("mal", "zodchi")
     assert sync.pending_changes(win.state.library, win.state.synced["mal"]) == []
+
+
+def test_overtime_section_saves_last_weeks_days(win, app):
+    from datetime import datetime, timedelta as td
+
+    from rinne import scheduler
+    from rinne.models import ScheduleItem, WeekPlan
+    st = win.state
+    start = date.fromisoformat(st.week.week_start) - td(days=7)
+    watched = st.library[2].episodes_watched
+    # Last week: Monday left one episode of Dandadan unwatched; Sunday was completed.
+    st.overtime = WeekPlan(start.isoformat(), [ScheduleItem(1, 2, watched + 1)], calendar=True)
+    st.overtime_until = (datetime.now() + td(hours=3)).isoformat(timespec="minutes")
+    st.day_log[start.isoformat()] = "done"
+    win._go(0)
+    win.refresh()
+    app.processEvents()
+    assert win.week_page.overtime is not None and "left" in win.week_page.overtime_left.text()
+    win.toggle_overtime(0)
+    app.processEvents()
+    assert st.day_log[(start + td(days=1)).isoformat()] == "saved"
+    assert st.overtime is None and win.week_page.overtime is None
+    assert "saved" in win.toast.text.text()
+    assert scheduler.overtime_days(st) == []
+
+
+def test_a_second_launch_shows_the_running_window_instead(win, app):
+    """Two copies (one hidden in the tray) saved over each other's ticks."""
+    from rinne.gui import instance
+    shown = []
+    server = instance.claim(lambda: shown.append(True))
+    assert server is not None
+    assert instance.claim(lambda: None) is None  # the second launch steps aside…
+    for _i in range(50):
+        app.processEvents()
+        if shown:
+            break
+        QThread.msleep(10)
+    assert shown  # …and the first one comes forward
+    server.close()
+
+
+def test_copies_of_overtime_episodes_are_dropped_on_startup(app, tmp_path, monkeypatch):
+    """Experimental builds v1.1.5.3–5 planned overtime's episodes into the new week too; a restart
+    during overtime drops those copies and fills the room, leaving today's other episodes alone."""
+    from datetime import datetime, timedelta as td
+
+    from rinne import scheduler
+    from rinne.gui import window
+    from rinne.models import ScheduleItem, WeekPlan
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: (_ for _ in ()).throw(urllib.error.URLError("x")))
+    st = State(library={1: show(1, "Frieren", episodes_watched=3, episodes_total=28),
+                        2: show(2, "Dandadan", episodes_watched=0, episodes_total=12)},
+               settings=Settings(check_updates=False, discord_enabled=False, sync_anilist=False,
+                                 daily_episodes=[2] * 7))
+    st.onboarded = True
+    today = date.today()
+    first = scheduler.week_start_of(today)
+    d = (today - first).days
+    st.week = WeekPlan(first.isoformat(), [ScheduleItem(d, 1, 4), ScheduleItem(d, 2, 1)], calendar=True)
+    st.overtime = WeekPlan((first - td(days=7)).isoformat(), [ScheduleItem(1, 1, 4)], calendar=True)
+    st.overtime_until = (datetime.now() + td(hours=2)).isoformat(timespec="minutes")
+    save_state(st)
+    w = window.MainWindow()
+    try:
+        todays = {(i.mal_id, i.episode) for i in w.state.week.items if i.day == d}
+        assert (1, 4) not in todays  # the copy is gone (it's overtime's)…
+        assert (2, 1) in todays  # …today's own episode stays put…
+        assert len(todays) == 2  # …and the room is filled again
+    finally:
+        w._quitting = True
+        w.close()

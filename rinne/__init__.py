@@ -1,6 +1,13 @@
 """Rinne — a weekly anime planner for your MyAnimeList, AniList or Shikimori list, that follows each series."""
 
-__version__ = "1.1.5"
+__version__ = "1.1.6"
+# 0 for releases. The experimental branch sets a build number, shown as "Experimental Build
+# v<version>.<n>" in the sidebar, About and the window title, so it can't be mistaken for one.
+EXPERIMENTAL_BUILD = 0
+
+
+def build_name() -> str:
+    return f"Experimental Build v{__version__}.{EXPERIMENTAL_BUILD}" if EXPERIMENTAL_BUILD else f"v{__version__}"
 APP_NAME = "rinne"  # data/cache folder and desktop-entry name
 DISPLAY_NAME = "Rinne"
 LEGACY_APP_NAMES = ("smart-watchlist",)  # older folder names, migrated on first run

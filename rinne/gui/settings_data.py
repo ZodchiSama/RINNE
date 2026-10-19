@@ -6,6 +6,7 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import shiboken6
 from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QFileDialog, QLineEdit, QMessageBox
@@ -34,7 +35,9 @@ class DataSections:
         status_label = label("", "small", wrap=True)
 
         def result(msg) -> None:
-            status_label.setText(msg or "")
+            # Signing in finishes in the background: the page may have been rebuilt meanwhile.
+            if shiboken6.isValid(status_label):
+                status_label.setText(msg or "")
             QTimer.singleShot(100, self.refresh)
 
         for svc, name, user, connected, available, sync_attr in [

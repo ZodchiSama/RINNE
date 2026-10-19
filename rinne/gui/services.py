@@ -364,7 +364,7 @@ class ServicesMixin:
             self.state.synced[service] = sync.after_pull(lib, entries, previous)
             changed = sum(1 for k, a in lib.items() if before.get(k) != sync.snapshot(a))
             if changed:
-                scheduler.replan(self.state, keep_today=True)  # ticks episodes watched elsewhere
+                scheduler.replan(self.state)  # ticks episodes watched elsewhere; today stays put
                 if quiet:
                     self.statusBar().showMessage(
                         _n("Updated from {name}: {n} show", "Updated from {name}: {n} shows", changed, name=name),

@@ -37,7 +37,13 @@ def main() -> int:
     app.setStyle("Fusion")
     app.setWindowIcon(app_icon())
     app.setQuitOnLastWindowClosed(False)  # the tray can keep Rinne running
+    from .instance import claim
+    windows: list = []
+    server = claim(lambda: windows and windows[0].show_window())
+    if server is None:
+        return 0  # Rinne is already running (maybe in the tray): it shows itself instead
     win = MainWindow()
+    windows.append(win)
     if not win.should_start_hidden():
         win.show()
     else:

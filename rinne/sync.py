@@ -226,8 +226,14 @@ SAVE_ENTRY = """mutation ($mediaId: Int, $progress: Int, $status: MediaListStatu
   SaveMediaListEntry(mediaId: $mediaId, progress: $progress, status: $status, score: $score) { id } }"""
 
 
+class NotListed(SyncError):
+    """The service doesn't have this show at all (e.g. a fan-made anime only on MAL)."""
+
+
 def anilist_push(token: str, anime: Anime) -> None:
     if not anime.anilist_id:
+        if anime.enriched:  # details were fetched and AniList had no match: nothing to send to
+            raise NotListed(f"{anime.name} isn't on AniList")
         raise SyncError(f"{anime.name} has no AniList id yet")
     variables = {"mediaId": anime.anilist_id, "progress": anime.episodes_watched,
                  "status": ANILIST_STATUS.get(anime.status, "CURRENT")}
@@ -366,6 +372,8 @@ def push_all(changes: list[Anime], mal_client_id: str, mal_tokens: dict | None,
                 try:
                     anilist_push(anilist_token, a)
                     out["anilist"].append(a.mal_id)
+                except NotListed:
+                    out["anilist"].append(a.mal_id)  # counts as in sync, so it isn't retried forever
                 except AuthExpired:
                     raise
                 except SyncError as e:

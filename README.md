@@ -17,8 +17,12 @@ By **Zodchi** · [MIT License](LICENSE)
 
 - **A weekly plan** (Sunday to Saturday) built from the shows you're watching, with episode
   titles and thumbnails. Finish a day's episodes and it's checked off with a little celebration.
-- **Weekly goals:** days left unfinished wait until the week restarts (00:00 Sunday), then count
-  as failed. Stats keeps your completed and failed days.
+- **Weekly goals:** days left unfinished wait until the week restarts (00:00 Sunday). Completed at
+  least one day? Then you get **Overtime**: all of Sunday to finish and save them, with the new week
+  just below. Stats keeps your completed, saved and failed days.
+- **Build my Watching list:** Rinne goes through your whole list and picks the shows to watch now.
+  Choose how many, and how many currently airing (or let it decide), with **seasonal picks** that
+  suit the time of year: horror and the supernatural in October, cosy shows in December.
 - **Follows every series.** A finished show is replaced by its next season. Only when a series
   runs out does Rinne pick from your Plan to Watch, and it explains each choice.
 - **You stay in control.** Drag a show to another day, pause or pin a show, set a show's pace,
@@ -119,7 +123,14 @@ time, press **Sync now**, or bring your list in again.
   finish stay open, marked *Unfinished*. **Drag** a show onto another day to move it, or within
   a day to reorder. Use **−** / **+** to change a day's amount. Ticking an episode only marks it:
   the rest of your week stays as planned, and episodes you watch ahead are never planned out of
-  order.
+  order. Today's episodes also stay put when a sync or a status change comes in.
+- **Overtime:** if the week ends with unfinished days and you completed at least one, last week
+  appears at the top of Your Week for all of Sunday, with a countdown. Finish a day there to save it
+  (an amber ✓ in Stats); what's left at 00:00 Monday counts as failed and goes back into your plan.
+- **Build my Watching list** (on Your Week, or Settings → Schedule): pick how many shows to have on
+  Watching and how many of them airing. Rinne keeps the shows you're into, never starts a season
+  before the one it follows, puts the rest On Hold and fills up from Plan to Watch and On Hold.
+  You see the new list before anything changes; status changes are sent to your accounts.
 - **Click any show** to open its profile. You'll see why it's in your plan, its episodes, cast
   and voice actors, related entries and upcoming seasons, and where to watch it. **Your plan for
   this show** has the per-show controls:
@@ -147,7 +158,8 @@ time, press **Sync now**, or bring your list in again.
 ## How scheduling works
 
 - **Weeks run Sunday to Saturday.** At 00:00 Sunday a new week is planned. Any day of the old
-  week with episodes left unticked counts as failed.
+  week with episodes left unticked counts as failed, unless you earned Overtime (you completed a
+  day): then you have until 00:00 Monday to save it.
 - **Only shows on your Watching list are scheduled.** Plan to Watch shows join when one replaces
   a finished show, or when you press *Start watching*.
 - Plan by **episodes** or **minutes per day**, set separately for each weekday (0 = day off).

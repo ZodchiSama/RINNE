@@ -76,6 +76,20 @@
     <keyword>watchlist</keyword>
   </keywords>
   <releases>
+    <release version="1.1.6" date="2026-10-19">
+      <description>
+        <ul>
+          <li>Overtime: if a week ends with unfinished days and you completed at least one, you get all of Sunday to finish and save them, with the new week just below</li>
+          <li>Build my Watching list: Rinne goes through your whole list and picks the shows to watch now. Choose how many, and how many currently airing</li>
+          <li>Seasonal picks: the list builder favours what fits the time of year, like horror and the supernatural in October</li>
+          <li>Today's plan stays put: a sync or a status change no longer reshuffles the episodes planned for today</li>
+          <li>Opening Rinne while it's already running (e.g. in the tray) brings up its window instead of starting a second copy</li>
+          <li>Shows AniList doesn't have, such as fan-made OVAs, no longer cause sync errors</li>
+          <li>Fixed a rare crash while saving, and one after signing in from Settings → Accounts</li>
+          <li>Halloween theme: buttons stay readable over the moon</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.1.5" date="2026-10-17">
       <description>
         <ul>

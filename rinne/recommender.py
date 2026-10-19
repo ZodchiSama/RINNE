@@ -139,8 +139,9 @@ def score_candidate(
     active: list[Anime],
     affinity: dict[str, float],
     today: date,
+    statuses: tuple[str, ...] = (PLAN_TO_WATCH,),
 ) -> Suggestion | None:
-    if cand.excluded or cand.status != PLAN_TO_WATCH:
+    if cand.excluded or cand.status not in statuses:
         return None
     if cand.airing_status == NOT_YET_AIRED:
         return None

@@ -299,12 +299,15 @@ def test_new_week_settles_the_old_one_on_sunday():
     assert not scheduler.plan_expired(st, saturday)
     next_monday = WEEK_START + timedelta(days=7)  # the next Sunday
     assert scheduler.plan_expired(st, next_monday)
-    scheduler.replan(st, next_monday)
+    from datetime import datetime
+    # After Overtime (all of Sunday): with no day saved, the unfinished ones have failed.
+    monday = next_monday + timedelta(days=1)
+    scheduler.replan(st, monday, now=datetime.combine(monday, datetime.min.time()) + timedelta(hours=1))
     log = st.day_log
     assert log[WEEK_START.isoformat()] == "done"
     assert [log[(WEEK_START + timedelta(days=d)).isoformat()] for d in range(1, 7)] == ["failed"] * 6
     assert st.week.week_start == next_monday.isoformat()
-    assert not any(i.done for i in st.week.items) and st.week.for_day(0)[0].episode == 2
+    assert not any(i.done for i in st.week.items) and min(i.episode for i in st.week.items) == 2
 
 
 def test_rolling_plan_from_before_1_0_becomes_a_calendar_week_without_failures():
@@ -1065,6 +1068,56 @@ def test_ticking_a_later_day_leaves_the_rest_of_the_plan_alone():
     assert friday.done
 
 
+# --------------------------------------------------------------------------- build my Watching list
+
+
+def test_lineup_fills_watching_to_size_and_holds_the_rest():
+    from rinne import lineup
+    lib = {a.mal_id: a for a in [
+        show(1, status=WATCHING, episodes_watched=10, mean_score=8.0),  # far in: stays
+        show(2, status=WATCHING, mean_score=5.0),  # barely started, low score: held
+        show(3, status=WATCHING, pinned=True, mean_score=4.0),  # pinned: always stays
+        show(4, status=WATCHING, paused=True),  # paused: left alone
+        show(5, status=PLAN_TO_WATCH, mean_score=9.0),
+        show(6, status=ON_HOLD, episodes_watched=4, mean_score=8.5),
+        show(7, status=PLAN_TO_WATCH, mean_score=6.0),
+        show(8, status=PLAN_TO_WATCH, mean_score=9.5, excluded=True),
+    ]}
+    lu = lineup.build(lib, 4, today=date(2026, 7, 1))
+    assert {s.anime.mal_id for s in lu.picks} == {1, 3, 5, 6}
+    assert [a.mal_id for a in lu.hold] == [2]
+    assert {a.mal_id for a in lu.start} == {5, 6}
+    assert [a.mal_id for a in lu.untouched] == [4]
+    lineup.apply(lu, date(2026, 7, 1))
+    assert [a.mal_id for a in lib.values() if a.status == WATCHING] == [1, 3, 4, 5, 6]
+    assert lib[2].status == ON_HOLD
+    assert lib[5].origin["kind"] == "lineup" and lib[5].started_on == "2026-07-01"
+
+
+def test_lineup_airing_split():
+    from rinne import lineup
+    lib = {i: show(i, status=PLAN_TO_WATCH, mean_score=9.0, airing_status=CURRENTLY_AIRING,
+                   aired_from="2026-01-01") for i in range(1, 6)}
+    lib.update({i: show(i, status=PLAN_TO_WATCH, mean_score=7.0) for i in range(10, 16)})
+    today = date(2026, 7, 1)
+    auto = lineup.build(lib, 5, today=today)  # ~40% airing even though airing shows score higher
+    assert sum(lineup.is_airing(s.anime) for s in auto.picks) == 2
+    manual = lineup.build(lib, 5, airing=4, today=today)
+    assert sum(lineup.is_airing(s.anime) for s in manual.picks) == 4
+    none = lineup.build(lib, 5, airing=0, today=today)
+    assert not any(lineup.is_airing(s.anime) for s in none.picks)
+
+
+def test_seasonal_picks_favour_horror_in_october():
+    from rinne import lineup, seasonal
+    lib = {1: show(1, status=PLAN_TO_WATCH, genres=["Horror", "Supernatural"], mean_score=7.0),
+           2: show(2, status=PLAN_TO_WATCH, genres=["Sports"], mean_score=7.5)}
+    assert seasonal.mood(date(2026, 10, 15)).name == "Halloween"
+    assert [s.anime.mal_id for s in lineup.build(lib, 1, today=date(2026, 10, 15)).picks] == [1]
+    assert [s.anime.mal_id for s in lineup.build(lib, 1, today=date(2026, 7, 15)).picks] == [2]
+    assert [s.anime.mal_id for s in lineup.build(lib, 1, season=False, today=date(2026, 10, 15)).picks] == [2]
+
+
 def test_replanning_never_puts_an_episode_before_one_ticked_early():
     """Monster: 36 ticked early on Friday, then a replan put 37 on Thursday, ahead of it."""
     st = make_state(show(1, status=WATCHING, episodes_total=74, episodes_watched=34),
@@ -1074,11 +1127,32 @@ def test_replanning_never_puts_an_episode_before_one_ticked_early():
     thursday = sunday + timedelta(days=4)
     friday_ep = next(i for i in st.week.items if i.mal_id == 1 and i.day == 5)
     scheduler.toggle_item(st, friday_ep, thursday)  # watched ahead
-    scheduler.replan(st, thursday)  # any replan (a day amount changed, a show finished…)
+    scheduler.replan(st, thursday, rebuild_today=True)  # any replan (a day's amount changed…)
     eps = sorted((i.day, i.episode) for i in st.week.items if i.mal_id == 1)
     assert [e for _d, e in eps] == sorted(e for _d, e in eps)  # day order follows episode order
     later = [d for d, e in eps if e > friday_ep.episode]
     assert all(d >= 5 for d in later)
+
+
+def test_lineup_never_starts_a_sequel_early_or_fills_airing_slots_with_bad_picks():
+    """Oct 15: four airing slots went to airing sequels whose earlier seasons were unfinished,
+    and Ao no Hako (9 episodes in) was put On Hold to make room."""
+    from rinne import lineup
+    air = {"airing_status": CURRENTLY_AIRING, "aired_from": "2026-10-01"}
+    lib = {a.mal_id: a for a in [
+        show(1, "Ao no Hako", status=WATCHING, episodes_total=25, episodes_watched=9, mean_score=7.5),
+        show(2, "Ao no Hako S2", status=PLAN_TO_WATCH, mean_score=8.5, relations={"prequel": [1]}, **air),
+        show(3, "Kusuriya S2", status=WATCHING, episodes_total=24, episodes_watched=2),
+        show(4, "Kusuriya S3", status=PLAN_TO_WATCH, mean_score=8.8, relations={"prequel": [3]}, **air),
+        show(5, "Unrelated airing", status=PLAN_TO_WATCH, mean_score=8.0, **air),
+        *[show(10 + i, status=PLAN_TO_WATCH, mean_score=8.0) for i in range(6)],
+    ]}
+    lu = lineup.build(lib, 5, today=date(2026, 10, 15))
+    picked = {s.anime.mal_id for s in lu.picks}
+    assert {1, 3} <= picked  # shows you're partway through stay
+    assert not picked & {2, 4}  # season 2 never before season 1
+    manual = {s.anime.mal_id for s in lineup.build(lib, 5, airing=1, today=date(2026, 10, 15)).picks}
+    assert 5 in manual and not manual & {2, 4}  # an airing slot you asked for goes to a fine airing show
 
 
 def test_halloween_theme_once_a_year_and_your_theme_back_after():
@@ -1095,3 +1169,135 @@ def test_halloween_theme_once_a_year_and_your_theme_back_after():
     theme.seasonal_switch(s, date(2027, 10, 1))
     assert s.theme == "halloween" and s.theme_before_season == "yotsuba"
     assert "halloween" not in theme.available_themes("midnight", date(2026, 11, 2))
+
+
+# --------------------------------------------------------------------------- overtime
+
+
+def _week_with_gaps():
+    """Sunday done, Monday and Tuesday left unfinished, nothing after (a week about to end)."""
+    st = make_state(show(1, status=WATCHING, episodes_total=50), show(2, status=WATCHING, episodes_total=50),
+                    daily_episodes=[1] * 7)
+    scheduler.replan(st, WEEK_START)
+    for it in st.week.items:  # every day but Monday and Tuesday ticked off
+        it.done = it.day not in (1, 2)
+    scheduler.update_day_log(st)
+    return st
+
+
+def test_overtime_gives_twelve_hours_to_save_unfinished_days():
+    from datetime import datetime
+    st = _week_with_gaps()
+    sunday = WEEK_START + timedelta(days=7)
+    scheduler.replan(st, sunday, now=datetime.combine(sunday, datetime.min.time()))
+    assert scheduler.overtime_days(st) == [1, 2]
+    assert st.overtime_until == f"{(sunday + timedelta(days=1)).isoformat()}T00:00"  # all of Sunday
+    # The whole week as it was at midnight: finished days too, still "done" (not "saved").
+    assert {i.day for i in st.overtime.items} == set(range(7))
+    assert sum(i.done for i in st.overtime.items) == 5 and st.day_log[WEEK_START.isoformat()] == "done"
+    mon, tue = (WEEK_START + timedelta(days=d) for d in (1, 2))
+    assert mon.isoformat() not in st.day_log  # not failed yet
+    # Overtime's episodes are its own: the new week comes after them (no copy to tick twice).
+    leftover = {(i.mal_id, i.episode) for i in st.overtime.items if not i.done}
+    assert not leftover & {(i.mal_id, i.episode) for i in st.week.items}
+    # Finish Monday in overtime: saved.
+    scheduler.toggle_item(st, st.overtime.for_day(1)[0], sunday)
+    assert st.day_log[mon.isoformat()] == "saved"
+    tuesday = next((i.mal_id, i.episode) for i in st.overtime.items if i.day == 2)
+    # Noon: Tuesday fails, overtime ends, and its episode goes back into the plan.
+    scheduler.replan(st, sunday, now=datetime.combine(sunday, datetime.min.time()) + timedelta(hours=24))
+    assert st.overtime is None and st.day_log[tue.isoformat()] == "failed"
+    assert tuesday in {(i.mal_id, i.episode) for i in st.week.items}  # unwatched: planned again
+
+
+def test_no_overtime_without_a_completed_day_or_once_sunday_is_over():
+    from datetime import datetime
+    st = make_state(show(1, status=WATCHING, episodes_total=50), daily_episodes=[1] * 7)
+    scheduler.replan(st, WEEK_START)  # nothing ticked all week
+    sunday = WEEK_START + timedelta(days=7)
+    scheduler.replan(st, sunday, now=datetime.combine(sunday, datetime.min.time()))
+    assert st.overtime is None and list(st.day_log.values()).count("failed") == 7
+    late = _week_with_gaps()  # earned it, but the app wasn't opened until Monday
+    monday = sunday + timedelta(days=1)
+    scheduler.replan(late, monday, now=datetime.combine(monday, datetime.min.time()) + timedelta(hours=9))
+    assert late.overtime is None and late.day_log[(WEEK_START + timedelta(days=1)).isoformat()] == "failed"
+
+
+def test_overtime_survives_saving_and_loading(tmp_path, monkeypatch):
+    from datetime import datetime
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    st = _week_with_gaps()
+    sunday = WEEK_START + timedelta(days=7)
+    scheduler.replan(st, sunday, now=datetime.combine(sunday, datetime.min.time()))
+    save_state(st)
+    back = load_state()
+    assert scheduler.overtime_days(back) == [1, 2] and back.overtime_until == st.overtime_until
+
+
+def test_a_show_anilist_doesnt_have_isnt_retried_as_a_sync_error():
+    """A fan anime only on MAL failed every AniList sync ("has no AniList id yet") forever."""
+    from rinne import sync
+    fan = show(30547, "Touhou fan anime", status=COMPLETED, anilist_id=0, enriched=True)
+    loading = show(2, "Details not loaded", status=WATCHING, anilist_id=0, enriched=False)
+    res = sync.push_all({fan.mal_id: fan, loading.mal_id: loading}.values(), "", {}, "token")
+    assert res["anilist"] == [30547]  # in sync: nothing to send it to
+    assert len(res["errors"]) == 1 and "Details not loaded" in res["errors"][0]  # retried later
+
+
+def test_overtime_from_the_twelve_hour_rule_gets_the_whole_day():
+    from datetime import datetime
+    st = _week_with_gaps()
+    sunday = WEEK_START + timedelta(days=7)
+    scheduler.replan(st, sunday, now=datetime.combine(sunday, datetime.min.time()))
+    st.overtime_until = f"{sunday.isoformat()}T12:00"  # saved by Experimental Build v1.1.5.4
+    scheduler.extend_overtime(st)
+    assert st.overtime_until == f"{(sunday + timedelta(days=1)).isoformat()}T00:00"
+
+
+def test_a_copy_of_an_overtime_episode_in_the_new_week_is_dropped():
+    """Builds v1.1.5.3–5 planned overtime's episodes into the new week too, so ticking one in
+    overtime ticked "next Monday" as well."""
+    from datetime import datetime
+
+    from rinne.models import ScheduleItem
+    st = _week_with_gaps()
+    sunday = WEEK_START + timedelta(days=7)
+    scheduler.replan(st, sunday, now=datetime.combine(sunday, datetime.min.time()))
+    ot_ep = st.overtime.for_day(1)[0]
+    st.week.items.append(ScheduleItem(2, ot_ep.mal_id, ot_ep.episode))  # the stale copy
+    st.week.items[-1].done = True
+    scheduler.replan(st, sunday, now=datetime.combine(sunday, datetime.min.time()) + timedelta(hours=20))
+    assert (ot_ep.mal_id, ot_ep.episode) not in {(i.mal_id, i.episode) for i in st.week.items}
+
+
+def test_todays_plan_stays_put_when_something_else_replans():
+    """A status change (or a sync) replanned the whole of today: Saturday's 7th Prince and
+    2.5 Dimensional appeared in place of what had been planned."""
+    st = make_state(*[show(i, status=WATCHING, episodes_total=50) for i in range(1, 5)], daily_episodes=[2] * 7)
+    wednesday = WEEK_START + timedelta(days=3)
+    scheduler.replan(st, wednesday)
+    today = sorted((i.mal_id, i.episode) for i in st.week.for_day(3))
+    other = next(m for m in range(1, 5) if m not in {t[0] for t in today})
+    st.library[other].status = ON_HOLD  # not today's show
+    scheduler.replan(st, wednesday)
+    assert sorted((i.mal_id, i.episode) for i in st.week.for_day(3)) == today
+    gone = today[0][0]
+    st.library[gone].status = ON_HOLD  # one of today's shows leaves: its place is filled
+    scheduler.replan(st, wednesday)
+    now = {(i.mal_id, i.episode) for i in st.week.for_day(3)}
+    assert today[1] in now and gone not in {m for m, _e in now} and len(now) == 2
+    st.settings.daily_episodes = [1] * 7  # changing the plan itself rebuilds today
+    scheduler.replan(st, wednesday, rebuild_today=True)
+    assert len(st.week.for_day(3)) == 1
+
+
+def test_stats_show_days_still_open_in_overtime():
+    from datetime import datetime
+
+    from rinne import stats
+    st = _week_with_gaps()
+    sunday = WEEK_START + timedelta(days=7)
+    scheduler.replan(st, sunday, now=datetime.combine(sunday, datetime.min.time()))
+    s = stats.compute(st, sunday)
+    last_week = dict(s.goal_weeks)[WEEK_START]
+    assert last_week[1] == last_week[2] == "open" and last_week[0] == "done"

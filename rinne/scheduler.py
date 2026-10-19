@@ -9,7 +9,7 @@ from __future__ import annotations
 import copy
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 
 from .models import (
     COMPLETED,
@@ -70,12 +70,13 @@ def preview_next(state: State, show: Anime, today: date | None = None) -> Sugges
 PLAN_DAYS = 7
 
 
-def build_week(state: State, week_start: date, from_day: int = 0) -> WeekPlan:
+def build_week(state: State, week_start: date, from_day: int = 0, keep_day: int | None = None) -> WeekPlan:
     """(Re)plan the Sunday–Saturday week starting at `week_start`, from day offset `from_day`.
 
     Items on earlier days, and items already checked off, are kept: an unfinished earlier day
     waits to be finished, and its episodes aren't planned again. Progress is simulated on copies
-    so the real library is untouched.
+    so the real library is untouched. On `keep_day` (today), episodes already planned stay put
+    as long as their show is still being watched; only room they leave is filled again.
     """
     settings = state.settings
     by_episodes = settings.plan_by == EPISODES
@@ -83,9 +84,22 @@ def build_week(state: State, week_start: date, from_day: int = 0) -> WeekPlan:
     kept: list[ScheduleItem] = []
     if state.week and state.week.week_start == iso:
         kept = [i for i in state.week.items if i.day < from_day or i.done]
+        if keep_day is not None:
+            def still_wanted(i: ScheduleItem) -> bool:
+                a = state.library.get(i.mal_id)
+                return (a is not None and a.status == WATCHING and not a.paused
+                        and i.episode > a.episodes_watched)
+            kept += [i for i in state.week.items if i.day == keep_day and not i.done and still_wanted(i)]
+    if state.overtime:
+        # Last week's overtime episodes belong to overtime only: a copy in this week (planned by
+        # Experimental Build v1.1.5.3–5) is dropped, so ticking one never ticks "next Monday" too.
+        ot_keys = {(i.mal_id, i.episode) for i in state.overtime.items}
+        kept = [i for i in kept if (i.mal_id, i.episode) not in ot_keys]
 
     sim = {k: copy.copy(a) for k, a in state.library.items()}
-    for it in kept:  # episodes still waiting on an unfinished earlier day are spoken for
+    # Episodes still waiting on an unfinished earlier day, or in last week's overtime, are spoken
+    # for: the new week comes after them. When overtime ends, unwatched ones are planned again.
+    for it in kept + (state.overtime.items if state.overtime else []):
         a = sim.get(it.mal_id)
         if a is not None and not it.done and it.episode > a.episodes_watched:
             a.episodes_watched = it.episode
@@ -129,7 +143,7 @@ def build_week(state: State, week_start: date, from_day: int = 0) -> WeekPlan:
         budget = settings.day_amount(on.weekday())
         per_show: dict[int, int] = {}
         for it in kept:
-            if it.day == day and it.done:
+            if it.day == day:  # ticked already, or kept on today: it takes its share of the day
                 a = sim.get(it.mal_id)
                 budget -= cost(a) if a else 0
                 per_show[it.mal_id] = per_show.get(it.mal_id, 0) + 1
@@ -234,13 +248,13 @@ def move_show(state: State, mal_id: int, from_date: date, to_date: date, today: 
         return
     state.moves.append({"mal_id": mal_id, "from": from_date.isoformat(), "to": to_date.isoformat(),
                         "count": count})
-    replan(state, today)
+    replan(state, today, rebuild_today=True)
 
 
 def reorder_day(state: State, on: date, mal_ids: list[int], today: date | None = None) -> None:
     """Set the order of shows on one day."""
     state.day_order[on.isoformat()] = list(mal_ids)
-    replan(state, today)
+    replan(state, today, rebuild_today=True)
 
 
 def prune_overrides(state: State, today: date | None = None) -> None:
@@ -366,6 +380,7 @@ def toggle_item(state: State, item: ScheduleItem, today: date | None = None) -> 
         event = set_progress(state, anime, min(anime.episodes_watched, item.episode - 1), today)
     mark_watched_items(state)  # earlier episodes of the show, if you skipped ahead
     update_day_log(state)
+    settle_overtime(state, _now(today, None))  # a day finished in overtime is saved
     return event
 
 
@@ -389,8 +404,10 @@ def plan_start(state: State) -> date | None:
 
 def mark_watched_items(state: State) -> None:
     """Tick planned episodes you've already watched (on another day, or on MAL / AniList / Shikimori)."""
-    if state.week:
-        for it in state.week.items:
+    for plan in (state.week, state.overtime):
+        if not plan:
+            continue
+        for it in plan.items:
             a = state.library.get(it.mal_id)
             if not it.done and a is not None and it.episode <= a.episodes_watched:
                 it.done = True
@@ -412,9 +429,23 @@ def update_day_log(state: State) -> None:
             del state.day_log[iso]
 
 
-def roll_week(state: State, today: date | None = None) -> bool:
+OVERTIME_HOURS = 24  # all of Sunday: 12 hours mostly fell while people were asleep
+
+
+def _now(today: date | None, now: datetime | None) -> datetime:
+    """The current time, or the start of `today` when planning for another day (tests)."""
+    if now:
+        return now
+    return datetime.now() if today in (None, date.today()) else datetime.combine(today, time())
+
+
+def roll_week(state: State, today: date | None = None, now: datetime | None = None) -> bool:
     """If a new week has begun, settle the old one: every day that had episodes counts as
-    completed or, if anything was left unticked, failed. Returns True if a week ended."""
+    completed or, if anything was left unticked, failed. Returns True if a week ended.
+
+    Overtime: if you completed at least one day of it, unfinished days get all of Sunday (to 00:00 Monday) to
+    be finished (and saved) instead of failing at midnight; the new week is planned meanwhile."""
+    now = _now(today, now)
     today = today or date.today()
     week = state.week
     if not week or not week.calendar:
@@ -422,27 +453,95 @@ def roll_week(state: State, today: date | None = None) -> bool:
     start = date.fromisoformat(week.week_start)
     if week_start_of(today) <= start:
         return False
+    settle_overtime(state, now, force=True)  # an older overtime never overlaps a new one
+    new_start = start + timedelta(days=PLAN_DAYS)
+    deadline = datetime.combine(new_start, time()) + timedelta(hours=OVERTIME_HOURS)
+    unfinished = []
     for day in range(PLAN_DAYS):
         items = week.for_day(day)
         iso = (start + timedelta(days=day)).isoformat()
-        if items and state.day_log.get(iso) != "failed":
-            state.day_log[iso] = "done" if all(i.done for i in items) else "failed"
+        if not items or state.day_log.get(iso) == "failed":
+            continue
+        if all(i.done for i in items):
+            state.day_log[iso] = "done"
+        else:
+            unfinished.append(day)
+    earned = any(state.day_log.get((start + timedelta(days=d)).isoformat()) == "done" for d in range(PLAN_DAYS))
+    if unfinished and earned and week_start_of(today) == new_start and now < deadline:
+        # The whole week, as it was at midnight (finished days too), so it looks the same.
+        state.overtime = WeekPlan(week.week_start, [copy.copy(i) for i in week.items], calendar=True)
+        state.overtime_until = deadline.isoformat(timespec="minutes")
+    else:
+        for day in unfinished:
+            state.day_log[(start + timedelta(days=day)).isoformat()] = "failed"
     return True
 
 
-def replan(state: State, today: date | None = None, keep_today: bool = False) -> None:
+def extend_overtime(state: State) -> None:
+    """Overtime that started under the old 12-hour rule gets the full 24 hours."""
+    if not state.overtime or not state.overtime_until:
+        return
+    begun = datetime.combine(date.fromisoformat(state.overtime.week_start) + timedelta(days=PLAN_DAYS), time())
+    if datetime.fromisoformat(state.overtime_until) < begun + timedelta(hours=OVERTIME_HOURS):
+        state.overtime_until = (begun + timedelta(hours=OVERTIME_HOURS)).isoformat(timespec="minutes")
+
+
+def overtime_days(state: State) -> list[int]:
+    """Days of last week still open in overtime (not yet saved)."""
+    ot = state.overtime
+    if not ot:
+        return []
+    start = date.fromisoformat(ot.week_start)
+    return sorted({i.day for i in ot.items if not ot.day_complete(i.day)
+                   and state.day_log.get((start + timedelta(days=i.day)).isoformat()) != "failed"})
+
+
+def settle_overtime(state: State, now: datetime | None = None, force: bool = False) -> bool:
+    """Days finished in overtime are saved; once time is up (or everything is saved), the rest
+    fail and overtime ends. Returns True if overtime ended."""
+    ot = state.overtime
+    if not ot:
+        return False
+    now = now or datetime.now()
+    start = date.fromisoformat(ot.week_start)
+    for day in sorted({i.day for i in ot.items}):
+        iso = (start + timedelta(days=day)).isoformat()
+        if ot.day_complete(day) and state.day_log.get(iso) not in ("done", "failed"):
+            state.day_log[iso] = "saved"  # finished in overtime (days done in time stay "done")
+    open_days = overtime_days(state)
+    expired = force or not state.overtime_until or now >= datetime.fromisoformat(state.overtime_until)
+    if open_days and not expired:
+        return False
+    for day in open_days:
+        state.day_log[(start + timedelta(days=day)).isoformat()] = "failed"
+    state.overtime, state.overtime_until = None, ""
+    return True
+
+
+def replan(state: State, today: date | None = None, keep_today: bool = False,
+           now: datetime | None = None, rebuild_today: bool = False) -> None:
     """Rebuild this week (Sunday–Saturday) from today onward. Earlier days keep their episodes,
     finished or not. When a new week starts, the old one is settled and a fresh week planned.
-    `keep_today` leaves today's episodes as they are and replans only the days after it."""
+
+    Today's planned episodes stay put (a day you've seen shouldn't reshuffle because a status
+    changed or a sync came in); a show that left your Watching list gives up its place, and the
+    room is filled again. `rebuild_today` plans today from scratch: for changes you make to the
+    plan itself (the day's amount, moving or reordering shows, planning settings).
+    `keep_today` leaves today's episodes exactly as they are and replans only the days after it."""
+    now = _now(today, now)
     today = today or date.today()
-    roll_week(state, today)
+    roll_week(state, today, now)
+    if settle_overtime(state, now):  # time up: its unwatched episodes go back into the plan
+        rebuild_today = True
     prune_overrides(state, today)
     mark_watched_items(state)
     first = week_start_of(today)
     if not (state.week and state.week.calendar and state.week.week_start == first.isoformat()):
         state.week = None  # a new week, or a rolling plan from before 1.0
         keep_today = False
-    state.week = build_week(state, first, (today - first).days + (1 if keep_today else 0))
+    offset = (today - first).days
+    keep_day = None if keep_today or rebuild_today else offset
+    state.week = build_week(state, first, offset + (1 if keep_today else 0), keep_day)
     update_day_log(state)
 
 

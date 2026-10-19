@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import math
 import random
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import (
-    QEasingCurve, QMimeData, QPoint, QPointF, QPropertyAnimation, QRectF, Qt, QVariantAnimation, Signal,
+    QEasingCurve, QMimeData, QPoint, QPointF, QPropertyAnimation, QRectF, Qt, QTimer, QVariantAnimation, Signal,
 )
 from PySide6.QtGui import QColor, QDrag, QFont, QPainter, QPen
 from PySide6.QtWidgets import (
@@ -535,6 +535,68 @@ class WeekPage(QWidget):
         self.body = vbox(inner, 18, 28)
         self.celebrate: str | None = None  # ISO date of a day just completed: play the animation
         self._expanded: set[str] = set()  # completed days unfolded by hand
+        self.overtime = self.overtime_left = None
+        QTimer(self, interval=60_000, timeout=self._tick_overtime).start()  # overtime countdown
+
+    def _overtime_card(self, state) -> QWidget:
+        ot = state.overtime
+        start = date.fromisoformat(ot.week_start)
+        until = datetime.fromisoformat(state.overtime_until)
+        frame, lay = card("overtime", margins=18, spacing=10)
+        head = hbox(spacing=10)
+        head.addWidget(label(_("Overtime"), "h2"))
+        self.overtime_left = badge("", "badgeAmber")
+        head.addWidget(self.overtime_left)
+        head.addStretch()
+        lay.addLayout(head)
+        lay.addWidget(label(_("Last week isn't finished, but you completed a day, so you've earned some extra "
+                              "time. Finish these days by the end of {day} to save them; this week's plan is below.").format(
+                                  day=weekday_name((until - timedelta(minutes=1)).weekday())), "muted", wrap=True))
+        done = sum(i.done for i in ot.items)
+        head.insertWidget(2, badge(_("{done} / {total} episodes").format(done=done, total=len(ot.items)), "badge"))
+        open_days = set(scheduler.overtime_days(state))
+        for day in sorted({i.day for i in ot.items}):
+            on = start + timedelta(days=day)
+            day_items = [(n, it) for n, it in enumerate(ot.items) if it.day == day]
+            row = hbox(spacing=10)
+            row.addWidget(label(strftime(on, "%A, %d %B"), "cardTitle"))
+            if day not in open_days:
+                logged = state.day_log.get(on.isoformat())
+                tag, kind = {"saved": (_("Saved"), "badgeAmber"),
+                             "failed": (_("Failed"), "badgeRed")}.get(logged, (_("Complete"), "badgeGreen"))
+                row.addWidget(badge(tag, kind))
+                row.addWidget(label(_n("{n} episode", "{n} episodes", len(day_items)), "faint"))
+                row.addStretch()
+                lay.addLayout(row)
+                continue
+            row.addStretch()
+            lay.addLayout(row)
+            flow_host = QWidget()
+            flow = FlowLayout(flow_host, spacing=10)
+            groups: dict[int, list] = {}
+            for n, it in day_items:
+                groups.setdefault(it.mal_id, []).append((n, it))
+            for mal_id, entries in groups.items():
+                anime = state.library.get(mal_id)
+                show_card = ShowDayCard(anime, entries, True)
+                show_card.toggled.connect(self.win.toggle_overtime)
+                if anime:
+                    show_card.opened.connect(lambda a=anime: self.win.open_profile(a))
+                flow.addWidget(show_card)
+            lay.addWidget(flow_host)
+        self._tick_overtime()
+        return frame
+
+    def _tick_overtime(self) -> None:
+        """Keep the countdown current (called every minute while overtime runs)."""
+        state = self.win.state
+        if not state.overtime_until or self.overtime_left is None:
+            return
+        left = datetime.fromisoformat(state.overtime_until) - datetime.now()
+        mins_left = max(0, int(left.total_seconds() // 60))
+        h, m = divmod(mins_left, 60)
+        self.overtime_left.setText(_("{h}h {m:02d}m left").format(h=h, m=m) if h
+                                   else _n("{n} minute left", "{n} minutes left", m))
 
     def _add_share_menu(self, widget: QWidget, anime: Anime) -> None:
         """Right-click a card: share the show, or copy its title."""
@@ -603,6 +665,12 @@ class WeekPage(QWidget):
         items = week.items if week else []
         rotation = scheduler.current_rotation(state.library)
 
+        # Overtime: last week, above this week's plan, for all of Sunday.
+        self.overtime = self.overtime_left = None
+        if scheduler.overtime_days(state):
+            self.overtime = self._overtime_card(state)
+            self.body.addWidget(self.overtime)
+
         # Stats.
         def mins(its):
             return sum(state.library[i.mal_id].minutes_per_episode for i in its if i.mal_id in state.library)
@@ -624,7 +692,18 @@ class WeekPage(QWidget):
             self.body.addWidget(self.strip)
 
         # Now watching (paused shows too, so they can be found and resumed).
-        self.body.addWidget(label(_("Now watching"), "h2"))
+        head = QWidget()
+        head_row = hbox(head, 8)
+        head_row.addWidget(label(_("Now watching"), "h2"))
+        head_row.addStretch()
+        if state.library:
+            build = QPushButton(_("Build my Watching list"))
+            build.setObjectName("ghost")
+            build.setCursor(Qt.PointingHandCursor)
+            build.setToolTip(_("Pick the shows to watch now from your whole list"))
+            build.clicked.connect(self.win.build_lineup)
+            head_row.addWidget(build)
+        self.body.addWidget(head)
         watching_all = scheduler.current_rotation(state.library, include_paused=True)
         if watching_all:
             strip_area = QScrollArea()

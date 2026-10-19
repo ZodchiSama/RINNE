@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QPushButton, QSizePolicy, QStackedWidget, QToolButton, QWidget,
 )
 
-from .. import DISPLAY_NAME, __version__, artwork, i18n, mal, models, scheduler, updates
+from .. import DISPLAY_NAME, EXPERIMENTAL_BUILD, __version__, artwork, build_name, i18n, mal, models, scheduler, updates
 from ..i18n import _, _n, strftime
 from ..logs import log
 from ..models import COMPLETED, WATCHING, Anime
@@ -67,7 +67,7 @@ class Worker(QObject):
 class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle(DISPLAY_NAME)
+        self.setWindowTitle(f"{DISPLAY_NAME} — {build_name()}" if EXPERIMENTAL_BUILD else DISPLAY_NAME)
         self.setWindowIcon(app_icon())
         self.resize(1480, 900)
         self.state = load_state()
@@ -146,9 +146,16 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         QApplication.instance().installEventFilter(self)
 
         self._midnight = QTimer(self, singleShot=True, timeout=self._check_rollover)
+        self._overtime_end = QTimer(self, singleShot=True, timeout=self._check_rollover)
         self._timer = QTimer(self, interval=15 * 60 * 1000, timeout=self._check_rollover)
         self._timer.start()
+        scheduler.extend_overtime(self.state)  # before anything decides it's over
         self._check_rollover(refresh=False)
+        if self.state.overtime:
+            # Overtime runs across a restart: replan so copies of overtime's episodes in this week
+            # (saved by older experimental builds) are dropped. Today's own plan stays put.
+            scheduler.replan(self.state)
+            self.save()
         self._configure_backdrop()
         self._init_desktop()
         start = {"week": 0, "next": 1, "library": 2}.get(s.start_page, 0)
@@ -269,8 +276,13 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         self.offline_btn.clicked.connect(self.check_online)
         self.offline_btn.setVisible(getattr(self, "offline", False))
         lay.addWidget(self.offline_btn)
-        foot = label(_("v{version}  ·  by <span style='color:{ACCENT}; font-weight:700'>Zodchi</span>").format(version=__version__, ACCENT=theme.ACCENT),
-                     "faint", rich=True)
+        if EXPERIMENTAL_BUILD:
+            foot = label(f"<span style='color:{theme.WARN}; font-weight:700'>{build_name()}</span><br>"
+                         + _("by <span style='color:{ACCENT}; font-weight:700'>Zodchi</span>").format(ACCENT=theme.ACCENT),
+                         "faint", rich=True)
+        else:
+            foot = label(_("v{version}  ·  by <span style='color:{ACCENT}; font-weight:700'>Zodchi</span>").format(version=__version__, ACCENT=theme.ACCENT),
+                         "faint", rich=True)
         foot.setAlignment(Qt.AlignCenter)
         lay.addSpacing(theme.px(4))
         lay.addWidget(foot)
@@ -593,13 +605,21 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
             self.welcome.refresh()
         self.refresh_pages()
 
-    def replan(self) -> None:
-        scheduler.replan(self.state)
+    def replan(self, rebuild_today: bool = False) -> None:
+        scheduler.replan(self.state, rebuild_today=rebuild_today)
         self.save()
         self.refresh()
 
     def _check_rollover(self, refresh: bool = True) -> None:
         """A new day can change the plan; a new week (Sunday 00:00) settles the old one."""
+        self._schedule_overtime_end()
+        if self.state.overtime and scheduler.settle_overtime(self.state):
+            # Time's up: what wasn't saved fails, and its episodes go back into this week's plan.
+            scheduler.replan(self.state, rebuild_today=True)
+            self.save()
+            if refresh:
+                self.statusBar().showMessage(_("Overtime is over"), 8000)
+                self.refresh()
         if self.state.library and scheduler.plan_expired(self.state):
             old = self.state.week
             scheduler.replan(self.state)
@@ -608,7 +628,16 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
                 start = date.fromisoformat(old.week_start)
                 days = [self.state.day_log.get((start + timedelta(days=d)).isoformat()) for d in range(7)]
                 done, failed = days.count("done"), days.count("failed")
-                if done or failed:
+                pending = len(scheduler.overtime_days(self.state))
+                if pending:
+                    self._schedule_overtime_end()
+                    if self.state.settings.notify_goals:
+                        self.notify(_("Overtime!"), _n(
+                            "Last week has {n} unfinished day. You completed a day, so you have all of today to "
+                            "finish it and save it.",
+                            "Last week has {n} unfinished days. You completed a day, so you have all of today to "
+                            "finish them and save them.", pending))
+                elif done or failed:
                     summary = _n("Last week: {n} day complete, {failed} failed.",
                                  "Last week: {n} days complete, {failed} failed.", done, failed=failed)
                     self.statusBar().showMessage(_("New week! {summary}").format(summary=summary), 15000)
@@ -619,6 +648,13 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
             if refresh:
                 self.refresh()
         self._schedule_midnight()
+
+    def _schedule_overtime_end(self) -> None:
+        """Settle overtime right at its deadline (00:00 Monday)."""
+        if not self.state.overtime_until:
+            return
+        left = datetime.fromisoformat(self.state.overtime_until) - datetime.now()
+        self._overtime_end.start(max(1000, int(left.total_seconds() * 1000) + 2000))
 
     def _schedule_midnight(self) -> None:
         """Check again just after midnight, so a new week starts right at Sunday 00:00."""
@@ -657,6 +693,26 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         self.toast.show_message(_("{value} · episode {episode} {value2}").format(value=anime.name if anime else 'Episode', episode=episode, value2='watched' if ticked else 'unticked'), _("Undo"),
                                 lambda: self._untoggle(mal_id, episode))
 
+    def toggle_overtime(self, idx: int) -> None:
+        """Tick an episode of last week's overtime; finishing a day there saves it."""
+        ot = self.state.overtime
+        if not ot or idx >= len(ot.items):
+            return
+        item = ot.items[idx]
+        start = date.fromisoformat(ot.week_start)
+        before = set(scheduler.overtime_days(self.state))
+        event = scheduler.toggle_item(self.state, item)
+        saved = sorted(before - set(scheduler.overtime_days(self.state)))
+        self.save()
+        self.refresh()
+        if event.finished:
+            self._on_finished(event.finished)
+        elif not self.state.overtime and saved:
+            self.toast.show_message(_("Last week saved! Every unfinished day is complete."), ms=6000)
+        elif saved:
+            names = ", ".join(strftime(start + timedelta(days=d), "%A") for d in saved)
+            self.toast.show_message(_("{days} saved!").format(days=names), ms=5000)
+
     def _untoggle(self, mal_id: int, episode: int) -> None:
         """Undo a tick (or an untick). The plan may have been rebuilt, so find the episode again."""
         week = self.state.week
@@ -683,12 +739,12 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         """Per-show planning controls: paused / pinned / pace."""
         for key, value in values.items():
             setattr(anime, key, value)
-        self.replan()
+        self.replan(rebuild_today=True)
 
     def change_day_amount(self, day: int, delta: int) -> None:
         s = self.state.settings
         s.set_day_amount(day, max(0, s.day_amount(day) + delta))
-        self.replan()
+        self.replan(rebuild_today=True)
 
     def edit_progress(self, anime: Anime) -> None:
         maximum = anime.episodes_total or 9999
@@ -720,9 +776,21 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
                         "reasons": [t for p, t in sug.reasons if p > 0][:4] if sug else []}
         anime.status = WATCHING
         anime.started_on = date.today().isoformat()
-        self.replan()
+        self.replan(rebuild_today=True)
         self._nav_to(0)
         self.statusBar().showMessage(_("Started {name}").format(name=anime.name), 5000)
+
+    def build_lineup(self) -> None:
+        from .lineup_dialog import LineupDialog
+        dlg = LineupDialog(self)
+        if not dlg.exec():
+            self.save()
+            return
+        lu = dlg.result
+        self.replan(rebuild_today=True)
+        self._nav_to(0)
+        self.toast.show_message(_("Watching list rebuilt: {start} started, {hold} put On Hold").format(
+            start=len(lu.start), hold=len(lu.hold)), ms=5000)
 
     def toggle_excluded(self, anime: Anime) -> None:
         anime.excluded = not anime.excluded
@@ -773,7 +841,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
     def finish_welcome(self, tour: bool) -> None:
         self.state.onboarded = True
         self.state.settings.last_seen_version = __version__
-        scheduler.replan(self.state)
+        scheduler.replan(self.state, rebuild_today=True)
         self.save()
         self.shell.setCurrentWidget(self.main_view)
         self.statusBar().setVisible(not theme.COMPACT)
@@ -820,7 +888,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         """Called by the Settings page after it changes a setting."""
         s = self.state.settings
         if kind == "replan":
-            scheduler.replan(self.state)
+            scheduler.replan(self.state, rebuild_today=True)
             self.save()
             self.refresh_pages(skip=self.settings_page)
             return
@@ -855,7 +923,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         models.title_language = state.settings.title_language
         self.save()
         self._restyle()
-        self.replan()
+        self.replan(rebuild_today=True)
         self.statusBar().showMessage(_("Backup restored"), 6000)
 
     def reset_settings(self) -> None:
@@ -869,7 +937,7 @@ class MainWindow(ServicesMixin, DesktopMixin, QMainWindow):
         models.title_language = fresh.title_language
         self.save()
         self._restyle()
-        self.replan()
+        self.replan(rebuild_today=True)
 
     # ------------------------------------------------------------------ background work
 

@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import sys
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -63,8 +64,11 @@ class State:
     last_recap: str = ""  # ISO week of the last weekly recap, e.g. "2026-W40"
     # What was last sent to each connected service: {"mal": {mal_id: [status, eps, score]}, "anilist": {...}}
     synced: dict[str, dict[int, list]] = field(default_factory=dict)
-    day_log: dict[str, str] = field(default_factory=dict)  # ISO date → "done" | "failed"
+    day_log: dict[str, str] = field(default_factory=dict)  # ISO date → "done" | "failed" | "saved"
     last_goal_reminder: str = ""  # week (its Sunday) of the last "week ends tonight" reminder
+    # Overtime: last week's unfinished days, still open until `overtime_until` (local ISO datetime).
+    overtime: WeekPlan | None = None
+    overtime_until: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -82,6 +86,8 @@ class State:
             "synced": {svc: {str(k): v for k, v in m.items()} for svc, m in self.synced.items()},
             "day_log": self.day_log,
             "last_goal_reminder": self.last_goal_reminder,
+            "overtime": self.overtime.to_dict() if self.overtime else None,
+            "overtime_until": self.overtime_until,
         }
 
     @classmethod
@@ -96,7 +102,9 @@ class State:
                    {int(k): v for k, v in (d.get("announced") or {}).items()},
                    list(d.get("history") or []), d.get("last_recap", ""),
                    {svc: {int(k): v for k, v in m.items()} for svc, m in (d.get("synced") or {}).items()},
-                   dict(d.get("day_log") or {}), d.get("last_goal_reminder", ""))
+                   dict(d.get("day_log") or {}), d.get("last_goal_reminder", ""),
+                   WeekPlan.from_dict(d["overtime"]) if d.get("overtime") else None,
+                   d.get("overtime_until", ""))
 
 
 def state_path() -> Path:
@@ -113,8 +121,15 @@ def load_state(path: Path | None = None) -> State:
 
 def save_state(state: State, path: Path | None = None) -> None:
     path = path or state_path()
-    tmp = path.with_suffix(".tmp")
-    with tmp.open("w", encoding="utf-8") as f:
-        # dumps() uses the C encoder; dump() to a file is pure Python and ~20x slower.
-        f.write(json.dumps(state.to_dict(), ensure_ascii=False, separators=(",", ":")))
-    tmp.replace(path)
+    # dumps() uses the C encoder; dump() to a file is pure Python and ~20x slower.
+    data = json.dumps(state.to_dict(), ensure_ascii=False, separators=(",", ":"))
+    # A temporary file of its own for each save, so two saves at once (a background job finishing
+    # during another save) can't move each other's file away mid-write.
+    fd, tmp = tempfile.mkstemp(prefix="state.", suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(data)
+        os.replace(tmp, path)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise

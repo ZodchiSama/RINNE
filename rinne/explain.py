@@ -38,6 +38,8 @@ def why(state: State, anime: Anime, today: date | None = None) -> list[str]:
             out.append(_("Took over from {replaced} on {value} — {how}").format(replaced=o['replaced'], value=_fmt_date(o.get('date', '')), how=how))
         elif o.get("kind") == "manual":
             out.append(_("You started it from Up Next on {value}").format(value=_fmt_date(o.get('date', ''))))
+        elif o.get("kind") == "lineup":
+            out.append(_("Picked when you built your Watching list on {value}").format(value=_fmt_date(o.get('date', ''))))
         elif anime.added_by_app:
             out.append(_("Added by the app as the next season of a show you finished"))
         else:

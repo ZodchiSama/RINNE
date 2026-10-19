@@ -231,6 +231,10 @@ class Settings:
     refresh_on_startup: bool = True  # re-check airing shows for new episodes
     # Series following
     follow_extras: bool = True  # follow sequels into movies, OVAs and specials
+    # Build my Watching list
+    lineup_size: int = 5  # how many shows on Watching at a time
+    lineup_airing: int = -1  # of those, how many currently airing (-1 = automatic)
+    seasonal_picks: bool = True  # favour genres that fit the time of year
     # Notifications
     notify_new_episodes: bool = True
     daily_reminder: bool = False
