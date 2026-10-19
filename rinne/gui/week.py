@@ -693,16 +693,21 @@ class WeekPage(QWidget):
 
         # Now watching (paused shows too, so they can be found and resumed).
         head = QWidget()
-        head_row = hbox(head, 8)
+        # Phones: the button goes on its own line under the heading, or the row is too wide.
+        head_row = (vbox if theme.COMPACT else hbox)(head, 8)
         head_row.addWidget(label(_("Now watching"), "h2"))
-        head_row.addStretch()
+        if not theme.COMPACT:
+            head_row.addStretch()
         if state.library:
             build = QPushButton(_("Build my Watching list"))
             build.setObjectName("ghost")
             build.setCursor(Qt.PointingHandCursor)
             build.setToolTip(_("Pick the shows to watch now from your whole list"))
             build.clicked.connect(self.win.build_lineup)
-            head_row.addWidget(build)
+            if theme.COMPACT:
+                head_row.addWidget(build, alignment=Qt.AlignLeft)
+            else:
+                head_row.addWidget(build)
         self.body.addWidget(head)
         watching_all = scheduler.current_rotation(state.library, include_paused=True)
         if watching_all:
