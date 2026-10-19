@@ -699,7 +699,8 @@ class WeekPage(QWidget):
         if not theme.COMPACT:
             head_row.addStretch()
         if state.library:
-            build = QPushButton(_("Build my Watching list"))
+            # Phones get a shorter label: the full one is wider than the screen with some fonts.
+            build = QPushButton(_("Build my list") if theme.COMPACT else _("Build my Watching list"))
             build.setObjectName("ghost")
             build.setCursor(Qt.PointingHandCursor)
             build.setToolTip(_("Pick the shows to watch now from your whole list"))
